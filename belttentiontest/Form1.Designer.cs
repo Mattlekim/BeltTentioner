@@ -23,6 +23,8 @@ namespace belttentiontest
         private NumericUpDown numericUpDownCurveAmount;
         private Label labelCurveAmount;
         private PictureBox pictureBoxCurveGraph;
+        private NumericUpDown numericUpDownMaxPower;
+        private Label labelMaxPower;
 
         /// <summary>
         /// Clean up any resources being used.
@@ -57,17 +59,20 @@ namespace belttentiontest
             numericUpDownCurveAmount = new NumericUpDown();
             labelCurveAmount = new Label();
             pictureBoxCurveGraph = new PictureBox();
+            numericUpDownMaxPower = new NumericUpDown();
+            labelMaxPower = new Label();
             ((ISupportInitialize)numericUpDownTarget).BeginInit();
             ((ISupportInitialize)numericUpDownBeltStrength).BeginInit();
             ((ISupportInitialize)numericUpDownCurveAmount).BeginInit();
             ((ISupportInitialize)pictureBoxCurveGraph).BeginInit();
+            ((ISupportInitialize)numericUpDownMaxPower).BeginInit();
             SuspendLayout();
             // 
             // labelStatus
             // 
             labelStatus.AutoSize = true;
             labelStatus.ForeColor = Color.Red;
-            labelStatus.Location = new Point(12, 170);
+            labelStatus.Location = new Point(12, 242);
             labelStatus.Name = "labelStatus";
             labelStatus.Size = new Size(118, 15);
             labelStatus.TabIndex = 1;
@@ -96,7 +101,7 @@ namespace belttentiontest
             // 
             // textBoxIracingStatus
             // 
-            textBoxIracingStatus.Location = new Point(12, 140);
+            textBoxIracingStatus.Location = new Point(12, 212);
             textBoxIracingStatus.Name = "textBoxIracingStatus";
             textBoxIracingStatus.ReadOnly = true;
             textBoxIracingStatus.Size = new Size(260, 23);
@@ -106,7 +111,7 @@ namespace belttentiontest
             // labelGForce
             // 
             labelGForce.AutoSize = true;
-            labelGForce.Location = new Point(12, 200);
+            labelGForce.Location = new Point(12, 272);
             labelGForce.Name = "labelGForce";
             labelGForce.Size = new Size(76, 15);
             labelGForce.TabIndex = 7;
@@ -125,7 +130,7 @@ namespace belttentiontest
             // 
             // numericUpDownBeltStrength
             // 
-            numericUpDownBeltStrength.Location = new Point(100, 228);
+            numericUpDownBeltStrength.Location = new Point(100, 300);
             numericUpDownBeltStrength.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
             numericUpDownBeltStrength.Name = "numericUpDownBeltStrength";
             numericUpDownBeltStrength.Size = new Size(60, 23);
@@ -136,7 +141,7 @@ namespace belttentiontest
             // labelBeltStrength
             // 
             labelBeltStrength.AutoSize = true;
-            labelBeltStrength.Location = new Point(12, 230);
+            labelBeltStrength.Location = new Point(12, 302);
             labelBeltStrength.Name = "labelBeltStrength";
             labelBeltStrength.Size = new Size(75, 15);
             labelBeltStrength.TabIndex = 9;
@@ -144,39 +149,61 @@ namespace belttentiontest
             // 
             // numericUpDownCurveAmount
             // 
-            numericUpDownCurveAmount.Location = new Point(180, 50);
-            numericUpDownCurveAmount.Minimum = 0.1M;
-            numericUpDownCurveAmount.Maximum = 5.0M;
             numericUpDownCurveAmount.DecimalPlaces = 2;
-            numericUpDownCurveAmount.Increment = 0.05M;
+            numericUpDownCurveAmount.Increment = new decimal(new int[] { 5, 0, 0, 131072 });
+            numericUpDownCurveAmount.Location = new Point(180, 39);
+            numericUpDownCurveAmount.Maximum = new decimal(new int[] { 50, 0, 0, 65536 });
+            numericUpDownCurveAmount.Minimum = new decimal(new int[] { 1, 0, 0, 65536 });
             numericUpDownCurveAmount.Name = "numericUpDownCurveAmount";
             numericUpDownCurveAmount.Size = new Size(60, 23);
             numericUpDownCurveAmount.TabIndex = 11;
-            numericUpDownCurveAmount.Value = 1.00M;
+            numericUpDownCurveAmount.Value = new decimal(new int[] { 100, 0, 0, 131072 });
             numericUpDownCurveAmount.ValueChanged += numericUpDownCurveAmount_ValueChanged;
             // 
             // labelCurveAmount
             // 
             labelCurveAmount.AutoSize = true;
-            labelCurveAmount.Location = new Point(12, 52);
+            labelCurveAmount.Location = new Point(12, 41);
             labelCurveAmount.Name = "labelCurveAmount";
-            labelCurveAmount.Size = new Size(120, 15);
+            labelCurveAmount.Size = new Size(85, 15);
             labelCurveAmount.TabIndex = 12;
             labelCurveAmount.Text = "Curve Amount";
             // 
             // pictureBoxCurveGraph
             // 
-            pictureBoxCurveGraph.Location = new Point(12, 80);
+            pictureBoxCurveGraph.Location = new Point(12, 97);
             pictureBoxCurveGraph.Name = "pictureBoxCurveGraph";
-            pictureBoxCurveGraph.Size = new Size(228, 50);
+            pictureBoxCurveGraph.Size = new Size(228, 109);
             pictureBoxCurveGraph.TabIndex = 13;
             pictureBoxCurveGraph.TabStop = false;
+            // 
+            // numericUpDownMaxPower
+            // 
+            numericUpDownMaxPower.Location = new Point(180, 68);
+            numericUpDownMaxPower.Maximum = new decimal(new int[] { 1023, 0, 0, 0 });
+            numericUpDownMaxPower.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+            numericUpDownMaxPower.Name = "numericUpDownMaxPower";
+            numericUpDownMaxPower.Size = new Size(60, 23);
+            numericUpDownMaxPower.TabIndex = 14;
+            numericUpDownMaxPower.Value = new decimal(new int[] { 1023, 0, 0, 0 });
+            numericUpDownMaxPower.ValueChanged += numericUpDownMaxPower_ValueChanged;
+            // 
+            // labelMaxPower
+            // 
+            labelMaxPower.AutoSize = true;
+            labelMaxPower.Location = new Point(12, 70);
+            labelMaxPower.Name = "labelMaxPower";
+            labelMaxPower.Size = new Size(65, 15);
+            labelMaxPower.TabIndex = 15;
+            labelMaxPower.Text = "Max Power";
             // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(284, 260);
+            ClientSize = new Size(284, 341);
+            Controls.Add(numericUpDownMaxPower);
+            Controls.Add(labelMaxPower);
             Controls.Add(pictureBoxCurveGraph);
             Controls.Add(labelCurveAmount);
             Controls.Add(numericUpDownCurveAmount);
@@ -194,6 +221,7 @@ namespace belttentiontest
             ((ISupportInitialize)numericUpDownBeltStrength).EndInit();
             ((ISupportInitialize)numericUpDownCurveAmount).EndInit();
             ((ISupportInitialize)pictureBoxCurveGraph).EndInit();
+            ((ISupportInitialize)numericUpDownMaxPower).EndInit();
             ResumeLayout(false);
             PerformLayout();
         }

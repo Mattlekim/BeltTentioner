@@ -57,5 +57,17 @@ namespace belttentiontest.Properties {
                 this["LastCurvedValue"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("1023")]
+        public int MaxPower {
+            get {
+                return ((int)(this["MaxPower"]));
+            }
+            set {
+                this["MaxPower"] = value;
+            }
+        }
     }
 }

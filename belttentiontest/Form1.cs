@@ -24,6 +24,7 @@ namespace belttentiontest
 
         private double curveAmount = 1.0; // Default curve amount, can be set via UI or property
         private int lastCurvedValue = 0;
+        private int maxPower = 1023; // Maximum power value, can be set via UI or property
 
         public Form1()
         {
@@ -199,13 +200,52 @@ namespace belttentiontest
             }));
         }
 
+        private void DrawCurveGraph()
+        {
+            if (pictureBoxCurveGraph == null) return;
+            int width = pictureBoxCurveGraph.Width;
+            int height = pictureBoxCurveGraph.Height;
+            var bmp = new System.Drawing.Bitmap(width, height);
+            using (var g = System.Drawing.Graphics.FromImage(bmp))
+            {
+                g.Clear(System.Drawing.Color.White);
+                var pen = new System.Drawing.Pen(System.Drawing.Color.Blue, 2);
+                for (int x = 0; x < width; x++)
+                {
+                    double normalized = (double)x / (width - 1);
+                    double curved = Math.Pow(normalized, curveAmount);
+                    curved = Math.Clamp(curved, 0, 1);
+                    int yValue = (int)Math.Round(curved * maxPower);
+                    yValue = Math.Clamp(yValue, 0, maxPower);
+                    int y = height - 1 - (int)(yValue / (double)maxPower * (height - 1));
+                    if (x > 0)
+                    {
+                        double prevNormalized = (double)(x - 1) / (width - 1);
+                        double prevCurved = Math.Pow(prevNormalized, curveAmount);
+                        prevCurved = Math.Clamp(prevCurved, 0, 1);
+                        int prevYValue = (int)Math.Round(prevCurved * maxPower);
+                        prevYValue = Math.Clamp(prevYValue, 0, maxPower);
+                        int prevY = height - 1 - (int)(prevYValue / (double)maxPower * (height - 1));
+                        g.DrawLine(pen, x - 1, prevY, x, y);
+                    }
+                }
+            }
+            pictureBoxCurveGraph.Image = bmp;
+        }
+
+        private void numericUpDownMaxPower_ValueChanged(object sender, EventArgs e)
+        {
+            maxPower = (int)numericUpDownMaxPower.Value;
+            DrawCurveGraph();
+        }
+
         private void OnScaledValueUpdated(int value)
         {
             // Apply curve: value in [0,1023], curveAmount >= 0.0
             double normalized = Math.Clamp((double)value / 1023.0, 0.0, 1.0);
             double curved = Math.Pow(normalized, curveAmount);
-            int curvedValue = (int)Math.Round(curved * 1023);
-            curvedValue = Math.Clamp(curvedValue, 0, 1023);
+            int curvedValue = (int)Math.Round(curved * maxPower);
+            curvedValue = Math.Clamp(curvedValue, 0, maxPower);
             lastCurvedValue = curvedValue;
             communicator.SendValue(curvedValue);
         }
@@ -273,35 +313,6 @@ namespace belttentiontest
             DrawCurveGraph(); // Update graph when belt strength changes
         }
 
-        private void DrawCurveGraph()
-        {
-            if (pictureBoxCurveGraph == null) return;
-            int width = pictureBoxCurveGraph.Width;
-            int height = pictureBoxCurveGraph.Height;
-            var bmp = new System.Drawing.Bitmap(width, height);
-            using (var g = System.Drawing.Graphics.FromImage(bmp))
-            {
-                g.Clear(System.Drawing.Color.White);
-                var pen = new System.Drawing.Pen(System.Drawing.Color.Blue, 2);
-                for (int x = 0; x < width; x++)
-                {
-                    double normalized = (double)x / (width - 1);
-                    double curved = Math.Pow(normalized, curveAmount);
-                    curved = Math.Clamp(curved, 0, 1);
-                    int y = height - 1 - (int)(curved * (height - 1));
-                    if (x > 0)
-                    {
-                        double prevNormalized = (double)(x - 1) / (width - 1);
-                        double prevCurved = Math.Pow(prevNormalized, curveAmount);
-                        prevCurved = Math.Clamp(prevCurved, 0, 1);
-                        int prevY = height - 1 - (int)(prevCurved * (height - 1));
-                        g.DrawLine(pen, x - 1, prevY, x, y);
-                    }
-                }
-            }
-            pictureBoxCurveGraph.Image = bmp;
-        }
-
         private void numericUpDownCurveAmount_ValueChanged(object sender, EventArgs e)
         {
             curveAmount = (double)numericUpDownCurveAmount.Value;
@@ -327,6 +338,12 @@ namespace belttentiontest
             decimal curveMax = numericUpDownCurveAmount.Maximum;
             decimal curveValue = Math.Min(curveMax, Math.Max(curveMin, (decimal)curveAmount));
             numericUpDownCurveAmount.Value = curveValue;
+            // Load maxPower from settings
+            maxPower = Settings.Default.MaxPower;
+            decimal maxPowerMin = numericUpDownMaxPower.Minimum;
+            decimal maxPowerMax = numericUpDownMaxPower.Maximum;
+            decimal maxPowerValue = Math.Min(maxPowerMax, Math.Max(maxPowerMin, (decimal)maxPower));
+            numericUpDownMaxPower.Value = maxPowerValue;
             DrawCurveGraph();
             // Load lastCurvedValue from settings
             lastCurvedValue = Settings.Default.LastCurvedValue;
@@ -338,6 +355,8 @@ namespace belttentiontest
             Settings.Default.BeltStrength = (float)numericUpDownBeltStrength.Value;
             // Save curveAmount to settings
             Settings.Default.CurveAmount = (double)numericUpDownCurveAmount.Value;
+            // Save maxPower to settings
+            Settings.Default.MaxPower = (int)numericUpDownMaxPower.Value;
             // Save lastCurvedValue to settings
             Settings.Default.LastCurvedValue = lastCurvedValue;
             Settings.Default.Save();
