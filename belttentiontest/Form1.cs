@@ -22,6 +22,9 @@ namespace belttentiontest
         // Timer for periodic updates
         private System.Windows.Forms.Timer? updateTimer;
 
+        private double curveAmount = 1.0; // Default curve amount, can be set via UI or property
+        private int lastCurvedValue = 0;
+
         public Form1()
         {
             InitializeComponent();
@@ -198,8 +201,13 @@ namespace belttentiontest
 
         private void OnScaledValueUpdated(int value)
         {
-            //if (!checkBoxTest.Checked)
-                communicator.SendValue(value);
+            // Apply curve: value in [0,1023], curveAmount >= 0.0
+            double normalized = Math.Clamp((double)value / 1023.0, 0.0, 1.0);
+            double curved = Math.Pow(normalized, curveAmount);
+            int curvedValue = (int)Math.Round(curved * 1023);
+            curvedValue = Math.Clamp(curvedValue, 0, 1023);
+            lastCurvedValue = curvedValue;
+            communicator.SendValue(curvedValue);
         }
 
         private async void buttonConnect_Click(object sender, EventArgs e)
@@ -262,6 +270,42 @@ namespace belttentiontest
             {
                 irCommunicator.BeltStrength = (float)numericUpDownBeltStrength.Value;
             }
+            DrawCurveGraph(); // Update graph when belt strength changes
+        }
+
+        private void DrawCurveGraph()
+        {
+            if (pictureBoxCurveGraph == null) return;
+            int width = pictureBoxCurveGraph.Width;
+            int height = pictureBoxCurveGraph.Height;
+            var bmp = new System.Drawing.Bitmap(width, height);
+            using (var g = System.Drawing.Graphics.FromImage(bmp))
+            {
+                g.Clear(System.Drawing.Color.White);
+                var pen = new System.Drawing.Pen(System.Drawing.Color.Blue, 2);
+                for (int x = 0; x < width; x++)
+                {
+                    double normalized = (double)x / (width - 1);
+                    double curved = Math.Pow(normalized, curveAmount);
+                    curved = Math.Clamp(curved, 0, 1);
+                    int y = height - 1 - (int)(curved * (height - 1));
+                    if (x > 0)
+                    {
+                        double prevNormalized = (double)(x - 1) / (width - 1);
+                        double prevCurved = Math.Pow(prevNormalized, curveAmount);
+                        prevCurved = Math.Clamp(prevCurved, 0, 1);
+                        int prevY = height - 1 - (int)(prevCurved * (height - 1));
+                        g.DrawLine(pen, x - 1, prevY, x, y);
+                    }
+                }
+            }
+            pictureBoxCurveGraph.Image = bmp;
+        }
+
+        private void numericUpDownCurveAmount_ValueChanged(object sender, EventArgs e)
+        {
+            curveAmount = (double)numericUpDownCurveAmount.Value;
+            DrawCurveGraph();
         }
 
         protected override void OnLoad(EventArgs e)
@@ -272,20 +316,31 @@ namespace belttentiontest
             {
                 float savedStrength = Settings.Default.BeltStrength;
                 irCommunicator.BeltStrength = savedStrength;
-                // NumericUpDown expects decimal and its min/max are decimal, clamp and cast accordingly
                 decimal min = numericUpDownBeltStrength.Minimum;
                 decimal max = numericUpDownBeltStrength.Maximum;
                 decimal value = Math.Min(max, Math.Max(min, (decimal)savedStrength));
                 numericUpDownBeltStrength.Value = value;
             }
+            // Load curveAmount from settings
+            curveAmount = Settings.Default.CurveAmount;
+            decimal curveMin = numericUpDownCurveAmount.Minimum;
+            decimal curveMax = numericUpDownCurveAmount.Maximum;
+            decimal curveValue = Math.Min(curveMax, Math.Max(curveMin, (decimal)curveAmount));
+            numericUpDownCurveAmount.Value = curveValue;
+            DrawCurveGraph();
+            // Load lastCurvedValue from settings
+            lastCurvedValue = Settings.Default.LastCurvedValue;
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             // Save BeltStrength to settings
             Settings.Default.BeltStrength = (float)numericUpDownBeltStrength.Value;
+            // Save curveAmount to settings
+            Settings.Default.CurveAmount = (double)numericUpDownCurveAmount.Value;
+            // Save lastCurvedValue to settings
+            Settings.Default.LastCurvedValue = lastCurvedValue;
             Settings.Default.Save();
-            // Stop and dispose timer
             updateTimer?.Stop();
             updateTimer?.Dispose();
             base.OnFormClosing(e);

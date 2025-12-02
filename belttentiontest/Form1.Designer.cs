@@ -20,6 +20,9 @@ namespace belttentiontest
         private CheckBox checkBoxTest;
         private NumericUpDown numericUpDownBeltStrength;
         private Label labelBeltStrength;
+        private NumericUpDown numericUpDownCurveAmount;
+        private Label labelCurveAmount;
+        private PictureBox pictureBoxCurveGraph;
 
         /// <summary>
         /// Clean up any resources being used.
@@ -51,8 +54,13 @@ namespace belttentiontest
             checkBoxTest = new CheckBox();
             numericUpDownBeltStrength = new NumericUpDown();
             labelBeltStrength = new Label();
+            numericUpDownCurveAmount = new NumericUpDown();
+            labelCurveAmount = new Label();
+            pictureBoxCurveGraph = new PictureBox();
             ((ISupportInitialize)numericUpDownTarget).BeginInit();
             ((ISupportInitialize)numericUpDownBeltStrength).BeginInit();
+            ((ISupportInitialize)numericUpDownCurveAmount).BeginInit();
+            ((ISupportInitialize)pictureBoxCurveGraph).BeginInit();
             SuspendLayout();
             // 
             // labelStatus
@@ -134,11 +142,44 @@ namespace belttentiontest
             labelBeltStrength.TabIndex = 9;
             labelBeltStrength.Text = "Belt Strength";
             // 
+            // numericUpDownCurveAmount
+            // 
+            numericUpDownCurveAmount.Location = new Point(180, 50);
+            numericUpDownCurveAmount.Minimum = 0.1M;
+            numericUpDownCurveAmount.Maximum = 5.0M;
+            numericUpDownCurveAmount.DecimalPlaces = 2;
+            numericUpDownCurveAmount.Increment = 0.05M;
+            numericUpDownCurveAmount.Name = "numericUpDownCurveAmount";
+            numericUpDownCurveAmount.Size = new Size(60, 23);
+            numericUpDownCurveAmount.TabIndex = 11;
+            numericUpDownCurveAmount.Value = 1.00M;
+            numericUpDownCurveAmount.ValueChanged += numericUpDownCurveAmount_ValueChanged;
+            // 
+            // labelCurveAmount
+            // 
+            labelCurveAmount.AutoSize = true;
+            labelCurveAmount.Location = new Point(12, 52);
+            labelCurveAmount.Name = "labelCurveAmount";
+            labelCurveAmount.Size = new Size(120, 15);
+            labelCurveAmount.TabIndex = 12;
+            labelCurveAmount.Text = "Curve Amount";
+            // 
+            // pictureBoxCurveGraph
+            // 
+            pictureBoxCurveGraph.Location = new Point(12, 80);
+            pictureBoxCurveGraph.Name = "pictureBoxCurveGraph";
+            pictureBoxCurveGraph.Size = new Size(228, 50);
+            pictureBoxCurveGraph.TabIndex = 13;
+            pictureBoxCurveGraph.TabStop = false;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(284, 260);
+            Controls.Add(pictureBoxCurveGraph);
+            Controls.Add(labelCurveAmount);
+            Controls.Add(numericUpDownCurveAmount);
             Controls.Add(labelBeltStrength);
             Controls.Add(numericUpDownBeltStrength);
             Controls.Add(checkBoxTest);
@@ -151,6 +192,8 @@ namespace belttentiontest
             Text = "Belt Tention Test";
             ((ISupportInitialize)numericUpDownTarget).EndInit();
             ((ISupportInitialize)numericUpDownBeltStrength).EndInit();
+            ((ISupportInitialize)numericUpDownCurveAmount).EndInit();
+            ((ISupportInitialize)pictureBoxCurveGraph).EndInit();
             ResumeLayout(false);
             PerformLayout();
         }

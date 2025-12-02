@@ -33,5 +33,29 @@ namespace belttentiontest.Properties {
                 this["BeltStrength"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("1")]
+        public double CurveAmount {
+            get {
+                return ((double)(this["CurveAmount"]));
+            }
+            set {
+                this["CurveAmount"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("0")]
+        public int LastCurvedValue {
+            get {
+                return ((int)(this["LastCurvedValue"]));
+            }
+            set {
+                this["LastCurvedValue"] = value;
+            }
+        }
     }
 }
