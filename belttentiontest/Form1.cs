@@ -24,7 +24,14 @@ namespace belttentiontest
 
         private double curveAmount = 1.0; // Default curve amount, can be set via UI or property
         private int lastCurvedValue = 0;
-        private int maxPower = 1023; // Maximum power value, can be set via UI or property
+        private int maxPower
+        { 
+        get => Settings.Default.MaxPower; // Maximum power value, can be set via UI or property
+            set
+            {
+                Settings.Default.MaxPower = value;
+            }
+        }
 
         public Form1()
         {
@@ -59,7 +66,7 @@ namespace belttentiontest
             };
 
             // start iRacing monitoring
-            irCommunicator = new IracingCommunicator();
+            irCommunicator = IracingCommunicator.Instance;
             irCommunicator.ConnectionChanged += OnIracingConnectionChanged;
             irCommunicator.Connected += OnIracingConnected;
             irCommunicator.Disconnected += OnIracingDisconnected;
@@ -84,11 +91,11 @@ namespace belttentiontest
                 }
             };
 
-            // Set initial BeltStrength value
-            if (irCommunicator != null)
-            {
-                irCommunicator.BeltStrength = (float)numericUpDownBeltStrength.Value;
-            }
+                // Set initial BeltStrength value
+                if (irCommunicator != null)
+                {
+                    irCommunicator.MotorStrenth = (float)numericUpDownBeltStrength.Value;
+                }
 
             // Initialize and start update timer
             updateTimer = new System.Windows.Forms.Timer();
@@ -100,9 +107,16 @@ namespace belttentiontest
         // Timer tick event handler
         private void UpdateTimer_Tick(object? sender, EventArgs e)
         {
-
             if (checkBoxTest.Checked)
                 OnScaledValueUpdated((int)numericUpDownTarget.Value);
+            else
+            if (IracingCommunicator.Instance != null)
+                if (!IracingCommunicator.Instance.IsConnected)
+                    OnScaledValueUpdated(20); //keep comuncations allive with small value when not connected to iRacing
+            
+            
+
+
             // TODO: Add periodic update logic here
             // Example: Update a label with current time
             // labelStatus.Text = $"Status: {DateTime.Now:HH:mm:ss.fff}";
@@ -205,28 +219,57 @@ namespace belttentiontest
             if (pictureBoxCurveGraph == null) return;
             int width = pictureBoxCurveGraph.Width;
             int height = pictureBoxCurveGraph.Height;
+            int axisSpace = 20; // Space reserved for X axis labels/ticks
+            int xPadding = 12; // Padding on left and right sides
+            int graphWidth = width - 2 * xPadding;
             var bmp = new System.Drawing.Bitmap(width, height);
             using (var g = System.Drawing.Graphics.FromImage(bmp))
             {
                 g.Clear(System.Drawing.Color.White);
                 var pen = new System.Drawing.Pen(System.Drawing.Color.Blue, 2);
-                for (int x = 0; x < width; x++)
+                var font = new System.Drawing.Font("Arial", 8);
+                var brush = System.Drawing.Brushes.Black;
+                // REMOVED: Draw X axis label (now in labelXAxis)
+                // Draw Y axis label (rotated)
+                string yLabel = "Output To Belt";
+                var yLabelSize = g.MeasureString(yLabel, font);
+                g.TranslateTransform(0, (height - axisSpace) / 2);
+                g.RotateTransform(-90);
+                g.DrawString(yLabel, font, brush, -(yLabelSize.Width / 2), 0);
+                g.ResetTransform();
+                // Draw X axis tick marks and numbers (0 to 7)
+                int numTicks = 8;
+                for (int i = 0; i <= numTicks; i++)
                 {
-                    double normalized = (double)x / (width - 1);
-                    double curved = Math.Pow(normalized, curveAmount);
-                    curved = Math.Clamp(curved, 0, 1);
-                    int yValue = (int)Math.Round(curved * maxPower);
-                    yValue = Math.Clamp(yValue, 0, maxPower);
-                    int y = height - 1 - (int)(yValue / (double)maxPower * (height - 1));
+                    float tickValue = i;
+                    int tickX = xPadding + (int)Math.Round(tickValue / 7.0 * (graphWidth - 1));
+                    int tickY = height - 1;
+                    g.DrawLine(System.Drawing.Pens.Black, tickX, tickY - 4, tickX, tickY);
+                    string tickLabel = tickValue.ToString("0.##");
+                    var tickLabelSize = g.MeasureString(tickLabel, font);
+                    g.DrawString(tickLabel, font, brush, tickX - tickLabelSize.Width / 2, tickY - tickLabelSize.Height - 2);
+                }
+                // Draw curve (leave axisSpace at bottom, and xPadding on sides)
+                int graphHeight = height - axisSpace;
+                for (int x = 0; x < graphWidth; x++)
+                {
+                    float inputValue = (float)(x * 7.0 / (graphWidth - 1)); // X axis: 0..7 (float)
+                    double normalized = inputValue / 7.0;
+                    double curved = Math.Pow(normalized, curveAmount); // 0..1
+                    int yValue = (int)Math.Round(curved * 1023); // full scale
+                    if (yValue > maxPower) yValue = maxPower;
+                    int y = graphHeight - 1 - (int)(yValue / 1023.0 * (graphHeight - 1)); // Y axis: 0..1023
+                    int drawX = xPadding + x;
                     if (x > 0)
                     {
-                        double prevNormalized = (double)(x - 1) / (width - 1);
+                        float prevInputValue = (float)((x - 1) * 7.0 / (graphWidth - 1));
+                        double prevNormalized = prevInputValue / 7.0;
                         double prevCurved = Math.Pow(prevNormalized, curveAmount);
-                        prevCurved = Math.Clamp(prevCurved, 0, 1);
-                        int prevYValue = (int)Math.Round(prevCurved * maxPower);
-                        prevYValue = Math.Clamp(prevYValue, 0, maxPower);
-                        int prevY = height - 1 - (int)(prevYValue / (double)maxPower * (height - 1));
-                        g.DrawLine(pen, x - 1, prevY, x, y);
+                        int prevYValue = (int)Math.Round(prevCurved * 1023);
+                        if (prevYValue > maxPower) prevYValue = maxPower;
+                        int prevY = graphHeight - 1 - (int)(prevYValue / 1023.0 * (graphHeight - 1));
+                        int prevDrawX = xPadding + x - 1;
+                        g.DrawLine(pen, prevDrawX, prevY, drawX, y);
                     }
                 }
             }
@@ -244,9 +287,11 @@ namespace belttentiontest
             // Apply curve: value in [0,1023], curveAmount >= 0.0
             double normalized = Math.Clamp((double)value / 1023.0, 0.0, 1.0);
             double curved = Math.Pow(normalized, curveAmount);
-            int curvedValue = (int)Math.Round(curved * maxPower);
+            int curvedValue = (int)Math.Round(curved * Settings.Default.GForceMult);
             curvedValue = Math.Clamp(curvedValue, 0, maxPower);
             lastCurvedValue = curvedValue;
+
+            
             communicator.SendValue(curvedValue);
         }
 
@@ -308,7 +353,7 @@ namespace belttentiontest
         {
             if (irCommunicator != null)
             {
-                irCommunicator.BeltStrength = (float)numericUpDownBeltStrength.Value;
+                irCommunicator.MotorStrenth = (float)numericUpDownBeltStrength.Value;
             }
             DrawCurveGraph(); // Update graph when belt strength changes
         }
@@ -326,7 +371,7 @@ namespace belttentiontest
             if (irCommunicator != null)
             {
                 float savedStrength = Settings.Default.BeltStrength;
-                irCommunicator.BeltStrength = savedStrength;
+                irCommunicator.MotorStrenth = savedStrength;
                 decimal min = numericUpDownBeltStrength.Minimum;
                 decimal max = numericUpDownBeltStrength.Maximum;
                 decimal value = Math.Min(max, Math.Max(min, (decimal)savedStrength));

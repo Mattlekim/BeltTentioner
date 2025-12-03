@@ -330,6 +330,7 @@ namespace belttentiontest
                 var sp = serialPort;
                 if (sp != null && sp.IsOpen)
                 {
+                    value = Math.Clamp(value, 0, 1023);
                     var line = $"T:{value}{sp.NewLine}";
                     sp.Write(line);
                 }

@@ -9,7 +9,11 @@ namespace belttentiontest
     // Uses IRacingSdk events when available.
     public class IracingCommunicator : IDisposable
     {
-        private bool isConnected;
+        private static readonly Lazy<IracingCommunicator> _instance = new(() => new IracingCommunicator());
+        public static IracingCommunicator Instance => _instance.Value;
+
+        private bool _isConnected;
+        public bool Isconnected => _isConnected;    
 
         // General change event (bool = connected)
         public event Action<bool>? ConnectionChanged;
@@ -24,13 +28,14 @@ namespace belttentiontest
         // Event to notify when scaledValue is updated
         public event Action<int>? ScaledValueUpdated;
 
-        public bool IsConnected => isConnected;
+        public bool IsConnected => _isConnected;
 
         IRacingSdk? _iracingClient;
 
-        public IracingCommunicator()
+        // Singleton: make constructor private
+        private IracingCommunicator()
         {
-            isConnected = false;
+            _isConnected = false;
             try
             {
                 _iracingClient = new IRacingSdk();
@@ -63,7 +68,7 @@ namespace belttentiontest
             OnClientTelemetryData();
         }
 
-        public float BeltStrength = 10;
+        public float MotorStrenth = 6;
         public void OnClientTelemetryData()
         {
             if (_iracingClient == null) return;
@@ -78,7 +83,7 @@ namespace belttentiontest
                     float maxValue = 1000;
                     float minValue = 20;
 
-                    float scaledValue = Math.Clamp(-lat * BeltStrength, minValue, maxValue);
+                    float scaledValue = Math.Clamp(-lat * 6, minValue, maxValue);
                     // Notify subscribers with the new scaledValue (as int)
                     ScaledValueUpdated?.Invoke((int)scaledValue);
                     GForceUpdated?.Invoke(scaledValue);
@@ -107,9 +112,9 @@ namespace belttentiontest
 
         private void OnClientConnected()
         {
-            if (!isConnected)
+            if (!_isConnected)
             {
-                isConnected = true;
+                _isConnected = true;
                 try { ConnectionChanged?.Invoke(true); } catch { }
                 try { Connected?.Invoke(); } catch { }
             }
@@ -117,9 +122,9 @@ namespace belttentiontest
 
         private void OnClientDisconnected()
         {
-            if (isConnected)
+            if (_isConnected)
             {
-                isConnected = false;
+                _isConnected = false;
                 try { ConnectionChanged?.Invoke(false); } catch { }
                 try { Disconnected?.Invoke(); } catch { }
             }
