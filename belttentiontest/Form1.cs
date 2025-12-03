@@ -11,6 +11,8 @@ namespace belttentiontest
 {
     public partial class Form1 : Form
     {
+        public static int MaxAnalogValue = 1023;
+
         private SerialCommunicator communicator;
         private bool handshakeComplete = false;
         private CancellationTokenSource? autoConnectCts;
@@ -25,8 +27,8 @@ namespace belttentiontest
         private double curveAmount = 1.0; // Default curve amount, can be set via UI or property
         private int lastCurvedValue = 0;
         private int maxPower
-        { 
-        get => Settings.Default.MaxPower; // Maximum power value, can be set via UI or property
+        {
+            get => Settings.Default.MaxPower; // Maximum power value, can be set via UI or property
             set
             {
                 Settings.Default.MaxPower = value;
@@ -36,6 +38,9 @@ namespace belttentiontest
         public Form1()
         {
             InitializeComponent();
+
+            SetControlsEnabled(false);
+            buttonConnect.Enabled = true;
 
             communicator = new SerialCommunicator();
             communicator.MessageReceived += OnMessageReceivedFromSerial;
@@ -74,7 +79,7 @@ namespace belttentiontest
             irCommunicator.ScaledValueUpdated += OnScaledValueUpdated;
 
             // initial statuses
-            labelStatus.Text = "Status"; // keep labelStatus for serial device status
+            // labelStatus.Text = "Status"; // keep labelStatus for serial device status
             // textBoxIracingStatus initial text set in designer
 
             // When the form is shown, ensure we reflect the current state (in case the monitor fired earlier)
@@ -91,11 +96,11 @@ namespace belttentiontest
                 }
             };
 
-                // Set initial BeltStrength value
-                if (irCommunicator != null)
-                {
-                    irCommunicator.MotorStrenth = (float)numericUpDownBeltStrength.Value;
-                }
+            // Set initial BeltStrength value
+            if (irCommunicator != null)
+            {
+                irCommunicator.MotorStrenth = (float)numericUpDownBeltStrength.Value;
+            }
 
             // Initialize and start update timer
             updateTimer = new System.Windows.Forms.Timer();
@@ -113,8 +118,7 @@ namespace belttentiontest
             if (IracingCommunicator.Instance != null)
                 if (!IracingCommunicator.Instance.IsConnected)
                     OnScaledValueUpdated(20); //keep comuncations allive with small value when not connected to iRacing
-            
-            
+
 
 
             // TODO: Add periodic update logic here
@@ -165,12 +169,24 @@ namespace belttentiontest
 
         private void OnMessageReceivedFromSerial(string message)
         {
+            // Disconnect if message is "NC" and currently connected
+            if (message == "NC" && communicator.IsConnected)
+            {
+                communicator.Disconnect();
+                handshakeComplete = false;
+                BeginInvoke(new Action(() =>
+                {
+                    labelStatus.Text = "Disconnected";
+                    labelStatus.ForeColor = System.Drawing.Color.Red;
+                    SetControlsEnabled(false);
+                    buttonConnect.Enabled = true;
+                }));
+                return;
+            }
             // Only process messages that are pure analog values (integer)
             if (int.TryParse(message, out int analogValue))
             {
-                // Example: update a label with the analog value
                 Debug.WriteLine($"Analog value: {analogValue}");
-                // If you want to show it in the UI, add a label and set its text here
                 // labelAnalogValue.Text = analogValue.ToString();
             }
             // Ignore all other messages
@@ -185,6 +201,7 @@ namespace belttentiontest
                 labelStatus.Text = $"Handshake complete";
                 labelStatus.ForeColor = System.Drawing.Color.Black;
                 Log($"Handshake complete on {communicator.PortName}");
+                SetControlsEnabled(true);
                 // start periodic sending using numericUpDownTarget's value getter
                 communicator.StartSendLoop(() => checkBoxTest.Checked ? (int)numericUpDownTarget.Value : 0);
             }));
@@ -229,7 +246,6 @@ namespace belttentiontest
                 var pen = new System.Drawing.Pen(System.Drawing.Color.Blue, 2);
                 var font = new System.Drawing.Font("Arial", 8);
                 var brush = System.Drawing.Brushes.Black;
-                // REMOVED: Draw X axis label (now in labelXAxis)
                 // Draw Y axis label (rotated)
                 string yLabel = "Output To Belt";
                 var yLabelSize = g.MeasureString(yLabel, font);
@@ -237,6 +253,14 @@ namespace belttentiontest
                 g.RotateTransform(-90);
                 g.DrawString(yLabel, font, brush, -(yLabelSize.Width / 2), 0);
                 g.ResetTransform();
+
+                // Draw X and Y axis lines
+                int graphHeight = height - axisSpace;
+                // Y axis (vertical)
+                g.DrawLine(System.Drawing.Pens.Black, xPadding, 0, xPadding, graphHeight - 1);
+                // X axis (horizontal)
+                g.DrawLine(System.Drawing.Pens.Black, xPadding, graphHeight - 1, xPadding + graphWidth - 1, graphHeight - 1);
+
                 // Draw X axis tick marks and numbers (0 to 7)
                 int numTicks = 8;
                 for (int i = 0; i <= numTicks; i++)
@@ -249,15 +273,15 @@ namespace belttentiontest
                     var tickLabelSize = g.MeasureString(tickLabel, font);
                     g.DrawString(tickLabel, font, brush, tickX - tickLabelSize.Width / 2, tickY - tickLabelSize.Height - 2);
                 }
+                int maxV = (int)((maxPower / 100f) * MaxAnalogValue);
                 // Draw curve (leave axisSpace at bottom, and xPadding on sides)
-                int graphHeight = height - axisSpace;
                 for (int x = 0; x < graphWidth; x++)
                 {
                     float inputValue = (float)(x * 7.0 / (graphWidth - 1)); // X axis: 0..7 (float)
                     double normalized = inputValue / 7.0;
                     double curved = Math.Pow(normalized, curveAmount); // 0..1
-                    int yValue = (int)Math.Round(curved * 1023); // full scale
-                    if (yValue > maxPower) yValue = maxPower;
+                    int yValue = (int)(Math.Round(curved * 1023) * Settings.Default.GForceMult); // full scale
+                    if (yValue > maxV) yValue = maxV;
                     int y = graphHeight - 1 - (int)(yValue / 1023.0 * (graphHeight - 1)); // Y axis: 0..1023
                     int drawX = xPadding + x;
                     if (x > 0)
@@ -265,8 +289,9 @@ namespace belttentiontest
                         float prevInputValue = (float)((x - 1) * 7.0 / (graphWidth - 1));
                         double prevNormalized = prevInputValue / 7.0;
                         double prevCurved = Math.Pow(prevNormalized, curveAmount);
-                        int prevYValue = (int)Math.Round(prevCurved * 1023);
-                        if (prevYValue > maxPower) prevYValue = maxPower;
+                        int prevYValue = (int)(Math.Round(prevCurved * 1023) * Settings.Default.GForceMult);
+
+                        if (prevYValue > maxV) prevYValue = maxV;
                         int prevY = graphHeight - 1 - (int)(prevYValue / 1023.0 * (graphHeight - 1));
                         int prevDrawX = xPadding + x - 1;
                         g.DrawLine(pen, prevDrawX, prevY, drawX, y);
@@ -279,20 +304,22 @@ namespace belttentiontest
         private void numericUpDownMaxPower_ValueChanged(object sender, EventArgs e)
         {
             maxPower = (int)numericUpDownMaxPower.Value;
+            
             DrawCurveGraph();
         }
 
         private void OnScaledValueUpdated(int value)
         {
             // Apply curve: value in [0,1023], curveAmount >= 0.0
-            double normalized = Math.Clamp((double)value / 1023.0, 0.0, 1.0);
-            double curved = Math.Pow(normalized, curveAmount);
-            int curvedValue = (int)Math.Round(curved * Settings.Default.GForceMult);
-            curvedValue = Math.Clamp(curvedValue, 0, maxPower);
-            lastCurvedValue = curvedValue;
+            float inputValue = Math.Clamp(value, 0, 7);
+            double normalized = inputValue / 7.0;
+            double curved = Math.Pow(normalized, curveAmount); // 0..1
+            int yValue = (int)(Math.Round(curved * 1023) * Settings.Default.GForceMult); // full scale
+            int maxV = (int)((maxPower / 100f) * MaxAnalogValue);
+            if (yValue > maxV) yValue = maxV;
 
-            
-            communicator.SendValue(curvedValue);
+
+            communicator.SendValue(yValue);
         }
 
         private async void buttonConnect_Click(object sender, EventArgs e)
@@ -304,9 +331,11 @@ namespace belttentiontest
                 string[] ports = SerialPort.GetPortNames();
                 if (ports.Length == 0)
                 {
-                    labelStatus.Text = "No COM ports found";
+                    labelStatus.Text = "No device found";
                     labelStatus.ForeColor = System.Drawing.Color.Red;
                     Log("No COM ports found");
+                    SetControlsEnabled(false);
+                    buttonConnect.Enabled = true;
                     return;
                 }
 
@@ -319,8 +348,9 @@ namespace belttentiontest
                     handshakeComplete = true;
                     Invoke(new Action(() =>
                     {
-                        labelStatus.Text = $"Connected to {communicator.PortName} (handshake complete)";
+                        labelStatus.Text = $"Connected to Seatbelt";
                         labelStatus.ForeColor = System.Drawing.Color.Black;
+                        SetControlsEnabled(true);
                         communicator.StartSendLoop(() => checkBoxTest.Checked ? (int)numericUpDownTarget.Value : 0);
                     }));
                     Log($"Manual connect: Connected to {communicator.PortName}");
@@ -331,6 +361,8 @@ namespace belttentiontest
                 {
                     labelStatus.Text = "No device responded";
                     labelStatus.ForeColor = System.Drawing.Color.Red;
+                    SetControlsEnabled(false);
+                    buttonConnect.Enabled = true;
                 }));
                 Log("Manual connect: No device responded");
             }
@@ -339,6 +371,8 @@ namespace belttentiontest
                 MessageBox.Show($"Connection failed: {ex.Message}");
                 labelStatus.ForeColor = System.Drawing.Color.Red;
                 Log($"Manual connect failed: {ex.Message}");
+                SetControlsEnabled(false);
+                buttonConnect.Enabled = true;
             }
         }
 
@@ -347,7 +381,7 @@ namespace belttentiontest
 
         }
 
-        
+
 
         private void numericUpDownBeltStrength_ValueChanged(object sender, EventArgs e)
         {
@@ -362,6 +396,17 @@ namespace belttentiontest
         {
             curveAmount = (double)numericUpDownCurveAmount.Value;
             DrawCurveGraph();
+        }
+
+        public void SetGForceMult(float value)
+        {
+            Settings.Default.GForceMult = value;
+            DrawCurveGraph();
+        }
+
+        private void numericUpDownGForceToBelt_ValueChanged(object sender, EventArgs e)
+        {
+            SetGForceMult((float)numericUpDownGForceToBelt.Value);
         }
 
         protected override void OnLoad(EventArgs e)
@@ -389,6 +434,11 @@ namespace belttentiontest
             decimal maxPowerMax = numericUpDownMaxPower.Maximum;
             decimal maxPowerValue = Math.Min(maxPowerMax, Math.Max(maxPowerMin, (decimal)maxPower));
             numericUpDownMaxPower.Value = maxPowerValue;
+            // Load GForceMult from settings
+            decimal gforceMin = numericUpDownGForceToBelt.Minimum;
+            decimal gforceMax = numericUpDownGForceToBelt.Maximum;
+            decimal gforceValue = Math.Min(gforceMax, Math.Max(gforceMin, (decimal)Settings.Default.GForceMult));
+            numericUpDownGForceToBelt.Value = gforceValue;
             DrawCurveGraph();
             // Load lastCurvedValue from settings
             lastCurvedValue = Settings.Default.LastCurvedValue;
@@ -404,6 +454,8 @@ namespace belttentiontest
             Settings.Default.MaxPower = (int)numericUpDownMaxPower.Value;
             // Save lastCurvedValue to settings
             Settings.Default.LastCurvedValue = lastCurvedValue;
+            // Save GForceMult to settings
+            Settings.Default.GForceMult = (float)numericUpDownGForceToBelt.Value;
             Settings.Default.Save();
             updateTimer?.Stop();
             updateTimer?.Dispose();
@@ -412,12 +464,27 @@ namespace belttentiontest
 
         private void numericUpDownTarget_ValueChanged(object sender, EventArgs e)
         {
-    
+
         }
 
         private void checkBoxTest_CheckedChanged(object sender, EventArgs e)
         {
             // You can add logic here if needed, or leave empty if not used
+        }
+
+        private void numericUpDownGForceToBelt_ValueChanged_1(object sender, EventArgs e)
+        {
+            Settings.Default.GForceMult = (float)numericUpDownGForceToBelt.Value;
+            DrawCurveGraph(); // Update graph when belt strength changes
+        }
+
+        private void SetControlsEnabled(bool enabled)
+        {
+            foreach (Control ctl in this.Controls)
+            {
+                if (ctl != buttonConnect)
+                    ctl.Enabled = enabled;
+            }
         }
     }
 }

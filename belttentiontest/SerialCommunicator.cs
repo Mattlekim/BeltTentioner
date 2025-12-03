@@ -337,5 +337,15 @@ namespace belttentiontest
             }
             catch { }
         }
+
+        public void Disconnect()
+        {
+            try
+            {
+                StopSendLoopAsync().GetAwaiter().GetResult();
+            }
+            catch { }
+            try { ClosePort(); } catch { }
+        }
     }
 }

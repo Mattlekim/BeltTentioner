@@ -49,8 +49,18 @@ void setup() {
 }
 
 int outputFrames = 0;
-void loop() {
 
+unsigned long lastUpdate = 0;       // when the last update happened
+const unsigned long interval = 500; // update every 500 ms
+
+long TotalElapsed = 0;
+
+void loop() {
+  unsigned long now = millis(); // current time in ms
+// time since last update
+  unsigned long elapsed = now - lastUpdate;
+  lastUpdate = now;
+  TotalElapsed += elapsed;
   //analogWrite(UNWIDE_PIN, 200);
   //analogWrite(WIND_PIN, 200);
   //return;
@@ -102,6 +112,11 @@ void loop() {
     Serial.println("Waiting for handshake... Send 'HELLO' to begin.");
   }
 
+  if (TotalElapsed > 1000)
+  {
+      Serial.println("NC");
+      TotalElapsed = 0;
+  }
   if (!handshakeComplete) return;
 
   int analogValue = analogRead(POTENIOMETER_PIN);
@@ -152,7 +167,7 @@ void loop() {
     int maxDistance = 1023 - DEADZONE;
     float x = (float)effectiveDistance / (float)maxDistance;
 
-    float lowCurve = pow(x, .5);    // gentle startup
+    float lowCurve = pow(x, .5);   // gentle startup
     float highCurve = pow(x, .1);  // aggressive ramp
     float blend = constrain(x, 0.0f, 1.0f);
     float y = (1.0f - blend) * lowCurve + blend * highCurve;

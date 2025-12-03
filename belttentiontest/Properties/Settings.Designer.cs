@@ -74,9 +74,9 @@ namespace belttentiontest.Properties {
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("10")]
-        public int GForceMult {
+        public float GForceMult {
             get {
-                return ((int)(this["GForceMult"]));
+                return ((float)(this["GForceMult"]));
             }
             set {
                 this["GForceMult"] = value;
@@ -84,3 +84,4 @@ namespace belttentiontest.Properties {
         }
     }
 }
+

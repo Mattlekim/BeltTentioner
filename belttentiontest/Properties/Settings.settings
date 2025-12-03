@@ -14,7 +14,7 @@
     <Setting Name="MaxPower" Type="System.Int32" Scope="User">
       <Value Profile="(Default)">1023</Value>
     </Setting>
-    <Setting Name="GForceMult" Type="System.Int32" Scope="User">
+    <Setting Name="GForceMult" Type="System.Single" Scope="User">
       <Value Profile="(Default)">10</Value>
     </Setting>
   </Settings>
