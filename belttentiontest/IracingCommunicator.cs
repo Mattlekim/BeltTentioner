@@ -32,6 +32,7 @@ namespace belttentiontest
 
         IRacingSdk? _iracingClient;
 
+        public Action<string>? CarNameChanged;
         // Singleton: make constructor private
         private IracingCommunicator()
         {
@@ -68,11 +69,24 @@ namespace belttentiontest
             OnClientTelemetryData();
         }
 
+        string _oldCarName = string.Empty;
         public float MotorStrenth = 6;
         public void OnClientTelemetryData()
         {
             if (_iracingClient == null) return;
             {
+
+                if (_iracingClient.Data.SessionInfo != null)
+                {
+                    string carName = _iracingClient.Data.SessionInfo.DriverInfo.Drivers[_iracingClient.Data.SessionInfo.DriverInfo.DriverCarIdx].CarScreenName;
+
+                    if (carName != _oldCarName)
+                    {
+                        CarNameChanged?.Invoke(carName);
+                    }
+                    _oldCarName = carName;
+                }
+
                 bool isReplay = _iracingClient.Data.GetBool("IsReplayPlaying");
                 if (isReplay)
                 {

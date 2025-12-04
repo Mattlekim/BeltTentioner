@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Diagnostics;
 using belttentiontest.Properties;
+using System.IO;
+using System.Text.Json;
 
 namespace belttentiontest
 {
@@ -26,16 +28,16 @@ namespace belttentiontest
 
         private double curveAmount = 1.0; // Default curve amount, can be set via UI or property
         private int lastCurvedValue = 0;
-        private int maxPower
-        {
-            get => Settings.Default.MaxPower; // Maximum power value, can be set via UI or property
-            set
-            {
-                Settings.Default.MaxPower = value;
-            }
-        }
+
+        private string CarName = "N/A";
+        private int _maxPower;
+        private float _gForceMult = 1f;
+        private double _curveAmount = 1f;
 
         private float maxGForceRecorded = 0f; // Max G-Force recorded
+
+        private CarSettingsStore carSettingsStore = new CarSettingsStore();
+        private string carSettingsFile => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "car_settings.json");
 
         public Form1()
         {
@@ -79,6 +81,15 @@ namespace belttentiontest
             irCommunicator.Disconnected += OnIracingDisconnected;
             irCommunicator.GForceUpdated += OnGForceUpdated;
             irCommunicator.ScaledValueUpdated += OnScaledValueUpdated;
+            irCommunicator.CarNameChanged += (carName) =>
+            {
+                BeginInvoke(new Action(() =>
+                {
+                    lb_carName.Text = $"Car: {carName}";
+                    CarName = carName;
+                    LoadCarSettings(carName);
+                }));
+            };
 
             // initial statuses
             // labelStatus.Text = "Status"; // keep labelStatus for serial device status
@@ -314,14 +325,14 @@ namespace belttentiontest
                     var tickLabelSize = g.MeasureString(tickLabel, font);
                     g.DrawString(tickLabel, font, brush, tickX - tickLabelSize.Width / 2, tickY - tickLabelSize.Height - 2);
                 }
-                int maxV = (int)((maxPower / 100f) * MaxAnalogValue);
+                int maxV = (int)((_maxPower / 100f) * MaxAnalogValue);
                 // Draw curve (leave axisSpace at bottom, and xPadding on sides)
                 for (int x = 0; x < graphWidth; x++)
                 {
                     float inputValue = (float)(x * 7.0 / (graphWidth - 1)); // X axis: 0..7 (float)
                     double normalized = inputValue / 7.0;
                     double curved = Math.Pow(normalized, curveAmount); // 0..1
-                    int yValue = (int)(Math.Round(curved * 1023) * Settings.Default.GForceMult); // full scale
+                    int yValue = (int)(Math.Round(curved * 1023) * _gForceMult); // full scale
                     if (yValue > maxV) yValue = maxV;
                     int y = graphHeight - 1 - (int)(yValue / 1023.0 * (graphHeight - 1)); // Y axis: 0..1023
                     int drawX = xPadding + x;
@@ -330,7 +341,7 @@ namespace belttentiontest
                         float prevInputValue = (float)((x - 1) * 7.0 / (graphWidth - 1));
                         double prevNormalized = prevInputValue / 7.0;
                         double prevCurved = Math.Pow(prevNormalized, curveAmount);
-                        int prevYValue = (int)(Math.Round(prevCurved * 1023) * Settings.Default.GForceMult);
+                        int prevYValue = (int)(Math.Round(prevCurved * 1023) * _gForceMult);
 
                         if (prevYValue > maxV) prevYValue = maxV;
                         int prevY = graphHeight - 1 - (int)(prevYValue / 1023.0 * (graphHeight - 1));
@@ -344,8 +355,15 @@ namespace belttentiontest
 
         private void numericUpDownMaxPower_ValueChanged(object sender, EventArgs e)
         {
-            maxPower = (int)numericUpDownMaxPower.Value;
-            
+            _maxPower = (int)numericUpDownMaxPower.Value;
+            SaveCarSettings(CarName);
+            DrawCurveGraph();
+        }
+
+        private void numericUpDownCurveAmount_ValueChanged(object sender, EventArgs e)
+        {
+            curveAmount = (double)numericUpDownCurveAmount.Value;
+            SaveCarSettings(CarName);
             DrawCurveGraph();
         }
 
@@ -358,8 +376,8 @@ namespace belttentiontest
             float inputValue = Math.Clamp(value, 0, 7);
             double normalized = inputValue / 7.0;
             double curved = Math.Pow(normalized, curveAmount); // 0..1
-            int yValue = (int)(Math.Round(curved * 1023) * Settings.Default.GForceMult); // full scale
-            int maxV = (int)((maxPower / 100f) * MaxAnalogValue);
+            int yValue = (int)(Math.Round(curved * 1023) * _gForceMult); // full scale
+            int maxV = (int)((_maxPower / 100f) * MaxAnalogValue);
             if (yValue > maxV) yValue = maxV;
 
 
@@ -436,21 +454,23 @@ namespace belttentiontest
             DrawCurveGraph(); // Update graph when belt strength changes
         }
 
-        private void numericUpDownCurveAmount_ValueChanged(object sender, EventArgs e)
-        {
-            curveAmount = (double)numericUpDownCurveAmount.Value;
-            DrawCurveGraph();
-        }
-
         public void SetGForceMult(float value)
         {
-            Settings.Default.GForceMult = value;
+            _gForceMult = value;
             DrawCurveGraph();
         }
 
         private void numericUpDownGForceToBelt_ValueChanged(object sender, EventArgs e)
         {
             SetGForceMult((float)numericUpDownGForceToBelt.Value);
+            SaveCarSettings(CarName);
+        }
+
+        private void numericUpDownGForceToBelt_ValueChanged_1(object sender, EventArgs e)
+        {
+            _gForceMult = (float)numericUpDownGForceToBelt.Value;
+            SaveCarSettings(CarName);
+            DrawCurveGraph(); // Update graph when belt strength changes
         }
 
         protected override void OnLoad(EventArgs e)
@@ -466,40 +486,18 @@ namespace belttentiontest
                 decimal value = Math.Min(max, Math.Max(min, (decimal)savedStrength));
                 numericUpDownBeltStrength.Value = value;
             }
-            // Load curveAmount from settings
-            curveAmount = Settings.Default.CurveAmount;
-            decimal curveMin = numericUpDownCurveAmount.Minimum;
-            decimal curveMax = numericUpDownCurveAmount.Maximum;
-            decimal curveValue = Math.Min(curveMax, Math.Max(curveMin, (decimal)curveAmount));
-            numericUpDownCurveAmount.Value = curveValue;
-            // Load maxPower from settings
-            maxPower = Settings.Default.MaxPower;
-            decimal maxPowerMin = numericUpDownMaxPower.Minimum;
-            decimal maxPowerMax = numericUpDownMaxPower.Maximum;
-            decimal maxPowerValue = Math.Min(maxPowerMax, Math.Max(maxPowerMin, (decimal)maxPower));
-            numericUpDownMaxPower.Value = maxPowerValue;
-            // Load GForceMult from settings
-            decimal gforceMin = numericUpDownGForceToBelt.Minimum;
-            decimal gforceMax = numericUpDownGForceToBelt.Maximum;
-            decimal gforceValue = Math.Min(gforceMax, Math.Max(gforceMin, (decimal)Settings.Default.GForceMult));
-            numericUpDownGForceToBelt.Value = gforceValue;
+    
+           
             DrawCurveGraph();
-            // Load lastCurvedValue from settings
-            lastCurvedValue = Settings.Default.LastCurvedValue;
+          
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             // Save BeltStrength to settings
             Settings.Default.BeltStrength = (float)numericUpDownBeltStrength.Value;
-            // Save curveAmount to settings
-            Settings.Default.CurveAmount = (double)numericUpDownCurveAmount.Value;
-            // Save maxPower to settings
-            Settings.Default.MaxPower = (int)numericUpDownMaxPower.Value;
-            // Save lastCurvedValue to settings
-            Settings.Default.LastCurvedValue = lastCurvedValue;
-            // Save GForceMult to settings
-            Settings.Default.GForceMult = (float)numericUpDownGForceToBelt.Value;
+ 
+            SaveCarSettings(CarName);
             Settings.Default.Save();
             updateTimer?.Stop();
             updateTimer?.Dispose();
@@ -516,12 +514,6 @@ namespace belttentiontest
             // You can add logic here if needed, or leave empty if not used
         }
 
-        private void numericUpDownGForceToBelt_ValueChanged_1(object sender, EventArgs e)
-        {
-            Settings.Default.GForceMult = (float)numericUpDownGForceToBelt.Value;
-            DrawCurveGraph(); // Update graph when belt strength changes
-        }
-
         private void SetControlsEnabled(bool enabled)
         {
             foreach (Control ctl in this.Controls)
@@ -533,5 +525,53 @@ namespace belttentiontest
                 }
             }
         }
+
+        private void LoadCarSettings(string carName)
+        {
+            // Load settings from file
+            if (File.Exists(carSettingsFile))
+            {
+                try
+                {
+                    var json = File.ReadAllText(carSettingsFile);
+                    carSettingsStore = JsonSerializer.Deserialize<CarSettingsStore>(json) ?? new CarSettingsStore();
+                }
+                catch { carSettingsStore = new CarSettingsStore(); }
+            }
+            else
+            {
+                carSettingsStore = new CarSettingsStore();
+            }
+            if (!carSettingsStore.Settings.TryGetValue(carName, out var settings))
+            {
+                settings = new CarSettings();
+                carSettingsStore.Settings[carName] = settings;
+            }
+            // Apply settings to UI
+            _gForceMult = settings.MaxGForceMult;
+            _maxPower = settings.MaxPower;
+            _curveAmount = settings.CurveAmount;
+            numericUpDownGForceToBelt.Value = (decimal)settings.MaxGForceMult;
+            numericUpDownMaxPower.Value = settings.MaxPower;
+            numericUpDownCurveAmount.Value = (decimal)settings.CurveAmount;
+        }
+
+        private void SaveCarSettings(string carName)
+        {
+            var settings = new CarSettings
+            {
+                MaxGForceMult = (float)numericUpDownGForceToBelt.Value,
+                MaxPower = (int)numericUpDownMaxPower.Value,
+                CurveAmount = (double)numericUpDownCurveAmount.Value
+            };
+            carSettingsStore.Settings[carName] = settings;
+            try
+            {
+                var json = JsonSerializer.Serialize(carSettingsStore, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(carSettingsFile, json);
+            }
+            catch { }
+        }
+
     }
 }

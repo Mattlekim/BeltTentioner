@@ -34,54 +34,5 @@ namespace belttentiontest.Properties {
                 this["BeltStrength"] = value;
             }
         }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("1")]
-        public double CurveAmount {
-            get {
-                return ((double)(this["CurveAmount"]));
-            }
-            set {
-                this["CurveAmount"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("0")]
-        public int LastCurvedValue {
-            get {
-                return ((int)(this["LastCurvedValue"]));
-            }
-            set {
-                this["LastCurvedValue"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("1023")]
-        public int MaxPower {
-            get {
-                return ((int)(this["MaxPower"]));
-            }
-            set {
-                this["MaxPower"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("10")]
-        public float GForceMult {
-            get {
-                return ((float)(this["GForceMult"]));
-            }
-            set {
-                this["GForceMult"] = value;
-            }
-        }
     }
 }
-

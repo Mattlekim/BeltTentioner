@@ -21,7 +21,6 @@ namespace belttentiontest
         private NumericUpDown numericUpDownBeltStrength;
         private Label labelBeltStrength;
         private NumericUpDown numericUpDownCurveAmount;
-        private Label labelCurveAmount;
         private PictureBox pictureBoxCurveGraph;
         private PercentageUpDown numericUpDownMaxPower;
         private Label labelMaxPower;
@@ -64,7 +63,6 @@ namespace belttentiontest
             numericUpDownBeltStrength = new NumericUpDown();
             labelBeltStrength = new Label();
             numericUpDownCurveAmount = new NumericUpDown();
-            labelCurveAmount = new Label();
             pictureBoxCurveGraph = new PictureBox();
             numericUpDownMaxPower = new PercentageUpDown();
             labelMaxPower = new Label();
@@ -77,6 +75,8 @@ namespace belttentiontest
             labelDistanceValue = new Label();
             labelMaxGForce = new Label();
             gb_Car_Settings = new GroupBox();
+            lb_carName = new Label();
+            labelCurveAmount = new Label();
             ((ISupportInitialize)numericUpDownTarget).BeginInit();
             ((ISupportInitialize)numericUpDownBeltStrength).BeginInit();
             ((ISupportInitialize)numericUpDownCurveAmount).BeginInit();
@@ -132,7 +132,7 @@ namespace belttentiontest
             // labelGForce
             // 
             labelGForce.AutoSize = true;
-            labelGForce.Location = new Point(16, 305);
+            labelGForce.Location = new Point(16, 321);
             labelGForce.Name = "labelGForce";
             labelGForce.Size = new Size(76, 15);
             labelGForce.TabIndex = 7;
@@ -172,7 +172,7 @@ namespace belttentiontest
             // 
             numericUpDownCurveAmount.DecimalPlaces = 2;
             numericUpDownCurveAmount.Increment = new decimal(new int[] { 5, 0, 0, 131072 });
-            numericUpDownCurveAmount.Location = new Point(213, 38);
+            numericUpDownCurveAmount.Location = new Point(213, 54);
             numericUpDownCurveAmount.Maximum = new decimal(new int[] { 50, 0, 0, 65536 });
             numericUpDownCurveAmount.Minimum = new decimal(new int[] { 1, 0, 0, 65536 });
             numericUpDownCurveAmount.Name = "numericUpDownCurveAmount";
@@ -181,18 +181,9 @@ namespace belttentiontest
             numericUpDownCurveAmount.Value = new decimal(new int[] { 100, 0, 0, 131072 });
             numericUpDownCurveAmount.ValueChanged += numericUpDownCurveAmount_ValueChanged;
             // 
-            // labelCurveAmount
-            // 
-            labelCurveAmount.AutoSize = true;
-            labelCurveAmount.Location = new Point(16, 40);
-            labelCurveAmount.Name = "labelCurveAmount";
-            labelCurveAmount.Size = new Size(85, 15);
-            labelCurveAmount.TabIndex = 12;
-            labelCurveAmount.Text = "Curve Amount";
-            // 
             // pictureBoxCurveGraph
             // 
-            pictureBoxCurveGraph.Location = new Point(16, 147);
+            pictureBoxCurveGraph.Location = new Point(16, 163);
             pictureBoxCurveGraph.Name = "pictureBoxCurveGraph";
             pictureBoxCurveGraph.Size = new Size(260, 117);
             pictureBoxCurveGraph.TabIndex = 13;
@@ -200,7 +191,7 @@ namespace belttentiontest
             // 
             // numericUpDownMaxPower
             // 
-            numericUpDownMaxPower.Location = new Point(213, 67);
+            numericUpDownMaxPower.Location = new Point(213, 83);
             numericUpDownMaxPower.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
             numericUpDownMaxPower.Name = "numericUpDownMaxPower";
             numericUpDownMaxPower.Size = new Size(60, 23);
@@ -211,7 +202,7 @@ namespace belttentiontest
             // labelMaxPower
             // 
             labelMaxPower.AutoSize = true;
-            labelMaxPower.Location = new Point(16, 69);
+            labelMaxPower.Location = new Point(16, 85);
             labelMaxPower.Name = "labelMaxPower";
             labelMaxPower.Size = new Size(70, 15);
             labelMaxPower.TabIndex = 15;
@@ -229,7 +220,7 @@ namespace belttentiontest
             // label1
             // 
             label1.AutoSize = true;
-            label1.Location = new Point(115, 267);
+            label1.Location = new Point(115, 283);
             label1.Name = "label1";
             label1.Size = new Size(49, 15);
             label1.TabIndex = 17;
@@ -239,7 +230,7 @@ namespace belttentiontest
             // 
             numericUpDownGForceToBelt.DecimalPlaces = 2;
             numericUpDownGForceToBelt.Increment = new decimal(new int[] { 5, 0, 0, 131072 });
-            numericUpDownGForceToBelt.Location = new Point(213, 98);
+            numericUpDownGForceToBelt.Location = new Point(213, 114);
             numericUpDownGForceToBelt.Maximum = new decimal(new int[] { 7, 0, 0, 0 });
             numericUpDownGForceToBelt.Minimum = new decimal(new int[] { 5, 0, 0, 65536 });
             numericUpDownGForceToBelt.Name = "numericUpDownGForceToBelt";
@@ -251,7 +242,7 @@ namespace belttentiontest
             // labelGForceToBelt
             // 
             labelGForceToBelt.AutoSize = true;
-            labelGForceToBelt.Location = new Point(16, 98);
+            labelGForceToBelt.Location = new Point(16, 114);
             labelGForceToBelt.Name = "labelGForceToBelt";
             labelGForceToBelt.Size = new Size(83, 15);
             labelGForceToBelt.TabIndex = 18;
@@ -260,7 +251,7 @@ namespace belttentiontest
             // labelAnalogValue
             // 
             labelAnalogValue.AutoSize = true;
-            labelAnalogValue.Location = new Point(16, 126);
+            labelAnalogValue.Location = new Point(16, 142);
             labelAnalogValue.Name = "labelAnalogValue";
             labelAnalogValue.Size = new Size(66, 15);
             labelAnalogValue.TabIndex = 19;
@@ -269,7 +260,7 @@ namespace belttentiontest
             // labelTargetValue
             // 
             labelTargetValue.AutoSize = true;
-            labelTargetValue.Location = new Point(104, 126);
+            labelTargetValue.Location = new Point(104, 142);
             labelTargetValue.Name = "labelTargetValue";
             labelTargetValue.Size = new Size(61, 15);
             labelTargetValue.TabIndex = 20;
@@ -278,7 +269,7 @@ namespace belttentiontest
             // labelDistanceValue
             // 
             labelDistanceValue.AutoSize = true;
-            labelDistanceValue.Location = new Point(204, 126);
+            labelDistanceValue.Location = new Point(204, 142);
             labelDistanceValue.Name = "labelDistanceValue";
             labelDistanceValue.Size = new Size(73, 15);
             labelDistanceValue.TabIndex = 21;
@@ -287,7 +278,7 @@ namespace belttentiontest
             // labelMaxGForce
             // 
             labelMaxGForce.AutoSize = true;
-            labelMaxGForce.Location = new Point(160, 305);
+            labelMaxGForce.Location = new Point(160, 321);
             labelMaxGForce.Name = "labelMaxGForce";
             labelMaxGForce.Size = new Size(101, 15);
             labelMaxGForce.TabIndex = 22;
@@ -295,6 +286,7 @@ namespace belttentiontest
             // 
             // gb_Car_Settings
             // 
+            gb_Car_Settings.Controls.Add(lb_carName);
             gb_Car_Settings.Controls.Add(labelCurveAmount);
             gb_Car_Settings.Controls.Add(labelMaxGForce);
             gb_Car_Settings.Controls.Add(labelDistanceValue);
@@ -314,6 +306,24 @@ namespace belttentiontest
             gb_Car_Settings.TabIndex = 23;
             gb_Car_Settings.TabStop = false;
             gb_Car_Settings.Text = "Car Settings";
+            // 
+            // lb_carName
+            // 
+            lb_carName.AutoSize = true;
+            lb_carName.Location = new Point(16, 27);
+            lb_carName.Name = "lb_carName";
+            lb_carName.Size = new Size(60, 15);
+            lb_carName.TabIndex = 23;
+            lb_carName.Text = "Car Name";
+            // 
+            // labelCurveAmount
+            // 
+            labelCurveAmount.AutoSize = true;
+            labelCurveAmount.Location = new Point(16, 56);
+            labelCurveAmount.Name = "labelCurveAmount";
+            labelCurveAmount.Size = new Size(85, 15);
+            labelCurveAmount.TabIndex = 12;
+            labelCurveAmount.Text = "Curve Amount";
             // 
             // Form1
             // 
@@ -347,5 +357,7 @@ namespace belttentiontest
 
         private Label label1;
         private GroupBox gb_Car_Settings;
+        private Label lb_carName;
+        private Label labelCurveAmount;
     }
 }
