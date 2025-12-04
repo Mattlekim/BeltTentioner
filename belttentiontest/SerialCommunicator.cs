@@ -55,13 +55,26 @@ namespace belttentiontest
             catch { }
         }
 
+        private void SerialPort_ErrorReceived(object? sender, SerialErrorReceivedEventArgs e)
+        {
+            // Device unplugged or hardware error
+            MessageReceived?.Invoke("DEVICE_UNPLUGGED");
+            Disconnect();
+        }
+
         // Read any available data and raise MessageReceived and HandshakeComplete when appropriate
         private void ReadAllSerialData(SerialPort sp)
         {
             try
             {
                 string data;
-                try { data = sp.ReadExisting(); } catch { return; }
+                try { data = sp.ReadExisting(); } catch (Exception ex)
+                {
+                    // Device may have been unplugged or port closed
+                    MessageReceived?.Invoke("DEVICE_UNPLUGGED");
+                    Disconnect();
+                    return;
+                }
                 if (string.IsNullOrEmpty(data)) return;
 
                 var lines = data.Replace("\r", "\n").Split('\n', StringSplitOptions.RemoveEmptyEntries);
@@ -76,7 +89,12 @@ namespace belttentiontest
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                // Device may have been unplugged or port closed
+                MessageReceived?.Invoke("DEVICE_UNPLUGGED");
+                Disconnect();
+            }
         }
 
         // Send the handshake (HELLO) and wait up to waitMs for READY. Returns true on success.
@@ -226,8 +244,6 @@ namespace belttentiontest
         // Simple handshake: open, optional short delay, send HELLO, poll ReadExisting until READY or timeout
         private async Task<SerialPort?> TryOpenAndHandshakeSimpleAsync(string portName, CancellationToken ct, int preWriteDelayMs = 3000, int waitMs = 3000)
         {
-            
-            
             SerialPort trial = new SerialPort(portName, 9600)
             {
                 NewLine = "\n",
@@ -240,6 +256,7 @@ namespace belttentiontest
             try
             {
                 trial.Open();
+                trial.ErrorReceived += SerialPort_ErrorReceived;
             }
             catch
             {
@@ -335,7 +352,12 @@ namespace belttentiontest
                     sp.Write(line);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                // Device may have been unplugged or port closed
+                MessageReceived?.Invoke("DEVICE_UNPLUGGED");
+                Disconnect();
+            }
         }
 
         public void Disconnect()
@@ -346,6 +368,43 @@ namespace belttentiontest
             }
             catch { }
             try { ClosePort(); } catch { }
+        }
+
+        /// <summary>
+        /// Parses a serial line in the format: analogValue\tTarget\tDistance
+        /// Example: "512\t300\t100"
+        /// Returns a tuple (analogValue, target, distance) if successful, otherwise null.
+        /// </summary>
+        public (int analogValue, int target, int distance)? ParseSerialLine(string line)
+        {
+            if (string.IsNullOrWhiteSpace(line)) return null;
+            var parts = line.Trim().Split('\t');
+            if (parts.Length != 3) return null;
+            if (int.TryParse(parts[0], out int analogValue) &&
+                int.TryParse(parts[1], out int target) &&
+                int.TryParse(parts[2], out int distance))
+            {
+                return (analogValue, target, distance);
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Parses a serial line in the format: analogValue\tTarget\tDistance
+        /// Example: "512\t300\t100"
+        /// Returns a tuple (analogValue, target, distance) if successful, otherwise null.
+        /// </summary>
+        public (int analogValue, bool failed)? ParseSerialLineDisconect(string line)
+        {
+            if (string.IsNullOrWhiteSpace(line)) return null;
+            var parts = line.Trim().Split('\t');
+            if (parts.Length != 2) return null;
+            if (parts[0] == "NC")
+                if (int.TryParse(parts[1], out int analogValue))
+                {
+                    return (analogValue, true);
+                }
+            return null;
         }
     }
 }

@@ -35,6 +35,8 @@ namespace belttentiontest
             }
         }
 
+        private float maxGForceRecorded = 0f; // Max G-Force recorded
+
         public Form1()
         {
             InitializeComponent();
@@ -117,7 +119,7 @@ namespace belttentiontest
             else
             if (IracingCommunicator.Instance != null)
                 if (!IracingCommunicator.Instance.IsConnected)
-                    OnScaledValueUpdated(20); //keep comuncations allive with small value when not connected to iRacing
+                    OnScaledValueUpdated(0.1f); //keep comuncations allive with small value when not connected to iRacing
 
 
 
@@ -167,29 +169,63 @@ namespace belttentiontest
             // textBoxLog removed, so Log does nothing
         }
 
+        private void ShowDisconnectedUI(string reason = "Device disconnected")
+        {
+            labelStatus.Text = reason;
+            labelStatus.ForeColor = System.Drawing.Color.Red;
+            labelAnalogValue.Text = $"Analog: NA";
+            labelTargetValue.Text = $"Target: NA";
+            labelDistanceValue.Text = $"Distance: NA";
+            SetControlsEnabled(false);
+            buttonConnect.Enabled = true;
+        }
+
         private void OnMessageReceivedFromSerial(string message)
         {
-            // Disconnect if message is "NC" and currently connected
-            if (message == "NC" && communicator.IsConnected)
+            var parsedDisconected = communicator.ParseSerialLineDisconect(message);
+            if (parsedDisconected.HasValue)
             {
-                communicator.Disconnect();
-                handshakeComplete = false;
+                if (communicator.IsConnected)
+                {
+                    var (analogValue, Connect) = parsedDisconected.Value;
+                    communicator.Disconnect();
+                    BeginInvoke(new Action(() =>
+                    {
+                        ShowDisconnectedUI("Seatbelt disconnected");
+                        labelAnalogValue.Text = $"Analog: {analogValue}";
+                    }));
+                    return;
+                }
+            }
+
+            // Try to parse the message as a tab-separated serial line
+            var parsed = communicator.ParseSerialLine(message);
+            if (parsed.HasValue)
+            {
+                var (analogValue, target, distance) = parsed.Value;
+                Debug.WriteLine($"Serial Data: Analog={analogValue}, Target={target}, Distance={distance}");
+                // Display values on the form
                 BeginInvoke(new Action(() =>
                 {
-                    labelStatus.Text = "Disconnected";
-                    labelStatus.ForeColor = System.Drawing.Color.Red;
-                    SetControlsEnabled(false);
-                    buttonConnect.Enabled = true;
+                    labelAnalogValue.Text = $"Analog: {analogValue}";
+                    labelTargetValue.Text = $"Target: {target}";
+                    labelDistanceValue.Text = $"Distance: {distance}";
                 }));
                 return;
             }
-            // Only process messages that are pure analog values (integer)
-            if (int.TryParse(message, out int analogValue))
+
+            if (message == "DEVICE_UNPLUGGED")
             {
-                Debug.WriteLine($"Analog value: {analogValue}");
-                // labelAnalogValue.Text = analogValue.ToString();
+                communicator.Disconnect();
+                BeginInvoke(new Action(() =>
+                {
+                    ShowDisconnectedUI("Device unplugged");
+                }));
+                return;
             }
-            // Ignore all other messages
+
+
+
         }
 
         private void OnHandshakeCompleteFromSerial()
@@ -228,6 +264,11 @@ namespace belttentiontest
             BeginInvoke(new Action(() =>
             {
                 labelGForce.Text = $"G-Force: {gForce:F2}";
+                if (gForce > maxGForceRecorded)
+                {
+                    maxGForceRecorded = gForce;
+                    labelMaxGForce.Text = $"Max G-Force: {maxGForceRecorded:F2}";
+                }
             }));
         }
 
@@ -308,8 +349,11 @@ namespace belttentiontest
             DrawCurveGraph();
         }
 
-        private void OnScaledValueUpdated(int value)
+        private void OnScaledValueUpdated(float value)
         {
+
+            if (checkBoxTest.Checked)
+                value = (float)numericUpDownTarget.Value;
             // Apply curve: value in [0,1023], curveAmount >= 0.0
             float inputValue = Math.Clamp(value, 0, 7);
             double normalized = inputValue / 7.0;
@@ -483,7 +527,10 @@ namespace belttentiontest
             foreach (Control ctl in this.Controls)
             {
                 if (ctl != buttonConnect)
-                    ctl.Enabled = enabled;
+                {
+                    if (ctl is not Label)
+                        ctl.Enabled = enabled;
+                }
             }
         }
     }

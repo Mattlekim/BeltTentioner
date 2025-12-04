@@ -64,7 +64,7 @@ void loop() {
   //analogWrite(UNWIDE_PIN, 200);
   //analogWrite(WIND_PIN, 200);
   //return;
-  while (Serial.available() > 0) {
+ while (Serial.available() > 0) {
     String input = Serial.readStringUntil('\n');
     input.trim();
     if (input.length() == 0) continue;
@@ -79,6 +79,22 @@ void loop() {
     } else if (input.equalsIgnoreCase("RESET")) {
       Serial.println("Kill flag reset to false.");
       lastActivityTime = millis();
+    } else if (input.equalsIgnoreCase("c")) {
+      // Clockwise spin for 1 second
+      Serial.println("Manual clockwise spin for 1s");
+      analogWrite(WIND_PIN, MAX_OUTPUT);   // Clockwise motor ON
+      analogWrite(UNWIDE_PIN, 0);          // Ensure anticlockwise motor OFF
+      delay(100);
+      analogWrite(WIND_PIN, 0);            // Stop motor
+      lastActivityTime = millis();
+    } else if (input.equalsIgnoreCase("a")) {
+      // Anticlockwise spin for 1 second
+      Serial.println("Manual anticlockwise spin for 1s");
+      analogWrite(UNWIDE_PIN, MAX_OUTPUT); // Anticlockwise motor ON
+      analogWrite(WIND_PIN, 0);            // Ensure clockwise motor OFF
+      delay(100);
+      analogWrite(UNWIDE_PIN, 0);          // Stop motor
+      lastActivityTime = millis();
     } else {
       int separatorIndex = input.indexOf(':');
       if (separatorIndex > 0) {
@@ -92,7 +108,7 @@ void loop() {
         }
       }
     }
-  }
+}
 
   // --- Target timeout (only if handshake is complete) ---
   if (handshakeComplete && (millis() - lastTargetSetTime >= TARGET_TIMEOUT_MS)) {
@@ -111,15 +127,17 @@ void loop() {
     Serial.println("Session timeout. Handshake required again.");
     Serial.println("Waiting for handshake... Send 'HELLO' to begin.");
   }
-
+ int analogValue = analogRead(POTENIOMETER_PIN);
   if (TotalElapsed > 1000)
   {
-      Serial.println("NC");
+      Serial.print("NC");
+      Serial.print("\t");
+      Serial.println(analogValue);
       TotalElapsed = 0;
   }
   if (!handshakeComplete) return;
 
-  int analogValue = analogRead(POTENIOMETER_PIN);
+ 
 
   stop_antiClockwise = false;
   stop_clockwise = false;
@@ -171,7 +189,7 @@ void loop() {
     float highCurve = pow(x, .1);  // aggressive ramp
     float blend = constrain(x, 0.0f, 1.0f);
     float y = (1.0f - blend) * lowCurve + blend * highCurve;
-    y *= 3.0f;
+    y *= 4.0f;
 
     int pwmValue = (int)round(y * (float)MAX_OUTPUT);
     pwmValue = constrain(pwmValue, 0, MAX_TENTION_VALUE);
@@ -218,13 +236,8 @@ void loop() {
     Serial.print("\t");
     Serial.print(target);
     Serial.print("\t");
-    Serial.print(distance);
-    Serial.print("\t");
-    Serial.print(pwmLeft);
-    Serial.print("\t");
-    Serial.print(pwmRight);
-    Serial.print("\t");
-    Serial.println(direction);
+    Serial.println(distance);
+    
     outputFrames = 0;
   }
   delay(4);

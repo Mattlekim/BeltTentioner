@@ -26,7 +26,7 @@ namespace belttentiontest
         public event Action<float>? GForceUpdated;
 
         // Event to notify when scaledValue is updated
-        public event Action<int>? ScaledValueUpdated;
+        public event Action<float>? ScaledValueUpdated;
 
         public bool IsConnected => _isConnected;
 
@@ -73,25 +73,29 @@ namespace belttentiontest
         {
             if (_iracingClient == null) return;
             {
+                bool isReplay = _iracingClient.Data.GetBool("IsReplayPlaying");
+                if (isReplay)
+                {
+                    ScaledValueUpdated?.Invoke(0);
+                    GForceUpdated?.Invoke(0);
+                    return;
+                }
                 float lat = _iracingClient.Data.GetFloat("LongAccel");
-                //float g_Force = lat / 9.81f;
+                float g_Force = lat / 9.81f;
                 // Notify subscribers with the new g_Force value
 
                 // GForceUpdated?.Invoke(lat * BeltStrength);
                 if (lat < 0)
                 {
-                    float maxValue = 1000;
-                    float minValue = 20;
-
-                    float scaledValue = Math.Clamp(-lat * 6, minValue, maxValue);
+                   
                     // Notify subscribers with the new scaledValue (as int)
-                    ScaledValueUpdated?.Invoke((int)scaledValue);
-                    GForceUpdated?.Invoke(scaledValue);
+                    ScaledValueUpdated?.Invoke(-g_Force);
+                    GForceUpdated?.Invoke(-g_Force);
                 }
                 else
                 {
-                    ScaledValueUpdated?.Invoke(20);
-                    GForceUpdated?.Invoke(20);
+                    ScaledValueUpdated?.Invoke(0.0f);
+                    GForceUpdated?.Invoke(0.0f);
                 }
             }
             // Telemetry data received - placeholder for future processing

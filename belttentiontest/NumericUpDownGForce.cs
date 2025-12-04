@@ -10,7 +10,13 @@ namespace belttentiontest
     {
         protected override void UpdateEditText()
         {
-            this.Text = $"{this.Value} G";
+            try
+            {
+                this.Text = $"{this.Value} G";
+            }
+            catch { }
+
+
         }
     }
 

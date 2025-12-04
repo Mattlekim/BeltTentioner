@@ -28,6 +28,10 @@ namespace belttentiontest
         private Label labelXAxis; // X axis label for the graph
         private NumericUpDown numericUpDownGForceToBelt;
         private Label labelGForceToBelt;
+        private Label labelAnalogValue;
+        private Label labelTargetValue;
+        private Label labelDistanceValue;
+        private Label labelMaxGForce; // Max G-Force label
 
         /// <summary>
         /// Clean up any resources being used.
@@ -68,21 +72,28 @@ namespace belttentiontest
             label1 = new Label();
             numericUpDownGForceToBelt = new NumericUpDown();
             labelGForceToBelt = new Label();
+            labelAnalogValue = new Label();
+            labelTargetValue = new Label();
+            labelDistanceValue = new Label();
+            labelMaxGForce = new Label();
+            gb_Car_Settings = new GroupBox();
             ((ISupportInitialize)numericUpDownTarget).BeginInit();
             ((ISupportInitialize)numericUpDownBeltStrength).BeginInit();
             ((ISupportInitialize)numericUpDownCurveAmount).BeginInit();
             ((ISupportInitialize)pictureBoxCurveGraph).BeginInit();
             ((ISupportInitialize)numericUpDownMaxPower).BeginInit();
             ((ISupportInitialize)numericUpDownGForceToBelt).BeginInit();
+            gb_Car_Settings.SuspendLayout();
             SuspendLayout();
             // 
             // labelStatus
             // 
             labelStatus.AutoSize = true;
+            labelStatus.Font = new Font("Segoe UI", 14F);
             labelStatus.ForeColor = Color.Red;
-            labelStatus.Location = new Point(78, 9);
+            labelStatus.Location = new Point(42, 4);
             labelStatus.Name = "labelStatus";
-            labelStatus.Size = new Size(126, 15);
+            labelStatus.Size = new Size(201, 25);
             labelStatus.TabIndex = 1;
             labelStatus.Text = "Seatbelt Not Conected";
             labelStatus.Click += labelStatus_Click;
@@ -96,7 +107,7 @@ namespace belttentiontest
             numericUpDownTarget.Name = "numericUpDownTarget";
             numericUpDownTarget.Size = new Size(120, 23);
             numericUpDownTarget.TabIndex = 2;
-            numericUpDownTarget.Value = new decimal(new int[] { 7, 0, 0, 0 });
+            numericUpDownTarget.Value = new decimal(new int[] { 2, 0, 0, 0 });
             numericUpDownTarget.ValueChanged += numericUpDownTarget_ValueChanged;
             // 
             // buttonConnect
@@ -111,7 +122,7 @@ namespace belttentiontest
             // 
             // textBoxIracingStatus
             // 
-            textBoxIracingStatus.Location = new Point(12, 294);
+            textBoxIracingStatus.Location = new Point(24, 483);
             textBoxIracingStatus.Name = "textBoxIracingStatus";
             textBoxIracingStatus.ReadOnly = true;
             textBoxIracingStatus.Size = new Size(260, 23);
@@ -121,7 +132,7 @@ namespace belttentiontest
             // labelGForce
             // 
             labelGForce.AutoSize = true;
-            labelGForce.Location = new Point(12, 334);
+            labelGForce.Location = new Point(16, 305);
             labelGForce.Name = "labelGForce";
             labelGForce.Size = new Size(76, 15);
             labelGForce.TabIndex = 7;
@@ -140,7 +151,7 @@ namespace belttentiontest
             // 
             // numericUpDownBeltStrength
             // 
-            numericUpDownBeltStrength.Location = new Point(100, 362);
+            numericUpDownBeltStrength.Location = new Point(112, 575);
             numericUpDownBeltStrength.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
             numericUpDownBeltStrength.Name = "numericUpDownBeltStrength";
             numericUpDownBeltStrength.Size = new Size(60, 23);
@@ -151,7 +162,7 @@ namespace belttentiontest
             // labelBeltStrength
             // 
             labelBeltStrength.AutoSize = true;
-            labelBeltStrength.Location = new Point(12, 364);
+            labelBeltStrength.Location = new Point(24, 577);
             labelBeltStrength.Name = "labelBeltStrength";
             labelBeltStrength.Size = new Size(81, 15);
             labelBeltStrength.TabIndex = 9;
@@ -161,7 +172,7 @@ namespace belttentiontest
             // 
             numericUpDownCurveAmount.DecimalPlaces = 2;
             numericUpDownCurveAmount.Increment = new decimal(new int[] { 5, 0, 0, 131072 });
-            numericUpDownCurveAmount.Location = new Point(209, 62);
+            numericUpDownCurveAmount.Location = new Point(213, 38);
             numericUpDownCurveAmount.Maximum = new decimal(new int[] { 50, 0, 0, 65536 });
             numericUpDownCurveAmount.Minimum = new decimal(new int[] { 1, 0, 0, 65536 });
             numericUpDownCurveAmount.Name = "numericUpDownCurveAmount";
@@ -173,7 +184,7 @@ namespace belttentiontest
             // labelCurveAmount
             // 
             labelCurveAmount.AutoSize = true;
-            labelCurveAmount.Location = new Point(12, 64);
+            labelCurveAmount.Location = new Point(16, 40);
             labelCurveAmount.Name = "labelCurveAmount";
             labelCurveAmount.Size = new Size(85, 15);
             labelCurveAmount.TabIndex = 12;
@@ -181,7 +192,7 @@ namespace belttentiontest
             // 
             // pictureBoxCurveGraph
             // 
-            pictureBoxCurveGraph.Location = new Point(12, 171);
+            pictureBoxCurveGraph.Location = new Point(16, 147);
             pictureBoxCurveGraph.Name = "pictureBoxCurveGraph";
             pictureBoxCurveGraph.Size = new Size(260, 117);
             pictureBoxCurveGraph.TabIndex = 13;
@@ -189,7 +200,7 @@ namespace belttentiontest
             // 
             // numericUpDownMaxPower
             // 
-            numericUpDownMaxPower.Location = new Point(209, 91);
+            numericUpDownMaxPower.Location = new Point(213, 67);
             numericUpDownMaxPower.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
             numericUpDownMaxPower.Name = "numericUpDownMaxPower";
             numericUpDownMaxPower.Size = new Size(60, 23);
@@ -200,7 +211,7 @@ namespace belttentiontest
             // labelMaxPower
             // 
             labelMaxPower.AutoSize = true;
-            labelMaxPower.Location = new Point(12, 93);
+            labelMaxPower.Location = new Point(16, 69);
             labelMaxPower.Name = "labelMaxPower";
             labelMaxPower.Size = new Size(70, 15);
             labelMaxPower.TabIndex = 15;
@@ -209,7 +220,7 @@ namespace belttentiontest
             // labelXAxis
             // 
             labelXAxis.AutoSize = true;
-            labelXAxis.Location = new Point(12, 296);
+            labelXAxis.Location = new Point(24, 509);
             labelXAxis.Name = "labelXAxis";
             labelXAxis.Size = new Size(80, 15);
             labelXAxis.TabIndex = 16;
@@ -218,7 +229,7 @@ namespace belttentiontest
             // label1
             // 
             label1.AutoSize = true;
-            label1.Location = new Point(111, 291);
+            label1.Location = new Point(115, 267);
             label1.Name = "label1";
             label1.Size = new Size(49, 15);
             label1.TabIndex = 17;
@@ -228,7 +239,7 @@ namespace belttentiontest
             // 
             numericUpDownGForceToBelt.DecimalPlaces = 2;
             numericUpDownGForceToBelt.Increment = new decimal(new int[] { 5, 0, 0, 131072 });
-            numericUpDownGForceToBelt.Location = new Point(209, 122);
+            numericUpDownGForceToBelt.Location = new Point(213, 98);
             numericUpDownGForceToBelt.Maximum = new decimal(new int[] { 7, 0, 0, 0 });
             numericUpDownGForceToBelt.Minimum = new decimal(new int[] { 5, 0, 0, 65536 });
             numericUpDownGForceToBelt.Name = "numericUpDownGForceToBelt";
@@ -240,30 +251,80 @@ namespace belttentiontest
             // labelGForceToBelt
             // 
             labelGForceToBelt.AutoSize = true;
-            labelGForceToBelt.Location = new Point(12, 122);
+            labelGForceToBelt.Location = new Point(16, 98);
             labelGForceToBelt.Name = "labelGForceToBelt";
             labelGForceToBelt.Size = new Size(83, 15);
             labelGForceToBelt.TabIndex = 18;
             labelGForceToBelt.Text = "GForce To Belt";
             // 
+            // labelAnalogValue
+            // 
+            labelAnalogValue.AutoSize = true;
+            labelAnalogValue.Location = new Point(16, 126);
+            labelAnalogValue.Name = "labelAnalogValue";
+            labelAnalogValue.Size = new Size(66, 15);
+            labelAnalogValue.TabIndex = 19;
+            labelAnalogValue.Text = "Analog: ---";
+            // 
+            // labelTargetValue
+            // 
+            labelTargetValue.AutoSize = true;
+            labelTargetValue.Location = new Point(104, 126);
+            labelTargetValue.Name = "labelTargetValue";
+            labelTargetValue.Size = new Size(61, 15);
+            labelTargetValue.TabIndex = 20;
+            labelTargetValue.Text = "Target: ---";
+            // 
+            // labelDistanceValue
+            // 
+            labelDistanceValue.AutoSize = true;
+            labelDistanceValue.Location = new Point(204, 126);
+            labelDistanceValue.Name = "labelDistanceValue";
+            labelDistanceValue.Size = new Size(73, 15);
+            labelDistanceValue.TabIndex = 21;
+            labelDistanceValue.Text = "Distance: ---";
+            // 
+            // labelMaxGForce
+            // 
+            labelMaxGForce.AutoSize = true;
+            labelMaxGForce.Location = new Point(160, 305);
+            labelMaxGForce.Name = "labelMaxGForce";
+            labelMaxGForce.Size = new Size(101, 15);
+            labelMaxGForce.TabIndex = 22;
+            labelMaxGForce.Text = "Max G-Force: 0.00";
+            // 
+            // gb_Car_Settings
+            // 
+            gb_Car_Settings.Controls.Add(labelCurveAmount);
+            gb_Car_Settings.Controls.Add(labelMaxGForce);
+            gb_Car_Settings.Controls.Add(labelDistanceValue);
+            gb_Car_Settings.Controls.Add(numericUpDownCurveAmount);
+            gb_Car_Settings.Controls.Add(labelTargetValue);
+            gb_Car_Settings.Controls.Add(labelGForce);
+            gb_Car_Settings.Controls.Add(pictureBoxCurveGraph);
+            gb_Car_Settings.Controls.Add(labelAnalogValue);
+            gb_Car_Settings.Controls.Add(labelMaxPower);
+            gb_Car_Settings.Controls.Add(labelGForceToBelt);
+            gb_Car_Settings.Controls.Add(numericUpDownMaxPower);
+            gb_Car_Settings.Controls.Add(numericUpDownGForceToBelt);
+            gb_Car_Settings.Controls.Add(label1);
+            gb_Car_Settings.Location = new Point(12, 76);
+            gb_Car_Settings.Name = "gb_Car_Settings";
+            gb_Car_Settings.Size = new Size(289, 347);
+            gb_Car_Settings.TabIndex = 23;
+            gb_Car_Settings.TabStop = false;
+            gb_Car_Settings.Text = "Car Settings";
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(284, 397);
-            Controls.Add(labelGForceToBelt);
-            Controls.Add(numericUpDownGForceToBelt);
-            Controls.Add(label1);
-            Controls.Add(numericUpDownMaxPower);
-            Controls.Add(labelMaxPower);
-            Controls.Add(pictureBoxCurveGraph);
-            Controls.Add(labelCurveAmount);
-            Controls.Add(numericUpDownCurveAmount);
+            ClientSize = new Size(314, 621);
+            Controls.Add(gb_Car_Settings);
             Controls.Add(labelBeltStrength);
+            Controls.Add(textBoxIracingStatus);
             Controls.Add(numericUpDownBeltStrength);
             Controls.Add(checkBoxTest);
-            Controls.Add(labelGForce);
-            Controls.Add(textBoxIracingStatus);
             Controls.Add(buttonConnect);
             Controls.Add(numericUpDownTarget);
             Controls.Add(labelStatus);
@@ -276,6 +337,8 @@ namespace belttentiontest
             ((ISupportInitialize)pictureBoxCurveGraph).EndInit();
             ((ISupportInitialize)numericUpDownMaxPower).EndInit();
             ((ISupportInitialize)numericUpDownGForceToBelt).EndInit();
+            gb_Car_Settings.ResumeLayout(false);
+            gb_Car_Settings.PerformLayout();
             ResumeLayout(false);
             PerformLayout();
         }
@@ -283,5 +346,6 @@ namespace belttentiontest
         #endregion
 
         private Label label1;
+        private GroupBox gb_Car_Settings;
     }
 }
