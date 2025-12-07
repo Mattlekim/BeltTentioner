@@ -26,7 +26,7 @@ namespace belttentiontest
         public event Action<float>? GForceUpdated;
 
         // Event to notify when scaledValue is updated
-        public event Action<float>? ScaledValueUpdated;
+        public event Action<float, bool>? ScaledValueUpdated;
 
         public bool IsConnected => _isConnected;
 
@@ -70,7 +70,7 @@ namespace belttentiontest
         }
 
         string _oldCarName = string.Empty;
-        public float MotorStrenth = 6;
+     
         public void OnClientTelemetryData()
         {
             if (_iracingClient == null) return;
@@ -90,7 +90,8 @@ namespace belttentiontest
                 bool isReplay = _iracingClient.Data.GetBool("IsReplayPlaying");
                 if (isReplay)
                 {
-                    ScaledValueUpdated?.Invoke(0);
+                    ScaledValueUpdated?.Invoke(0, false);
+                    ScaledValueUpdated?.Invoke(0, true);
                     GForceUpdated?.Invoke(0);
                     return;
                 }
@@ -103,12 +104,12 @@ namespace belttentiontest
                 {
                    
                     // Notify subscribers with the new scaledValue (as int)
-                    ScaledValueUpdated?.Invoke(-g_Force);
+                    ScaledValueUpdated?.Invoke(-g_Force, true);
                     GForceUpdated?.Invoke(-g_Force);
                 }
                 else
                 {
-                    ScaledValueUpdated?.Invoke(0.0f);
+                    ScaledValueUpdated?.Invoke(0.0f, true);
                     GForceUpdated?.Invoke(0.0f);
                 }
             }

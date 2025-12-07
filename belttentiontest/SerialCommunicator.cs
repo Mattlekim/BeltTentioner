@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.IO.Ports;
 using System.Text;
 using System.Threading;
@@ -21,6 +22,7 @@ namespace belttentiontest
         public bool IsConnected => serialPort != null && serialPort.IsOpen;
         public string? PortName => serialPort?.PortName;
 
+        private bool _getSettings = false;
         public void Dispose()
         {
             try { StopSendLoopAsync().GetAwaiter().GetResult(); } catch { }
@@ -65,6 +67,11 @@ namespace belttentiontest
         // Read any available data and raise MessageReceived and HandshakeComplete when appropriate
         private void ReadAllSerialData(SerialPort sp)
         {
+            if (_getSettings)
+            {
+                Thread.Sleep(50); //wait for setttings to be sent
+                _getSettings = false;
+            }
             try
             {
                 string data;
@@ -340,6 +347,46 @@ namespace belttentiontest
             }
         }
 
+        public void SendRequestSettings()
+        {
+            _getSettings = true;
+            string msg = $"SETTINGS";
+            try
+            {
+                var sp = serialPort;
+                if (sp != null && sp.IsOpen)
+                {
+                    sp.WriteLine(msg);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Device may have been unplugged or port closed
+                MessageReceived?.Invoke("DEVICE_UNPLUGGED");
+                Disconnect();
+            }
+        }
+
+        public void SendUpdatedSettings(int lmin, int lmax, int rmin, int rmax, bool linvert, bool rinvert, bool both)
+        {
+            string msg = $"SN:{lmin}-{lmax}-{rmin}-{rmax}-{(linvert ? 1 : 0)}-{(rinvert ? 1 : 0)}-{(both ? 1 : 0)}";
+            try
+            {
+                var sp = serialPort;
+                if (sp != null && sp.IsOpen)
+                {
+                    sp.WriteLine(msg);
+                    LogToFile("Sent settings: " + msg);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Device may have been unplugged or port closed
+                MessageReceived?.Invoke("DEVICE_UNPLUGGED");
+                Disconnect();
+            }
+        }
+
         public void SendValue(int value)
         {
             try
@@ -347,8 +394,8 @@ namespace belttentiontest
                 var sp = serialPort;
                 if (sp != null && sp.IsOpen)
                 {
-                    value = Math.Clamp(value, 0, 1023);
-                    var line = $"T:{value}{sp.NewLine}";
+                    value = Math.Clamp(value, 0, (int)Form1.MAXPOSIBLEMOTORVALUE);
+                    var line = $"L:{value}{sp.NewLine}";
                     sp.Write(line);
                 }
             }
@@ -389,22 +436,43 @@ namespace belttentiontest
             return null;
         }
 
+   
+
         /// <summary>
         /// Parses a serial line in the format: analogValue\tTarget\tDistance
         /// Example: "512\t300\t100"
         /// Returns a tuple (analogValue, target, distance) if successful, otherwise null.
         /// </summary>
-        public (int analogValue, bool failed)? ParseSerialLineDisconect(string line)
+        public (int lmin, int lmax, int rmin, int rmax, bool linvert, bool rinvert, bool both)? ParseSerialLineSettings(string line)
         {
             if (string.IsNullOrWhiteSpace(line)) return null;
             var parts = line.Trim().Split('\t');
-            if (parts.Length != 2) return null;
-            if (parts[0] == "NC")
-                if (int.TryParse(parts[1], out int analogValue))
-                {
-                    return (analogValue, true);
-                }
+            if (parts.Length != 7) return null;
+
+           
+            if (int.TryParse(parts[0], out int lmin) &&
+                int.TryParse(parts[1], out int lmax) &&
+                int.TryParse(parts[2], out int rmin) &&
+                int.TryParse(parts[3], out int rmax) &&
+                int.TryParse(parts[4], out int li) &&
+                int.TryParse(parts[5], out int ri) &&
+                int.TryParse(parts[6], out int b))
+            {
+                return (lmin, lmax, rmin, rmax, li==1, ri == 1, b == 1);
+            }
+         
             return null;
+        }
+
+        // Helper method to log to file
+        private static void LogToFile(string message)
+        {
+            try
+            {
+                string logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "serial_log.txt");
+                File.AppendAllText(logPath, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}\n");
+            }
+            catch { }
         }
     }
 }

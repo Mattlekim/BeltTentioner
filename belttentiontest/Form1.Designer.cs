@@ -18,8 +18,6 @@ namespace belttentiontest
         private TextBox textBoxIracingStatus;
         private Label labelGForce;
         private CheckBox checkBoxTest;
-        private NumericUpDown numericUpDownBeltStrength;
-        private Label labelBeltStrength;
         private NumericUpDown numericUpDownCurveAmount;
         private PictureBox pictureBoxCurveGraph;
         private PercentageUpDown numericUpDownMaxPower;
@@ -31,6 +29,7 @@ namespace belttentiontest
         private Label labelTargetValue;
         private Label labelDistanceValue;
         private Label labelMaxGForce; // Max G-Force label
+        private Label lblSettingsSaved;
 
         /// <summary>
         /// Clean up any resources being used.
@@ -60,8 +59,6 @@ namespace belttentiontest
             textBoxIracingStatus = new TextBox();
             labelGForce = new Label();
             checkBoxTest = new CheckBox();
-            numericUpDownBeltStrength = new NumericUpDown();
-            labelBeltStrength = new Label();
             numericUpDownCurveAmount = new NumericUpDown();
             pictureBoxCurveGraph = new PictureBox();
             numericUpDownMaxPower = new PercentageUpDown();
@@ -77,13 +74,25 @@ namespace belttentiontest
             gb_Car_Settings = new GroupBox();
             lb_carName = new Label();
             labelCurveAmount = new Label();
+            label2 = new Label();
+            groupBox1 = new GroupBox();
+            ck_Inverted = new CheckBox();
+            cb_duelMotors = new CheckBox();
+            lb_SelectedMotor = new ListBox();
+            bnt_Apply = new Button();
+            nud_Motor_End = new NumericUpDown();
+            nud_Motor_Start = new NumericUpDown();
+            label3 = new Label();
+            lblSettingsSaved = new Label();
             ((ISupportInitialize)numericUpDownTarget).BeginInit();
-            ((ISupportInitialize)numericUpDownBeltStrength).BeginInit();
             ((ISupportInitialize)numericUpDownCurveAmount).BeginInit();
             ((ISupportInitialize)pictureBoxCurveGraph).BeginInit();
             ((ISupportInitialize)numericUpDownMaxPower).BeginInit();
             ((ISupportInitialize)numericUpDownGForceToBelt).BeginInit();
             gb_Car_Settings.SuspendLayout();
+            groupBox1.SuspendLayout();
+            ((ISupportInitialize)nud_Motor_End).BeginInit();
+            ((ISupportInitialize)nud_Motor_Start).BeginInit();
             SuspendLayout();
             // 
             // labelStatus
@@ -102,7 +111,7 @@ namespace belttentiontest
             // 
             numericUpDownTarget.DecimalPlaces = 2;
             numericUpDownTarget.Increment = new decimal(new int[] { 1, 0, 0, 65536 });
-            numericUpDownTarget.Location = new Point(12, 37);
+            numericUpDownTarget.Location = new Point(7, 98);
             numericUpDownTarget.Maximum = new decimal(new int[] { 7, 0, 0, 0 });
             numericUpDownTarget.Name = "numericUpDownTarget";
             numericUpDownTarget.Size = new Size(120, 23);
@@ -127,7 +136,7 @@ namespace belttentiontest
             textBoxIracingStatus.ReadOnly = true;
             textBoxIracingStatus.Size = new Size(260, 23);
             textBoxIracingStatus.TabIndex = 6;
-            textBoxIracingStatus.Text = "not connect";
+            textBoxIracingStatus.Text = "Iracing Not Connect";
             // 
             // labelGForce
             // 
@@ -141,32 +150,13 @@ namespace belttentiontest
             // checkBoxTest
             // 
             checkBoxTest.AutoSize = true;
-            checkBoxTest.Location = new Point(140, 37);
+            checkBoxTest.Location = new Point(146, 102);
             checkBoxTest.Name = "checkBoxTest";
             checkBoxTest.Size = new Size(47, 19);
             checkBoxTest.TabIndex = 8;
             checkBoxTest.Text = "Test";
             checkBoxTest.UseVisualStyleBackColor = true;
             checkBoxTest.CheckedChanged += checkBoxTest_CheckedChanged;
-            // 
-            // numericUpDownBeltStrength
-            // 
-            numericUpDownBeltStrength.Location = new Point(112, 575);
-            numericUpDownBeltStrength.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
-            numericUpDownBeltStrength.Name = "numericUpDownBeltStrength";
-            numericUpDownBeltStrength.Size = new Size(60, 23);
-            numericUpDownBeltStrength.TabIndex = 10;
-            numericUpDownBeltStrength.Value = new decimal(new int[] { 10, 0, 0, 0 });
-            numericUpDownBeltStrength.ValueChanged += numericUpDownBeltStrength_ValueChanged;
-            // 
-            // labelBeltStrength
-            // 
-            labelBeltStrength.AutoSize = true;
-            labelBeltStrength.Location = new Point(24, 577);
-            labelBeltStrength.Name = "labelBeltStrength";
-            labelBeltStrength.Size = new Size(81, 15);
-            labelBeltStrength.TabIndex = 9;
-            labelBeltStrength.Text = "Motor Strenth";
             // 
             // numericUpDownCurveAmount
             // 
@@ -325,30 +315,145 @@ namespace belttentiontest
             labelCurveAmount.TabIndex = 12;
             labelCurveAmount.Text = "Curve Amount";
             // 
+            // label2
+            // 
+            label2.AutoSize = true;
+            label2.Location = new Point(6, 24);
+            label2.Name = "label2";
+            label2.Size = new Size(77, 15);
+            label2.TabIndex = 25;
+            label2.Text = "Start Position";
+            // 
+            // groupBox1
+            // 
+            groupBox1.Controls.Add(ck_Inverted);
+            groupBox1.Controls.Add(cb_duelMotors);
+            groupBox1.Controls.Add(lb_SelectedMotor);
+            groupBox1.Controls.Add(bnt_Apply);
+            groupBox1.Controls.Add(nud_Motor_End);
+            groupBox1.Controls.Add(checkBoxTest);
+            groupBox1.Controls.Add(nud_Motor_Start);
+            groupBox1.Controls.Add(numericUpDownTarget);
+            groupBox1.Controls.Add(label3);
+            groupBox1.Controls.Add(label2);
+            groupBox1.Controls.Add(lblSettingsSaved);
+            groupBox1.Location = new Point(26, 542);
+            groupBox1.Name = "groupBox1";
+            groupBox1.Size = new Size(263, 196);
+            groupBox1.TabIndex = 26;
+            groupBox1.TabStop = false;
+            groupBox1.Text = "Motor Settings";
+            // 
+            // ck_Inverted
+            // 
+            ck_Inverted.AutoSize = true;
+            ck_Inverted.Location = new Point(7, 73);
+            ck_Inverted.Name = "ck_Inverted";
+            ck_Inverted.Size = new Size(69, 19);
+            ck_Inverted.TabIndex = 32;
+            ck_Inverted.Text = "Inverted";
+            ck_Inverted.UseVisualStyleBackColor = true;
+            ck_Inverted.CheckedChanged += bnt_Inverted_CheckedChanged;
+            // 
+            // cb_duelMotors
+            // 
+            cb_duelMotors.AutoSize = true;
+            cb_duelMotors.Location = new Point(159, 74);
+            cb_duelMotors.Name = "cb_duelMotors";
+            cb_duelMotors.Size = new Size(91, 19);
+            cb_duelMotors.TabIndex = 31;
+            cb_duelMotors.Text = "Duel Motors";
+            cb_duelMotors.UseVisualStyleBackColor = true;
+            cb_duelMotors.CheckedChanged += cb_duelMotors_CheckedChanged;
+            // 
+            // lb_SelectedMotor
+            // 
+            lb_SelectedMotor.FormattingEnabled = true;
+            lb_SelectedMotor.ItemHeight = 15;
+            lb_SelectedMotor.Items.AddRange(new object[] { "Left Motor", "Right Motor" });
+            lb_SelectedMotor.Location = new Point(7, 156);
+            lb_SelectedMotor.Name = "lb_SelectedMotor";
+            lb_SelectedMotor.Size = new Size(120, 34);
+            lb_SelectedMotor.TabIndex = 30;
+            lb_SelectedMotor.SelectedIndexChanged += lb_SelectedMotor_SelectedIndexChanged;
+            // 
+            // bnt_Apply
+            // 
+            bnt_Apply.Location = new Point(175, 167);
+            bnt_Apply.Name = "bnt_Apply";
+            bnt_Apply.Size = new Size(75, 23);
+            bnt_Apply.TabIndex = 29;
+            bnt_Apply.Text = "Apply";
+            bnt_Apply.UseVisualStyleBackColor = true;
+            bnt_Apply.Click += bnt_Apply_Click;
+            // 
+            // nud_Motor_End
+            // 
+            nud_Motor_End.DecimalPlaces = 2;
+            nud_Motor_End.Location = new Point(190, 45);
+            nud_Motor_End.Maximum = new decimal(new int[] { 270, 0, 0, 0 });
+            nud_Motor_End.Name = "nud_Motor_End";
+            nud_Motor_End.Size = new Size(60, 23);
+            nud_Motor_End.TabIndex = 28;
+            nud_Motor_End.Value = new decimal(new int[] { 100, 0, 0, 131072 });
+            nud_Motor_End.ValueChanged += nud_Motor_End_ValueChanged;
+            // 
+            // nud_Motor_Start
+            // 
+            nud_Motor_Start.DecimalPlaces = 2;
+            nud_Motor_Start.Location = new Point(190, 16);
+            nud_Motor_Start.Maximum = new decimal(new int[] { 270, 0, 0, 0 });
+            nud_Motor_Start.Name = "nud_Motor_Start";
+            nud_Motor_Start.Size = new Size(60, 23);
+            nud_Motor_Start.TabIndex = 24;
+            nud_Motor_Start.Value = new decimal(new int[] { 100, 0, 0, 131072 });
+            nud_Motor_Start.ValueChanged += nud_Motor_Start_ValueChanged;
+            // 
+            // label3
+            // 
+            label3.AutoSize = true;
+            label3.Location = new Point(5, 47);
+            label3.Name = "label3";
+            label3.Size = new Size(73, 15);
+            label3.TabIndex = 27;
+            label3.Text = "End Position";
+            // 
+            // lblSettingsSaved
+            // 
+            lblSettingsSaved.AutoSize = true;
+            lblSettingsSaved.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            lblSettingsSaved.ForeColor = Color.Green;
+            lblSettingsSaved.Location = new Point(146, 145);
+            lblSettingsSaved.Name = "lblSettingsSaved";
+            lblSettingsSaved.Size = new Size(109, 19);
+            lblSettingsSaved.TabIndex = 33;
+            lblSettingsSaved.Text = "Settings saved.";
+            lblSettingsSaved.Visible = false;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(314, 621);
+            ClientSize = new Size(314, 750);
+            Controls.Add(groupBox1);
             Controls.Add(gb_Car_Settings);
-            Controls.Add(labelBeltStrength);
             Controls.Add(textBoxIracingStatus);
-            Controls.Add(numericUpDownBeltStrength);
-            Controls.Add(checkBoxTest);
             Controls.Add(buttonConnect);
-            Controls.Add(numericUpDownTarget);
             Controls.Add(labelStatus);
             Controls.Add(labelXAxis);
             Name = "Form1";
             Text = "Belt Tention Test";
             ((ISupportInitialize)numericUpDownTarget).EndInit();
-            ((ISupportInitialize)numericUpDownBeltStrength).EndInit();
             ((ISupportInitialize)numericUpDownCurveAmount).EndInit();
             ((ISupportInitialize)pictureBoxCurveGraph).EndInit();
             ((ISupportInitialize)numericUpDownMaxPower).EndInit();
             ((ISupportInitialize)numericUpDownGForceToBelt).EndInit();
             gb_Car_Settings.ResumeLayout(false);
             gb_Car_Settings.PerformLayout();
+            groupBox1.ResumeLayout(false);
+            groupBox1.PerformLayout();
+            ((ISupportInitialize)nud_Motor_End).EndInit();
+            ((ISupportInitialize)nud_Motor_Start).EndInit();
             ResumeLayout(false);
             PerformLayout();
         }
@@ -359,5 +464,14 @@ namespace belttentiontest
         private GroupBox gb_Car_Settings;
         private Label lb_carName;
         private Label labelCurveAmount;
+        private Label label2;
+        private GroupBox groupBox1;
+        private Button bnt_Apply;
+        private NumericUpDown nud_Motor_End;
+        private NumericUpDown nud_Motor_Start;
+        private Label label3;
+        private ListBox lb_SelectedMotor;
+        private CheckBox cb_duelMotors;
+        private CheckBox ck_Inverted;
     }
 }
