@@ -26,7 +26,7 @@ namespace belttentiontest
         public event Action<float>? GForceUpdated;
 
         // Event to notify when scaledValue is updated
-        public event Action<float, bool>? ScaledValueUpdated;
+        public event Action<float, float, bool>? ScaledValueUpdated;
 
         public bool IsConnected => _isConnected;
 
@@ -90,28 +90,48 @@ namespace belttentiontest
                 bool isReplay = _iracingClient.Data.GetBool("IsReplayPlaying");
                 if (isReplay)
                 {
-                    ScaledValueUpdated?.Invoke(0, false);
-                    ScaledValueUpdated?.Invoke(0, true);
+                    ScaledValueUpdated?.Invoke(0, 0, false);
+                    ScaledValueUpdated?.Invoke(0, 0, true);
                     GForceUpdated?.Invoke(0);
                     return;
                 }
-                float lat = _iracingClient.Data.GetFloat("LongAccel");
-                float g_Force = lat / 9.81f;
+                float longitude = _iracingClient.Data.GetFloat("LongAccel");
+                float g_Force = longitude / 9.81f;
+
+                float lmotor = g_Force, rmotor = g_Force;
+
+                if (lmotor > 0)
+                    lmotor = 0;
+
+                if (rmotor > 0)
+                {
+                    rmotor = 0;
+                }
+
+                float lat = _iracingClient.Data.GetFloat("LatAccel");
+                float lat_g_Force = lat / 9.81f;
                 // Notify subscribers with the new g_Force value
 
-                // GForceUpdated?.Invoke(lat * BeltStrength);
-                if (lat < 0)
+                float lat_lMotor = 0, lat_rMotor = 0;
+
+
+                if (lat_g_Force > 0) //turning left
                 {
-                   
-                    // Notify subscribers with the new scaledValue (as int)
-                    ScaledValueUpdated?.Invoke(-g_Force, true);
-                    GForceUpdated?.Invoke(-g_Force);
+                    lat_lMotor = Math.Abs(lat_g_Force);
+                    lat_rMotor = 0;
                 }
-                else
+                else //turning right
                 {
-                    ScaledValueUpdated?.Invoke(0.0f, true);
-                    GForceUpdated?.Invoke(0.0f);
+                    lat_rMotor = Math.Abs(lat_g_Force);
+                    lat_lMotor = 0;
                 }
+
+            
+
+                ScaledValueUpdated?.Invoke(-lmotor, lat_lMotor, false);
+                ScaledValueUpdated?.Invoke(-rmotor, lat_rMotor, true);
+
+                GForceUpdated?.Invoke(-Math.Clamp(g_Force,-1000,0));
             }
             // Telemetry data received - placeholder for future processing
         }

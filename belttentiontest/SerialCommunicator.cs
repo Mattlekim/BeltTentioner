@@ -387,7 +387,7 @@ namespace belttentiontest
             }
         }
 
-        public void SendValue(int value)
+        public void SendValue(float value, bool leftMotor)
         {
             try
             {
@@ -395,7 +395,11 @@ namespace belttentiontest
                 if (sp != null && sp.IsOpen)
                 {
                     value = Math.Clamp(value, 0, (int)Form1.MAXPOSIBLEMOTORVALUE);
-                    var line = $"L:{value}{sp.NewLine}";
+                    var line = string.Empty;
+                    if (leftMotor)
+                        line = $"L:{value}{sp.NewLine}";
+                    else
+                        line = $"R:{value}{sp.NewLine}";
                     sp.Write(line);
                 }
             }

@@ -123,12 +123,17 @@ namespace belttentiontest
         // Timer tick event handler
         private void UpdateTimer_Tick(object? sender, EventArgs e)
         {
+            bool lmotor = lb_SelectedMotor.SelectedIndex == 0;
+
             if (checkBoxTest.Checked)
-                OnScaledValueUpdated((int)numericUpDownTarget.Value, true);
+                OnScaledValueUpdated((int)numericUpDownTarget.Value, 0, lmotor);
             else
             if (IracingCommunicator.Instance != null)
                 if (!IracingCommunicator.Instance.IsConnected)
-                    OnScaledValueUpdated(0.1f, true); //keep comuncations allive with small value when not connected to iRacing
+                {
+                    OnScaledValueUpdated(0.1f, 0, false); //keep communications alive with small value when not connected to iRacing
+                    OnScaledValueUpdated(0.1f, 0, true); //keep communications alive     with small value when not connected to iRacing
+                }
 
 
 
@@ -143,7 +148,7 @@ namespace belttentiontest
             BeginInvoke(new Action(() =>
             {
                 lb_carName.Text = $"Car: {CarName}";
-               
+
                 LoadCarSettings(CarName);
             }));
 
@@ -162,6 +167,8 @@ namespace belttentiontest
 
         private void OnIracingDisconnected()
         {
+            CarName = "NA";
+
             if (!IsHandleCreated)
             {
                 pendingIracingState = false;
@@ -218,6 +225,7 @@ namespace belttentiontest
                     ck_Inverted.Checked = L_INVERT;
                 }
                 cb_duelMotors.Checked = DuelMotors;
+                lblChangesNotSaved.Visible = false;
             }));
         }
 
@@ -336,6 +344,7 @@ namespace belttentiontest
                     maxGForceRecorded = gForce;
                     labelMaxGForce.Text = $"Max G-Force: {maxGForceRecorded:F2}";
                 }
+                // Removed trackBarGForce update
             }));
         }
 
@@ -423,15 +432,13 @@ namespace belttentiontest
             DrawCurveGraph();
         }
 
-        private void OnScaledValueUpdated(float value, bool lMotor)
+        private void OnScaledValueUpdated(float longValue, float LatValue, bool lMotor)
         {
-
             if (checkBoxTest.Checked)
-                value = (float)numericUpDownTarget.Value;
-
+                longValue = (float)numericUpDownTarget.Value;
 
             // Apply curve: value in [0,1023], curveAmount >= 0.0
-            float inputValue = Math.Clamp(value, 0, 7);
+            float inputValue = Math.Clamp(longValue, 0, 7);
             double normalized = inputValue / 7.0;
             double curved = Math.Pow(normalized, curveAmount); // 0..1
             float yValue = (float)curved * _gForceMult; // full scale
@@ -443,19 +450,25 @@ namespace belttentiontest
                 if (L_INVERT)
                     yValue = 1 - yValue;
                 yValue = (yValue * (L_MAX - L_MIN)) + L_MIN;
+
+
+                yValue += LatValue * (float)nud_coneringStrengh.Value; // add cornering effect
+                if (yValue > maxV) yValue = maxV + L_MIN;
             }
             else
             {
                 if (R_INVERT)
                     yValue = 1 - yValue;
                 yValue = (yValue * (R_MAX - R_MIN)) + R_MIN;
+
+                yValue += LatValue * (float)nud_coneringStrengh.Value; // add cornering effect
+                if (yValue > maxV) yValue = maxV + R_MIN;
             }
 
-                        
-            if (yValue > maxV) yValue = maxV;
 
-           
-            communicator.SendValue(Convert.ToInt32(yValue));
+
+
+            communicator.SendValue(yValue, lMotor);
         }
 
         private async void buttonConnect_Click(object sender, EventArgs e)
@@ -464,6 +477,9 @@ namespace belttentiontest
             {
                 autoConnectCts?.Cancel();
 
+                buttonConnect.Text = "Connecting...";
+                buttonConnect.Enabled = false;
+
                 string[] ports = SerialPort.GetPortNames();
                 if (ports.Length == 0)
                 {
@@ -471,6 +487,7 @@ namespace belttentiontest
                     labelStatus.ForeColor = System.Drawing.Color.Red;
                     Log("No COM ports found");
                     SetControlsEnabled(false);
+                    buttonConnect.Text = "Connect";
                     buttonConnect.Enabled = true;
                     return;
                 }
@@ -488,6 +505,7 @@ namespace belttentiontest
                         labelStatus.ForeColor = System.Drawing.Color.Black;
                         SetControlsEnabled(true);
                         buttonConnect.Enabled = false;
+                        buttonConnect.Text = "Connect";
                         communicator.SendRequestSettings();
 
                         communicator.StartSendLoop(() => checkBoxTest.Checked ? (int)numericUpDownTarget.Value : 0);
@@ -501,6 +519,7 @@ namespace belttentiontest
                     labelStatus.Text = "No device responded";
                     labelStatus.ForeColor = System.Drawing.Color.Red;
                     SetControlsEnabled(false);
+                    buttonConnect.Text = "Connect";
                     buttonConnect.Enabled = true;
                 }));
                 Log("Manual connect: No device responded");
@@ -511,6 +530,7 @@ namespace belttentiontest
                 labelStatus.ForeColor = System.Drawing.Color.Red;
                 Log($"Manual connect failed: {ex.Message}");
                 SetControlsEnabled(false);
+                buttonConnect.Text = "Connect";
                 buttonConnect.Enabled = true;
             }
         }
@@ -617,6 +637,7 @@ namespace belttentiontest
             numericUpDownGForceToBelt.Value = (decimal)settings.MaxGForceMult;
             numericUpDownMaxPower.Value = settings.MaxPower;
             numericUpDownCurveAmount.Value = (decimal)settings.CurveAmount;
+            nud_coneringStrengh.Value = (decimal)settings.CorneringStrength;
         }
 
         private void SaveCarSettings(string carName)
@@ -625,7 +646,8 @@ namespace belttentiontest
             {
                 MaxGForceMult = (float)numericUpDownGForceToBelt.Value,
                 MaxPower = (int)numericUpDownMaxPower.Value,
-                CurveAmount = (double)numericUpDownCurveAmount.Value
+                CurveAmount = (double)numericUpDownCurveAmount.Value,
+                CorneringStrength = (float)nud_coneringStrengh.Value
             };
             carSettingsStore.Settings[carName] = settings;
             try
@@ -636,18 +658,13 @@ namespace belttentiontest
             catch { }
         }
 
-        private void cb_duelMotors_CheckedChanged(object sender, EventArgs e)
-        {
-            DuelMotors = cb_duelMotors.Checked;
-        }
-
         private void nud_Motor_Start_ValueChanged(object sender, EventArgs e)
         {
             if (lb_SelectedMotor.SelectedIndex == 1)
                 R_MIN = (int)nud_Motor_Start.Value;
             else
                 L_MIN = (int)nud_Motor_Start.Value;
-
+            ShowChangesNotSaved();
         }
 
         private void nud_Motor_End_ValueChanged(object sender, EventArgs e)
@@ -656,15 +673,7 @@ namespace belttentiontest
                 R_MAX = (int)nud_Motor_End.Value;
             else
                 L_MAX = (int)nud_Motor_End.Value;
-        }
-
-        private async void bnt_Apply_Click(object sender, EventArgs e)
-        {
-            communicator.SendUpdatedSettings(L_MIN, L_MAX, R_MIN, R_MAX, L_INVERT, R_INVERT, DuelMotors);
-            // Show in-window label for feedback
-            lblSettingsSaved.Visible = true;
-            await Task.Delay(1500);
-            lblSettingsSaved.Visible = false;
+            ShowChangesNotSaved();
         }
 
         private void bnt_Inverted_CheckedChanged(object sender, EventArgs e)
@@ -673,11 +682,48 @@ namespace belttentiontest
                 R_INVERT = ck_Inverted.Checked;
             else
                 L_INVERT = ck_Inverted.Checked;
+            ShowChangesNotSaved();
+        }
+
+        private void cb_duelMotors_CheckedChanged(object sender, EventArgs e)
+        {
+            DuelMotors = cb_duelMotors.Checked;
+            ShowChangesNotSaved();
+        }
+
+        private void ShowChangesNotSaved()
+        {
+            lblChangesNotSaved.Visible = true;
+        }
+
+        private async void bnt_Apply_Click(object sender, EventArgs e)
+        {
+            communicator.SendUpdatedSettings(L_MIN, L_MAX, R_MIN, R_MAX, L_INVERT, R_INVERT, DuelMotors);
+            lblSettingsSaved.Visible = true;
+            lblChangesNotSaved.Visible = false;
+            await Task.Delay(1500);
+            lblSettingsSaved.Visible = false;
         }
 
         private void lb_SelectedMotor_SelectedIndexChanged(object sender, EventArgs e)
         {
             UpdateWindows();
+        }
+
+        private void nud_coneringStrengh_ValueChanged(object sender, EventArgs e)
+        {
+            if (!carSettingsStore.Settings.TryGetValue(CarName, out var settings))
+                return;
+            settings.CorneringStrength = (float)nud_coneringStrengh.Value;
+            SaveCarSettings(CarName);
+        }
+
+        private void nud_coneringStrengh_ValueChanged_1(object sender, EventArgs e)
+        {
+            if (!carSettingsStore.Settings.TryGetValue(CarName, out var settings))
+                return;
+            settings.CorneringStrength = (float)nud_coneringStrengh.Value;
+            SaveCarSettings(CarName);
         }
     }
 }

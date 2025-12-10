@@ -1,9 +1,6 @@
 #include <Servo.h>
 #include <EEPROM.h>
 
-
-#define POTENIOMETER_PIN A7
-
 #define LEFT_MOTOR 3
 #define RIGHT_MOTOR 9
 
@@ -20,45 +17,55 @@ Servo ServoLeft, ServoRight;
 int L_MIN = 0, R_MIN = 0, L_MAX = 180, R_MAX = 180;
 bool L_INVERT = false, R_INVERT = false, DUAL_MOTORS = false;
 
+// Track last time a data was received
+unsigned long lastDataTime = 0;
+
 // Save settings to EEPROM
 void saveSettings() {
   int addr = 0;
-  EEPROM.put(addr, L_MIN);      addr += sizeof(L_MIN);
-  EEPROM.put(addr, L_MAX);      addr += sizeof(L_MAX);
-  EEPROM.put(addr, R_MIN);      addr += sizeof(R_MIN);
-  EEPROM.put(addr, R_MAX);      addr += sizeof(R_MAX);
-  EEPROM.put(addr, L_INVERT);   addr += sizeof(L_INVERT);
-  EEPROM.put(addr, R_INVERT);   addr += sizeof(R_INVERT);
+  EEPROM.put(addr, L_MIN);
+  addr += sizeof(L_MIN);
+  EEPROM.put(addr, L_MAX);
+  addr += sizeof(L_MAX);
+  EEPROM.put(addr, R_MIN);
+  addr += sizeof(R_MIN);
+  EEPROM.put(addr, R_MAX);
+  addr += sizeof(R_MAX);
+  EEPROM.put(addr, L_INVERT);
+  addr += sizeof(L_INVERT);
+  EEPROM.put(addr, R_INVERT);
+  addr += sizeof(R_INVERT);
   EEPROM.put(addr, DUAL_MOTORS);
-
 }
 
 // Load settings from EEPROM
 void loadSettings() {
   int addr = 0;
-  EEPROM.get(addr, L_MIN);      addr += sizeof(L_MIN);
-  EEPROM.get(addr, L_MAX);      addr += sizeof(L_MAX);
-  EEPROM.get(addr, R_MIN);      addr += sizeof(R_MIN);
-  EEPROM.get(addr, R_MAX);      addr += sizeof(R_MAX);
-  EEPROM.get(addr, L_INVERT);   addr += sizeof(L_INVERT);
-  EEPROM.get(addr, R_INVERT);   addr += sizeof(R_INVERT);
+  EEPROM.get(addr, L_MIN);
+  addr += sizeof(L_MIN);
+  EEPROM.get(addr, L_MAX);
+  addr += sizeof(L_MAX);
+  EEPROM.get(addr, R_MIN);
+  addr += sizeof(R_MIN);
+  EEPROM.get(addr, R_MAX);
+  addr += sizeof(R_MAX);
+  EEPROM.get(addr, L_INVERT);
+  addr += sizeof(L_INVERT);
+  EEPROM.get(addr, R_INVERT);
+  addr += sizeof(R_INVERT);
   EEPROM.get(addr, DUAL_MOTORS);
-
 }
 
 
 void setup() {
   Serial.begin(9600);
 
+  digitalWrite(LEFT_MOTOR, LOW);
+  digitalWrite(RIGHT_MOTOR, LOW);
 
-  ServoLeft.attach(LEFT_MOTOR);
-  ServoRight.attach(RIGHT_MOTOR);
 
   loadSettings();
   Serial.println("Waiting for handshake... Send 'HELLO' to begin.");
-
-  ServoLeft.write(0);
-  ServoRight.write(0);
 }
 
 int outputFrames = 0;
@@ -68,6 +75,51 @@ unsigned long lastUpdate = 0;  // when the last update happened
 
 
 long TotalElapsed = 0;
+
+void SetUPServos() {
+  ServoLeft.attach(LEFT_MOTOR);
+  ServoRight.attach(RIGHT_MOTOR);
+  if (L_INVERT)
+    L_TARGET = L_MAX;
+  else
+    L_TARGET = L_MIN;
+
+  if (R_INVERT)
+    R_TARGET = R_MAX;
+  else
+    R_TARGET = R_MIN;
+
+   
+  // Map 0–180 range to 1000–2000 µs pulse width
+  int pulseL = map((int)L_TARGET, 0, 180, 500, 2500);
+  int pulseR = map((int)R_TARGET, 0, 180, 500, 2500);
+
+  ServoLeft.writeMicroseconds(pulseL);
+
+  if (DUAL_MOTORS)
+    ServoRight.writeMicroseconds(pulseR);
+}
+
+
+void ResetMotors()
+{
+   if (L_INVERT)
+    L_TARGET = L_MAX;
+  else
+    L_TARGET = L_MIN;
+
+  if (R_INVERT)
+    R_TARGET = R_MAX;
+  else
+    R_TARGET = R_MIN;
+}
+
+void DisconectServos() {
+  ResetMotors();
+  ServoLeft.detach();
+  ServoRight.detach();
+  
+}
 
 void ProcessSerial() {
   while (Serial.available() > 0) {
@@ -80,6 +132,7 @@ void ProcessSerial() {
     if (input.equalsIgnoreCase("HELLO")) {
       if (!handshakeComplete) {
         handshakeComplete = true;
+        SetUPServos();
         Serial.println("READY");
       }
 
@@ -133,7 +186,7 @@ void ProcessSerial() {
       R_INVERT = parts[5].toInt() != 0;
       DUAL_MOTORS = parts[6].toInt() != 0;
 
-      
+
       saveSettings();
     } else {
       int separatorIndex = input.indexOf(':');
@@ -143,10 +196,12 @@ void ProcessSerial() {
         float value = valueStr.toFloat();
         if (key == "L" && value >= L_MIN && value <= L_MAX) {
           L_TARGET = value;
+          lastDataTime = millis();
         }
 
         if (key == "R" && value >= R_MIN && value <= R_MAX) {
           R_TARGET = value;
+          lastDataTime = millis();
         }
       }
     }
@@ -172,7 +227,21 @@ void loop() {
   // }
   if (!handshakeComplete) return;
 
-  ServoLeft.write(L_TARGET);
+
+  if (millis() - lastDataTime > 5000) {
+    ResetMotors();
+  }
+
+
+  // Map 0–180 range to 1000–2000 µs pulse width
+  int pulseL = map((int)L_TARGET, 0, 180, 500, 2500);
+  int pulseR = map((int)R_TARGET, 0, 180, 500, 2500);
+
+  ServoLeft.writeMicroseconds(pulseL);
+
+  if (DUAL_MOTORS)
+    ServoRight.writeMicroseconds(pulseR);
+  // ServoLeft.write(L_TARGET);
 
 
 

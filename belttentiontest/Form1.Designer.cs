@@ -22,7 +22,6 @@ namespace belttentiontest
         private PictureBox pictureBoxCurveGraph;
         private PercentageUpDown numericUpDownMaxPower;
         private Label labelMaxPower;
-        private Label labelXAxis; // X axis label for the graph
         private NumericUpDown numericUpDownGForceToBelt;
         private Label labelGForceToBelt;
         private Label labelAnalogValue;
@@ -30,6 +29,7 @@ namespace belttentiontest
         private Label labelDistanceValue;
         private Label labelMaxGForce; // Max G-Force label
         private Label lblSettingsSaved;
+        private Label lblChangesNotSaved; // Label for unsaved changes
 
         /// <summary>
         /// Clean up any resources being used.
@@ -63,7 +63,6 @@ namespace belttentiontest
             pictureBoxCurveGraph = new PictureBox();
             numericUpDownMaxPower = new PercentageUpDown();
             labelMaxPower = new Label();
-            labelXAxis = new Label();
             label1 = new Label();
             numericUpDownGForceToBelt = new NumericUpDown();
             labelGForceToBelt = new Label();
@@ -72,6 +71,8 @@ namespace belttentiontest
             labelDistanceValue = new Label();
             labelMaxGForce = new Label();
             gb_Car_Settings = new GroupBox();
+            nud_coneringStrengh = new NumericUpDown();
+            label4 = new Label();
             lb_carName = new Label();
             labelCurveAmount = new Label();
             label2 = new Label();
@@ -84,12 +85,14 @@ namespace belttentiontest
             nud_Motor_Start = new NumericUpDown();
             label3 = new Label();
             lblSettingsSaved = new Label();
+            lblChangesNotSaved = new Label();
             ((ISupportInitialize)numericUpDownTarget).BeginInit();
             ((ISupportInitialize)numericUpDownCurveAmount).BeginInit();
             ((ISupportInitialize)pictureBoxCurveGraph).BeginInit();
             ((ISupportInitialize)numericUpDownMaxPower).BeginInit();
             ((ISupportInitialize)numericUpDownGForceToBelt).BeginInit();
             gb_Car_Settings.SuspendLayout();
+            ((ISupportInitialize)nud_coneringStrengh).BeginInit();
             groupBox1.SuspendLayout();
             ((ISupportInitialize)nud_Motor_End).BeginInit();
             ((ISupportInitialize)nud_Motor_Start).BeginInit();
@@ -131,7 +134,7 @@ namespace belttentiontest
             // 
             // textBoxIracingStatus
             // 
-            textBoxIracingStatus.Location = new Point(24, 483);
+            textBoxIracingStatus.Location = new Point(25, 513);
             textBoxIracingStatus.Name = "textBoxIracingStatus";
             textBoxIracingStatus.ReadOnly = true;
             textBoxIracingStatus.Size = new Size(260, 23);
@@ -141,7 +144,7 @@ namespace belttentiontest
             // labelGForce
             // 
             labelGForce.AutoSize = true;
-            labelGForce.Location = new Point(16, 321);
+            labelGForce.Location = new Point(16, 310);
             labelGForce.Name = "labelGForce";
             labelGForce.Size = new Size(76, 15);
             labelGForce.TabIndex = 7;
@@ -150,7 +153,7 @@ namespace belttentiontest
             // checkBoxTest
             // 
             checkBoxTest.AutoSize = true;
-            checkBoxTest.Location = new Point(146, 102);
+            checkBoxTest.Location = new Point(159, 102);
             checkBoxTest.Name = "checkBoxTest";
             checkBoxTest.Size = new Size(47, 19);
             checkBoxTest.TabIndex = 8;
@@ -197,15 +200,6 @@ namespace belttentiontest
             labelMaxPower.Size = new Size(70, 15);
             labelMaxPower.TabIndex = 15;
             labelMaxPower.Text = "Max Output";
-            // 
-            // labelXAxis
-            // 
-            labelXAxis.AutoSize = true;
-            labelXAxis.Location = new Point(24, 509);
-            labelXAxis.Name = "labelXAxis";
-            labelXAxis.Size = new Size(80, 15);
-            labelXAxis.TabIndex = 16;
-            labelXAxis.Text = "Input G-Force";
             // 
             // label1
             // 
@@ -268,7 +262,7 @@ namespace belttentiontest
             // labelMaxGForce
             // 
             labelMaxGForce.AutoSize = true;
-            labelMaxGForce.Location = new Point(160, 321);
+            labelMaxGForce.Location = new Point(160, 310);
             labelMaxGForce.Name = "labelMaxGForce";
             labelMaxGForce.Size = new Size(101, 15);
             labelMaxGForce.TabIndex = 22;
@@ -276,6 +270,8 @@ namespace belttentiontest
             // 
             // gb_Car_Settings
             // 
+            gb_Car_Settings.Controls.Add(nud_coneringStrengh);
+            gb_Car_Settings.Controls.Add(label4);
             gb_Car_Settings.Controls.Add(lb_carName);
             gb_Car_Settings.Controls.Add(labelCurveAmount);
             gb_Car_Settings.Controls.Add(labelMaxGForce);
@@ -292,10 +288,32 @@ namespace belttentiontest
             gb_Car_Settings.Controls.Add(label1);
             gb_Car_Settings.Location = new Point(12, 76);
             gb_Car_Settings.Name = "gb_Car_Settings";
-            gb_Car_Settings.Size = new Size(289, 347);
+            gb_Car_Settings.Size = new Size(289, 404);
             gb_Car_Settings.TabIndex = 23;
             gb_Car_Settings.TabStop = false;
             gb_Car_Settings.Text = "Car Settings";
+            // 
+            // nud_coneringStrengh
+            // 
+            nud_coneringStrengh.DecimalPlaces = 2;
+            nud_coneringStrengh.Increment = new decimal(new int[] { 5, 0, 0, 131072 });
+            nud_coneringStrengh.Location = new Point(213, 370);
+            nud_coneringStrengh.Maximum = new decimal(new int[] { 7, 0, 0, 0 });
+            nud_coneringStrengh.Minimum = new decimal(new int[] { 5, 0, 0, 65536 });
+            nud_coneringStrengh.Name = "nud_coneringStrengh";
+            nud_coneringStrengh.Size = new Size(60, 23);
+            nud_coneringStrengh.TabIndex = 36;
+            nud_coneringStrengh.Value = new decimal(new int[] { 5, 0, 0, 65536 });
+            nud_coneringStrengh.ValueChanged += nud_coneringStrengh_ValueChanged_1;
+            // 
+            // label4
+            // 
+            label4.AutoSize = true;
+            label4.Location = new Point(20, 372);
+            label4.Name = "label4";
+            label4.Size = new Size(104, 15);
+            label4.TabIndex = 35;
+            label4.Text = "Conering Strength";
             // 
             // lb_carName
             // 
@@ -337,6 +355,7 @@ namespace belttentiontest
             groupBox1.Controls.Add(label3);
             groupBox1.Controls.Add(label2);
             groupBox1.Controls.Add(lblSettingsSaved);
+            groupBox1.Controls.Add(lblChangesNotSaved);
             groupBox1.Location = new Point(26, 542);
             groupBox1.Name = "groupBox1";
             groupBox1.Size = new Size(263, 196);
@@ -379,7 +398,7 @@ namespace belttentiontest
             // 
             // bnt_Apply
             // 
-            bnt_Apply.Location = new Point(175, 167);
+            bnt_Apply.Location = new Point(171, 167);
             bnt_Apply.Name = "bnt_Apply";
             bnt_Apply.Size = new Size(75, 23);
             bnt_Apply.TabIndex = 29;
@@ -423,12 +442,24 @@ namespace belttentiontest
             lblSettingsSaved.AutoSize = true;
             lblSettingsSaved.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
             lblSettingsSaved.ForeColor = Color.Green;
-            lblSettingsSaved.Location = new Point(146, 145);
+            lblSettingsSaved.Location = new Point(150, 145);
             lblSettingsSaved.Name = "lblSettingsSaved";
             lblSettingsSaved.Size = new Size(109, 19);
             lblSettingsSaved.TabIndex = 33;
             lblSettingsSaved.Text = "Settings saved.";
             lblSettingsSaved.Visible = false;
+            // 
+            // lblChangesNotSaved
+            // 
+            lblChangesNotSaved.AutoSize = true;
+            lblChangesNotSaved.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            lblChangesNotSaved.ForeColor = Color.Red;
+            lblChangesNotSaved.Location = new Point(58, 126);
+            lblChangesNotSaved.Name = "lblChangesNotSaved";
+            lblChangesNotSaved.Size = new Size(139, 19);
+            lblChangesNotSaved.TabIndex = 34;
+            lblChangesNotSaved.Text = "Changes Not Saved";
+            lblChangesNotSaved.Visible = false;
             // 
             // Form1
             // 
@@ -440,7 +471,6 @@ namespace belttentiontest
             Controls.Add(textBoxIracingStatus);
             Controls.Add(buttonConnect);
             Controls.Add(labelStatus);
-            Controls.Add(labelXAxis);
             Name = "Form1";
             Text = "Belt Tention Test";
             ((ISupportInitialize)numericUpDownTarget).EndInit();
@@ -450,6 +480,7 @@ namespace belttentiontest
             ((ISupportInitialize)numericUpDownGForceToBelt).EndInit();
             gb_Car_Settings.ResumeLayout(false);
             gb_Car_Settings.PerformLayout();
+            ((ISupportInitialize)nud_coneringStrengh).EndInit();
             groupBox1.ResumeLayout(false);
             groupBox1.PerformLayout();
             ((ISupportInitialize)nud_Motor_End).EndInit();
@@ -473,5 +504,7 @@ namespace belttentiontest
         private ListBox lb_SelectedMotor;
         private CheckBox cb_duelMotors;
         private CheckBox ck_Inverted;
+        private NumericUpDown nud_coneringStrengh;
+        private Label label4;
     }
 }
