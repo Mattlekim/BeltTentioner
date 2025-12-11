@@ -40,6 +40,8 @@ namespace belttentiontest
         private CarSettingsStore carSettingsStore = new CarSettingsStore();
         private string carSettingsFile => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "car_settings.json");
 
+        private float testhorGforce = 0; // Default value for sl_horGforce
+
         public Form1()
         {
             InitializeComponent();
@@ -126,13 +128,20 @@ namespace belttentiontest
             bool lmotor = lb_SelectedMotor.SelectedIndex == 0;
 
             if (checkBoxTest.Checked)
-                OnScaledValueUpdated((int)numericUpDownTarget.Value, 0, lmotor);
+                OnScaledValueUpdated((int)numericUpDownTarget.Value, 0, 0, lmotor);
+                if (cb_test_LatForce.Checked)
+            {
+                
+                OnScaledValueUpdated(0, testhorGforce < 0 ? -testhorGforce : 0, 0,true);
+
+                OnScaledValueUpdated(0, testhorGforce > 0 ? testhorGforce : 0, 0,false);
+            }
             else
             if (IracingCommunicator.Instance != null)
                 if (!IracingCommunicator.Instance.IsConnected)
                 {
-                    OnScaledValueUpdated(0.1f, 0, false); //keep communications alive with small value when not connected to iRacing
-                    OnScaledValueUpdated(0.1f, 0, true); //keep communications alive     with small value when not connected to iRacing
+                    OnScaledValueUpdated(0.1f, 0, 0, false); //keep communications alive with small value when not connected to iRacing
+                    OnScaledValueUpdated(0.1f, 0, 0, true); //keep communications alive     with small value when not connected to iRacing
                 }
 
 
@@ -432,11 +441,12 @@ namespace belttentiontest
             DrawCurveGraph();
         }
 
-        private void OnScaledValueUpdated(float longValue, float LatValue, bool lMotor)
+        private void OnScaledValueUpdated(float longValue, float LatValue, float verVal, bool lMotor)
         {
             if (checkBoxTest.Checked)
                 longValue = (float)numericUpDownTarget.Value;
 
+            
             // Apply curve: value in [0,1023], curveAmount >= 0.0
             float inputValue = Math.Clamp(longValue, 0, 7);
             double normalized = inputValue / 7.0;
@@ -445,28 +455,67 @@ namespace belttentiontest
             yValue *= (_maxPower / 100f);
             float maxV = L_MAX - L_MIN;
 
+
+            LatValue = Math.Clamp(LatValue, 0, 5);
+
+
             if (lMotor)
             {
                 if (L_INVERT)
                     yValue = 1 - yValue;
                 yValue = (yValue * (L_MAX - L_MIN)) + L_MIN;
 
+                if (L_INVERT)
+                {
+                    yValue -= LatValue * (float)nud_coneringStrengh.Value; // add cornering effect
+                    if (verVal > 1)
+                    {
+                        yValue -= (verVal - 1) * (float)nudVertical.Value;
+                    }
+                }
+                else
+                {
+                    yValue += LatValue * (float)nud_coneringStrengh.Value; // add cornering effect
+                    if (verVal > 1)
+                    {
+                        yValue += (verVal - 1) * (float)nudVertical.Value;
+                    }
+                }
 
-                yValue += LatValue * (float)nud_coneringStrengh.Value; // add cornering effect
+                if (yValue < 0) yValue = 0;
                 if (yValue > maxV) yValue = maxV + L_MIN;
+
+             
             }
             else
             {
                 if (R_INVERT)
                     yValue = 1 - yValue;
                 yValue = (yValue * (R_MAX - R_MIN)) + R_MIN;
-
-                yValue += LatValue * (float)nud_coneringStrengh.Value; // add cornering effect
+                if (R_INVERT)
+                {
+                    yValue -= LatValue * (float)nud_coneringStrengh.Value; // add cornering effect
+                    if (verVal > 1)
+                    {
+                        yValue -= (verVal - 1) * (float)nudVertical.Value;
+                    }
+                }
+                else
+                {
+                    yValue += LatValue * (float)nud_coneringStrengh.Value; // add cornering effect
+                    if (verVal > 1)
+                    {
+                        yValue += (verVal - 1) * (float)nudVertical.Value;
+                        yValue += (verVal - 1) * (float)nudVertical.Value;
+                    }
+                }
+                    if (yValue < 0) yValue = 0;
                 if (yValue > maxV) yValue = maxV + R_MIN;
+
             }
 
 
-
+           
 
             communicator.SendValue(yValue, lMotor);
         }
@@ -638,6 +687,7 @@ namespace belttentiontest
             numericUpDownMaxPower.Value = settings.MaxPower;
             numericUpDownCurveAmount.Value = (decimal)settings.CurveAmount;
             nud_coneringStrengh.Value = (decimal)settings.CorneringStrength;
+            nudVertical.Value = (decimal)settings.VerticalStrength; // NEW
         }
 
         private void SaveCarSettings(string carName)
@@ -647,7 +697,8 @@ namespace belttentiontest
                 MaxGForceMult = (float)numericUpDownGForceToBelt.Value,
                 MaxPower = (int)numericUpDownMaxPower.Value,
                 CurveAmount = (double)numericUpDownCurveAmount.Value,
-                CorneringStrength = (float)nud_coneringStrengh.Value
+                CorneringStrength = (float)nud_coneringStrengh.Value,
+                VerticalStrength = (float)nudVertical.Value // NEW
             };
             carSettingsStore.Settings[carName] = settings;
             try
@@ -723,6 +774,30 @@ namespace belttentiontest
             if (!carSettingsStore.Settings.TryGetValue(CarName, out var settings))
                 return;
             settings.CorneringStrength = (float)nud_coneringStrengh.Value;
+            SaveCarSettings(CarName);
+        }
+
+        private void sl_horGforce_ValueChanged(object sender, EventArgs e)
+        {
+            testhorGforce = sl_horGforce.Value / 10f;
+            // You can add logic here to use horGforce in your calculations
+        }
+
+        private void cb_testGFroce_CheckedChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void sl_horGforce_Scroll(object sender, EventArgs e)
+        {
+
+        }
+
+        private void nudVertical_ValueChanged(object sender, EventArgs e)
+        {
+            if (!carSettingsStore.Settings.TryGetValue(CarName, out var settings))
+                return;
+            settings.VerticalStrength = (float)nudVertical.Value;
             SaveCarSettings(CarName);
         }
     }

@@ -26,7 +26,7 @@ namespace belttentiontest
         public event Action<float>? GForceUpdated;
 
         // Event to notify when scaledValue is updated
-        public event Action<float, float, bool>? ScaledValueUpdated;
+        public event Action<float, float, float, bool>? ScaledValueUpdated;
 
         public bool IsConnected => _isConnected;
 
@@ -90,8 +90,8 @@ namespace belttentiontest
                 bool isReplay = _iracingClient.Data.GetBool("IsReplayPlaying");
                 if (isReplay)
                 {
-                    ScaledValueUpdated?.Invoke(0, 0, false);
-                    ScaledValueUpdated?.Invoke(0, 0, true);
+                    ScaledValueUpdated?.Invoke(0, 0, 0, false);
+                    ScaledValueUpdated?.Invoke(0, 0, 0, true);
                     GForceUpdated?.Invoke(0);
                     return;
                 }
@@ -110,6 +110,9 @@ namespace belttentiontest
 
                 float lat = _iracingClient.Data.GetFloat("LatAccel");
                 float lat_g_Force = lat / 9.81f;
+
+                float ver = _iracingClient.Data.GetFloat("VertAccel");
+                float ver_g_Force = ver / 9.81f;
                 // Notify subscribers with the new g_Force value
 
                 float lat_lMotor = 0, lat_rMotor = 0;
@@ -128,8 +131,8 @@ namespace belttentiontest
 
             
 
-                ScaledValueUpdated?.Invoke(-lmotor, lat_lMotor, false);
-                ScaledValueUpdated?.Invoke(-rmotor, lat_rMotor, true);
+                ScaledValueUpdated?.Invoke(-lmotor, lat_lMotor, ver_g_Force < 0 ? 0: ver_g_Force, false);
+                ScaledValueUpdated?.Invoke(-rmotor, lat_rMotor, ver_g_Force < 0 ? 0 : ver_g_Force, true);
 
                 GForceUpdated?.Invoke(-Math.Clamp(g_Force,-1000,0));
             }

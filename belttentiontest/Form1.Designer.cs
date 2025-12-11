@@ -71,10 +71,15 @@ namespace belttentiontest
             labelDistanceValue = new Label();
             labelMaxGForce = new Label();
             gb_Car_Settings = new GroupBox();
+            nudVertical = new NumericUpDown();
+            label5 = new Label();
+            cb_test_LatForce = new CheckBox();
             nud_coneringStrengh = new NumericUpDown();
             label4 = new Label();
             lb_carName = new Label();
             labelCurveAmount = new Label();
+            lblHorGforce = new Label();
+            sl_horGforce = new TrackBar();
             label2 = new Label();
             groupBox1 = new GroupBox();
             ck_Inverted = new CheckBox();
@@ -92,7 +97,9 @@ namespace belttentiontest
             ((ISupportInitialize)numericUpDownMaxPower).BeginInit();
             ((ISupportInitialize)numericUpDownGForceToBelt).BeginInit();
             gb_Car_Settings.SuspendLayout();
+            ((ISupportInitialize)nudVertical).BeginInit();
             ((ISupportInitialize)nud_coneringStrengh).BeginInit();
+            ((ISupportInitialize)sl_horGforce).BeginInit();
             groupBox1.SuspendLayout();
             ((ISupportInitialize)nud_Motor_End).BeginInit();
             ((ISupportInitialize)nud_Motor_Start).BeginInit();
@@ -144,7 +151,7 @@ namespace belttentiontest
             // labelGForce
             // 
             labelGForce.AutoSize = true;
-            labelGForce.Location = new Point(16, 310);
+            labelGForce.Location = new Point(16, 299);
             labelGForce.Name = "labelGForce";
             labelGForce.Size = new Size(76, 15);
             labelGForce.TabIndex = 7;
@@ -262,7 +269,7 @@ namespace belttentiontest
             // labelMaxGForce
             // 
             labelMaxGForce.AutoSize = true;
-            labelMaxGForce.Location = new Point(160, 310);
+            labelMaxGForce.Location = new Point(160, 299);
             labelMaxGForce.Name = "labelMaxGForce";
             labelMaxGForce.Size = new Size(101, 15);
             labelMaxGForce.TabIndex = 22;
@@ -270,6 +277,9 @@ namespace belttentiontest
             // 
             // gb_Car_Settings
             // 
+            gb_Car_Settings.Controls.Add(nudVertical);
+            gb_Car_Settings.Controls.Add(label5);
+            gb_Car_Settings.Controls.Add(cb_test_LatForce);
             gb_Car_Settings.Controls.Add(nud_coneringStrengh);
             gb_Car_Settings.Controls.Add(label4);
             gb_Car_Settings.Controls.Add(lb_carName);
@@ -286,34 +296,69 @@ namespace belttentiontest
             gb_Car_Settings.Controls.Add(numericUpDownMaxPower);
             gb_Car_Settings.Controls.Add(numericUpDownGForceToBelt);
             gb_Car_Settings.Controls.Add(label1);
+            gb_Car_Settings.Controls.Add(lblHorGforce);
+            gb_Car_Settings.Controls.Add(sl_horGforce);
             gb_Car_Settings.Location = new Point(12, 76);
             gb_Car_Settings.Name = "gb_Car_Settings";
-            gb_Car_Settings.Size = new Size(289, 404);
+            gb_Car_Settings.Size = new Size(289, 431);
             gb_Car_Settings.TabIndex = 23;
             gb_Car_Settings.TabStop = false;
             gb_Car_Settings.Text = "Car Settings";
             // 
+            // nudVertical
+            // 
+            nudVertical.DecimalPlaces = 2;
+            nudVertical.Increment = new decimal(new int[] { 1, 0, 0, 65536 });
+            nudVertical.Location = new Point(214, 400);
+            nudVertical.Maximum = new decimal(new int[] { 30, 0, 0, 0 });
+            nudVertical.Minimum = new decimal(new int[] { 5, 0, 0, 65536 });
+            nudVertical.Name = "nudVertical";
+            nudVertical.Size = new Size(60, 23);
+            nudVertical.TabIndex = 54;
+            nudVertical.Value = new decimal(new int[] { 1, 0, 0, 0 });
+            nudVertical.ValueChanged += new System.EventHandler(this.nudVertical_ValueChanged);
+            // 
+            // label5
+            // 
+            label5.AutoSize = true;
+            label5.Location = new Point(21, 403);
+            label5.Name = "label5";
+            label5.Size = new Size(93, 15);
+            label5.TabIndex = 53;
+            label5.Text = "Vertical Strength";
+            // 
+            // cb_test_LatForce
+            // 
+            cb_test_LatForce.AutoSize = true;
+            cb_test_LatForce.Location = new Point(173, 316);
+            cb_test_LatForce.Name = "cb_test_LatForce";
+            cb_test_LatForce.Size = new Size(47, 19);
+            cb_test_LatForce.TabIndex = 52;
+            cb_test_LatForce.Text = "Test";
+            cb_test_LatForce.UseVisualStyleBackColor = true;
+            cb_test_LatForce.CheckedChanged += cb_testGFroce_CheckedChanged;
+            // 
             // nud_coneringStrengh
             // 
             nud_coneringStrengh.DecimalPlaces = 2;
-            nud_coneringStrengh.Increment = new decimal(new int[] { 5, 0, 0, 131072 });
-            nud_coneringStrengh.Location = new Point(213, 370);
-            nud_coneringStrengh.Maximum = new decimal(new int[] { 7, 0, 0, 0 });
+            nud_coneringStrengh.Increment = new decimal(new int[] { 1, 0, 0, 65536 });
+            nud_coneringStrengh.Location = new Point(213, 367);
+            nud_coneringStrengh.Maximum = new decimal(new int[] { 30, 0, 0, 0 });
             nud_coneringStrengh.Minimum = new decimal(new int[] { 5, 0, 0, 65536 });
             nud_coneringStrengh.Name = "nud_coneringStrengh";
             nud_coneringStrengh.Size = new Size(60, 23);
             nud_coneringStrengh.TabIndex = 36;
-            nud_coneringStrengh.Value = new decimal(new int[] { 5, 0, 0, 65536 });
+            nud_coneringStrengh.Value = new decimal(new int[] { 1, 0, 0, 0 });
             nud_coneringStrengh.ValueChanged += nud_coneringStrengh_ValueChanged_1;
             // 
             // label4
             // 
             label4.AutoSize = true;
-            label4.Location = new Point(20, 372);
+            label4.Location = new Point(20, 370);
             label4.Name = "label4";
-            label4.Size = new Size(104, 15);
+            label4.Size = new Size(108, 15);
             label4.TabIndex = 35;
-            label4.Text = "Conering Strength";
+            label4.Text = "Cornering Strength";
             // 
             // lb_carName
             // 
@@ -332,6 +377,27 @@ namespace belttentiontest
             labelCurveAmount.Size = new Size(85, 15);
             labelCurveAmount.TabIndex = 12;
             labelCurveAmount.Text = "Curve Amount";
+            // 
+            // lblHorGforce
+            // 
+            lblHorGforce.AutoSize = true;
+            lblHorGforce.Location = new Point(57, 316);
+            lblHorGforce.Name = "lblHorGforce";
+            lblHorGforce.Size = new Size(105, 15);
+            lblHorGforce.TabIndex = 51;
+            lblHorGforce.Text = "Cornering G-Force";
+            // 
+            // sl_horGforce
+            // 
+            sl_horGforce.Location = new Point(20, 335);
+            sl_horGforce.Maximum = 50;
+            sl_horGforce.Minimum = -50;
+            sl_horGforce.Name = "sl_horGforce";
+            sl_horGforce.Size = new Size(253, 45);
+            sl_horGforce.TabIndex = 50;
+            sl_horGforce.TickFrequency = 10;
+            sl_horGforce.Scroll += sl_horGforce_Scroll;
+            sl_horGforce.ValueChanged += sl_horGforce_ValueChanged;
             // 
             // label2
             // 
@@ -480,7 +546,9 @@ namespace belttentiontest
             ((ISupportInitialize)numericUpDownGForceToBelt).EndInit();
             gb_Car_Settings.ResumeLayout(false);
             gb_Car_Settings.PerformLayout();
+            ((ISupportInitialize)nudVertical).EndInit();
             ((ISupportInitialize)nud_coneringStrengh).EndInit();
+            ((ISupportInitialize)sl_horGforce).EndInit();
             groupBox1.ResumeLayout(false);
             groupBox1.PerformLayout();
             ((ISupportInitialize)nud_Motor_End).EndInit();
@@ -506,5 +574,10 @@ namespace belttentiontest
         private CheckBox ck_Inverted;
         private NumericUpDown nud_coneringStrengh;
         private Label label4;
+        private TrackBar sl_horGforce;
+        private Label lblHorGforce;
+        private CheckBox cb_test_LatForce;
+        private NumericUpDown nudVertical;
+        private Label label5;
     }
 }
