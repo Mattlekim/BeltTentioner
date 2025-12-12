@@ -457,7 +457,9 @@ namespace belttentiontest
 
 
             LatValue = Math.Clamp(LatValue, 0, 5);
-
+            float lat_normal = LatValue / 5.0f; // normalize to 0..1
+            double lat_curved = Math.Pow(lat_normal, curveAmount);
+            LatValue = (float)lat_curved * 5f; // scale back to 0..5
 
             if (lMotor)
             {
