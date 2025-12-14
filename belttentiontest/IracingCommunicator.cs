@@ -28,6 +28,8 @@ namespace belttentiontest
         // Event to notify when scaledValue is updated
         public event Action<float, float, float, bool>? ScaledValueUpdated;
 
+        public event Action? ABSValueUpdated;
+
         public bool IsConnected => _isConnected;
 
         IRacingSdk? _iracingClient;
@@ -71,9 +73,11 @@ namespace belttentiontest
 
         string _oldCarName = string.Empty;
      
+        private bool _absActive = false;
+
         public void OnClientTelemetryData()
         {
-            if (_iracingClient == null) return;
+            if (_iracingClient != null)
             {
 
                 if (_iracingClient.Data.SessionInfo != null)
@@ -86,6 +90,9 @@ namespace belttentiontest
                     }
                     _oldCarName = carName;
                 }
+
+                _absActive = false;
+                _absActive = _iracingClient.Data.GetBool("BrakeABSactive");
 
                 bool isReplay = _iracingClient.Data.GetBool("IsReplayPlaying");
                 if (isReplay)
@@ -104,9 +111,7 @@ namespace belttentiontest
                     lmotor = 0;
 
                 if (rmotor > 0)
-                {
                     rmotor = 0;
-                }
 
                 float lat = _iracingClient.Data.GetFloat("LatAccel");
                 float lat_g_Force = lat / 9.81f;
@@ -134,10 +139,39 @@ namespace belttentiontest
                 ScaledValueUpdated?.Invoke(-lmotor, lat_lMotor, ver_g_Force < 0 ? 0: ver_g_Force, false);
                 ScaledValueUpdated?.Invoke(-rmotor, lat_rMotor, ver_g_Force < 0 ? 0 : ver_g_Force, true);
 
+                if (!_absActive)
+                    ABSValueUpdated?.Invoke();
                 GForceUpdated?.Invoke(-Math.Clamp(g_Force,-1000,0));
+                return;
             }
+
+         
             // Telemetry data received - placeholder for future processing
         }
+        bool flip;
+        public void CalculateABSEffect(ref float lmotor, ref float rmotor)
+        {
+            if (flip)
+            {
+                lmotor += ABSStrength;
+                rmotor += ABSStrength;
+                flip = !flip;
+                return;
+            }
+
+
+            // ABS effect: alternate between 0 and ABSStrength at the desired frequency (using ABSFrequency)
+            float t = (float)DateTime.Now.TimeOfDay.TotalSeconds;
+            float freq = ABSFrequency > 0 ? ABSFrequency : 40.0f; // Default to 40Hz if not set
+            float squarel = Math.Sin(t * freq * 2 * Math.PI) > 0 ? 1.0f : 0.0f;
+            float squarer = Math.Sin((t + ABSFrequency) * freq * 2 * Math.PI) > 0 ? 1.0f : 0.0f;
+            float absPulsel = squarel * ABSStrength;
+            float absPulser = squarer * ABSStrength;
+            lmotor += absPulsel;
+            rmotor += absPulser;
+        }
+
+        public float ABSFrequency { get; set; } = 4.0f; // Frequency in Hz, default 40Hz
 
         private void UnsubscribeFromSdkEvents()
         {
@@ -172,6 +206,11 @@ namespace belttentiontest
             }
         }
 
+
+        public float ABSStrength = 1f;
+        
+
+     
         /// <summary>
         /// Stop monitoring and shutdown the IRacing SDK client without blocking indefinitely.
         /// </summary>

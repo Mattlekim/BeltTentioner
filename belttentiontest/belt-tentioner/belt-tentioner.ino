@@ -20,6 +20,13 @@ bool L_INVERT = false, R_INVERT = false, DUAL_MOTORS = false;
 // Track last time a data was received
 unsigned long lastDataTime = 0;
 
+int ABS_STRENGTH = 6;
+bool ABS_ACTIVATED = true;
+float ABS_FRQ = 1;
+float abs_frame = 0;
+float L_ABS, R_ABS;
+
+byte ABS_RUNNING_FRAME = 0;
 // Save settings to EEPROM
 void saveSettings() {
   int addr = 0;
@@ -89,7 +96,7 @@ void SetUPServos() {
   else
     R_TARGET = R_MIN;
 
-   
+
   // Map 0–180 range to 1000–2000 µs pulse width
   int pulseL = map((int)L_TARGET, 0, 180, 500, 2500);
   int pulseR = map((int)R_TARGET, 0, 180, 500, 2500);
@@ -101,9 +108,9 @@ void SetUPServos() {
 }
 
 
-void ResetMotors()
-{
-   if (L_INVERT)
+void ResetMotors() {
+  ABS_ACTIVATED = false;
+  if (L_INVERT)
     L_TARGET = L_MAX;
   else
     L_TARGET = L_MIN;
@@ -118,8 +125,8 @@ void DisconectServos() {
   ResetMotors();
   ServoLeft.detach();
   ServoRight.detach();
-  
 }
+
 
 void ProcessSerial() {
   while (Serial.available() > 0) {
@@ -188,6 +195,12 @@ void ProcessSerial() {
 
 
       saveSettings();
+    } else if (input.startsWith("ABS")) {
+      String numberPart = input.substring(3);  // skip "ABS"
+      ABS_STRENGTH = numberPart.toInt();
+      ABS_ACTIVATED = true;
+      lastDataTime = millis();
+      ABS_RUNNING_FRAME = 0;
     } else {
       int separatorIndex = input.indexOf(':');
       if (separatorIndex > 0) {
@@ -208,6 +221,7 @@ void ProcessSerial() {
   }
 }
 
+
 void loop() {
   unsigned long now = millis();  // current time in ms
                                  // time since last update
@@ -225,17 +239,61 @@ void loop() {
   // Serial.println(L_TARGET);
   //   TotalElapsed = 0;
   // }
+
+
   if (!handshakeComplete) return;
+
+
 
 
   if (millis() - lastDataTime > 5000) {
     ResetMotors();
   }
 
+  L_ABS = 0;
+  R_ABS = 0;
+
+  if (ABS_ACTIVATED) {
+    ABS_RUNNING_FRAME++;
+    if (ABS_RUNNING_FRAME > 3)
+      ABS_ACTIVATED = false;
+    if (abs_frame > ABS_FRQ) {
+      if (L_INVERT)
+        L_ABS = -ABS_STRENGTH;
+      else
+        L_ABS = ABS_STRENGTH;
+
+
+    } else {
+      if (R_INVERT)
+        R_ABS = -ABS_STRENGTH;
+      else
+        R_ABS = ABS_STRENGTH;
+    }
+  }
+  // L_ABS = 0;
+  L_ABS += L_TARGET;
+  R_ABS += R_TARGET;
+  abs_frame++;
+  if (abs_frame >= ABS_FRQ * 2)
+    abs_frame = 0;
+  if (L_ABS > L_MAX)
+    L_ABS = L_MAX;
+
+  if (L_ABS < L_MIN)
+    L_ABS = L_MIN;
+
+  if (R_ABS > R_MAX)
+    R_ABS = R_MAX;
+
+  if (R_ABS < R_MIN)
+    R_ABS = R_MIN;
+
+
 
   // Map 0–180 range to 1000–2000 µs pulse width
-  int pulseL = map((int)L_TARGET, 0, 180, 500, 2500);
-  int pulseR = map((int)R_TARGET, 0, 180, 500, 2500);
+  int pulseL = map((int)L_ABS, 0, 180, 500, 2500);
+  int pulseR = map((int)R_ABS, 0, 180, 500, 2500);
 
   ServoLeft.writeMicroseconds(pulseL);
 

@@ -37,7 +37,6 @@ namespace belttentiontest
 
         private float maxGForceRecorded = 0f; // Max G-Force recorded
 
-        private CarSettingsStore carSettingsStore = new CarSettingsStore();
         private string carSettingsFile => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "car_settings.json");
 
         private float testhorGforce = 0; // Default value for sl_horGforce
@@ -84,6 +83,8 @@ namespace belttentiontest
             irCommunicator.Disconnected += OnIracingDisconnected;
             irCommunicator.GForceUpdated += OnGForceUpdated;
             irCommunicator.ScaledValueUpdated += OnScaledValueUpdated;
+            irCommunicator.ABSValueUpdated += OnABSValueUpdated;
+
             irCommunicator.CarNameChanged += (carName) =>
             {
                 BeginInvoke(new Action(() =>
@@ -127,15 +128,10 @@ namespace belttentiontest
         {
             bool lmotor = lb_SelectedMotor.SelectedIndex == 0;
 
+            
+
             if (checkBoxTest.Checked)
                 OnScaledValueUpdated((int)numericUpDownTarget.Value, 0, 0, lmotor);
-                if (cb_test_LatForce.Checked)
-            {
-                
-                OnScaledValueUpdated(0, testhorGforce < 0 ? -testhorGforce : 0, 0,true);
-
-                OnScaledValueUpdated(0, testhorGforce > 0 ? testhorGforce : 0, 0,false);
-            }
             else
             if (IracingCommunicator.Instance != null)
                 if (!IracingCommunicator.Instance.IsConnected)
@@ -144,7 +140,11 @@ namespace belttentiontest
                     OnScaledValueUpdated(0.1f, 0, 0, true); //keep communications alive     with small value when not connected to iRacing
                 }
 
+            if (_testABS)
+            {
 
+                OnABSValueUpdated();
+            }
 
             // TODO: Add periodic update logic here
             // Example: Update a label with current time
@@ -441,12 +441,25 @@ namespace belttentiontest
             DrawCurveGraph();
         }
 
+
+        private bool _testABS = false;
+        private void OnABSValueUpdated()
+        {
+            if (_testABS)
+            {
+                communicator.SendABS((int)nud_ABS.Value);
+            }
+        }
+
         private void OnScaledValueUpdated(float longValue, float LatValue, float verVal, bool lMotor)
         {
+
+
+
             if (checkBoxTest.Checked)
                 longValue = (float)numericUpDownTarget.Value;
 
-            
+
             // Apply curve: value in [0,1023], curveAmount >= 0.0
             float inputValue = Math.Clamp(longValue, 0, 7);
             double normalized = inputValue / 7.0;
@@ -457,6 +470,7 @@ namespace belttentiontest
 
 
             LatValue = Math.Clamp(LatValue, 0, 5);
+
             float lat_normal = LatValue / 5.0f; // normalize to 0..1
             double lat_curved = Math.Pow(lat_normal, curveAmount);
             LatValue = (float)lat_curved * 5f; // scale back to 0..5
@@ -487,7 +501,7 @@ namespace belttentiontest
                 if (yValue < 0) yValue = 0;
                 if (yValue > maxV) yValue = maxV + L_MIN;
 
-             
+
             }
             else
             {
@@ -511,13 +525,13 @@ namespace belttentiontest
                         yValue += (verVal - 1) * (float)nudVertical.Value;
                     }
                 }
-                    if (yValue < 0) yValue = 0;
+                if (yValue < 0) yValue = 0;
                 if (yValue > maxV) yValue = maxV + R_MIN;
 
             }
 
 
-           
+
 
             communicator.SendValue(yValue, lMotor);
         }
@@ -668,18 +682,18 @@ namespace belttentiontest
                 try
                 {
                     var json = File.ReadAllText(carSettingsFile);
-                    carSettingsStore = JsonSerializer.Deserialize<CarSettingsStore>(json) ?? new CarSettingsStore();
+                    CarSettingsStore.Instance = JsonSerializer.Deserialize<CarSettingsStore>(json) ?? new CarSettingsStore();
                 }
-                catch { carSettingsStore = new CarSettingsStore(); }
+                catch { CarSettingsStore.Instance = new CarSettingsStore(); }
             }
             else
             {
-                carSettingsStore = new CarSettingsStore();
+                CarSettingsStore.Instance = new CarSettingsStore();
             }
-            if (!carSettingsStore.Settings.TryGetValue(carName, out var settings))
+            if (!CarSettingsStore.Instance.Settings.TryGetValue(carName, out var settings))
             {
                 settings = new CarSettings();
-                carSettingsStore.Settings[carName] = settings;
+                CarSettingsStore.Instance.Settings[carName] = settings;
             }
             // Apply settings to UI
             _gForceMult = settings.MaxGForceMult;
@@ -690,6 +704,11 @@ namespace belttentiontest
             numericUpDownCurveAmount.Value = (decimal)settings.CurveAmount;
             nud_coneringStrengh.Value = (decimal)settings.CorneringStrength;
             nudVertical.Value = (decimal)settings.VerticalStrength; // NEW
+            if (settings.AbsStrength < 1)
+                settings.AbsStrength = 1;
+            nud_ABS.Value = (int)settings.AbsStrength; // NEW
+            cb_ABS_Enabled.Checked = settings.AbsEnabled; // NEW
+            irCommunicator.ABSStrength = settings.AbsStrength;
         }
 
         private void SaveCarSettings(string carName)
@@ -700,12 +719,14 @@ namespace belttentiontest
                 MaxPower = (int)numericUpDownMaxPower.Value,
                 CurveAmount = (double)numericUpDownCurveAmount.Value,
                 CorneringStrength = (float)nud_coneringStrengh.Value,
-                VerticalStrength = (float)nudVertical.Value // NEW
+                VerticalStrength = (float)nudVertical.Value, // NEW
+                AbsStrength = (float)nud_ABS.Value, // NEW
+                AbsEnabled = cb_ABS_Enabled.Checked // NEW
             };
-            carSettingsStore.Settings[carName] = settings;
+            CarSettingsStore.Instance.Settings[carName] = settings;
             try
             {
-                var json = JsonSerializer.Serialize(carSettingsStore, new JsonSerializerOptions { WriteIndented = true });
+                var json = JsonSerializer.Serialize(CarSettingsStore.Instance, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(carSettingsFile, json);
             }
             catch { }
@@ -765,25 +786,17 @@ namespace belttentiontest
 
         private void nud_coneringStrengh_ValueChanged(object sender, EventArgs e)
         {
-            if (!carSettingsStore.Settings.TryGetValue(CarName, out var settings))
-                return;
-            settings.CorneringStrength = (float)nud_coneringStrengh.Value;
+
             SaveCarSettings(CarName);
         }
 
         private void nud_coneringStrengh_ValueChanged_1(object sender, EventArgs e)
         {
-            if (!carSettingsStore.Settings.TryGetValue(CarName, out var settings))
-                return;
-            settings.CorneringStrength = (float)nud_coneringStrengh.Value;
+
             SaveCarSettings(CarName);
         }
 
-        private void sl_horGforce_ValueChanged(object sender, EventArgs e)
-        {
-            testhorGforce = sl_horGforce.Value / 10f;
-            // You can add logic here to use horGforce in your calculations
-        }
+
 
         private void cb_testGFroce_CheckedChanged(object sender, EventArgs e)
         {
@@ -797,10 +810,37 @@ namespace belttentiontest
 
         private void nudVertical_ValueChanged(object sender, EventArgs e)
         {
-            if (!carSettingsStore.Settings.TryGetValue(CarName, out var settings))
+            if (!CarSettingsStore.Instance.Settings.TryGetValue(CarName, out var settings))
                 return;
             settings.VerticalStrength = (float)nudVertical.Value;
             SaveCarSettings(CarName);
         }
+
+        private void nud_ABS_ValueChanged(object sender, EventArgs e)
+        {
+            if (!CarSettingsStore.Instance.Settings.TryGetValue(CarName, out var settings))
+                return;
+            settings.AbsStrength = (float)nud_ABS.Value;
+            irCommunicator.ABSStrength = settings.AbsStrength;
+            SaveCarSettings(CarName);
+        }
+
+        private void cb_ABS_Enabled_CheckedChanged(object sender, EventArgs e)
+        {
+            if (!CarSettingsStore.Instance.Settings.TryGetValue(CarName, out var settings))
+                return;
+            settings.AbsEnabled = cb_ABS_Enabled.Checked;
+            SaveCarSettings(CarName);
+        }
+
+
+        private void bnt_testABS_Click(object sender, EventArgs e)
+        {
+            if (_testABS)
+                return;
+            _testABS = true;
+            Task.Delay(20000).ContinueWith(_ => _testABS = false);
+        }
+
     }
 }

@@ -36,8 +36,8 @@ namespace belttentiontest
                 if (serialPort != null)
                 {
                     try { serialPort.DataReceived -= SerialPort_DataReceived; } catch { }
-                    try { serialPort.Close(); } catch { }
-                    try { serialPort.Dispose(); } catch { }
+                    try { serialPort?.Close(); } catch { }
+                    try { serialPort?.Dispose(); } catch { }
                     serialPort = null;
                 }
             }
@@ -377,6 +377,28 @@ namespace belttentiontest
                 {
                     sp.WriteLine(msg);
                     LogToFile("Sent settings: " + msg);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Device may have been unplugged or port closed
+                MessageReceived?.Invoke("DEVICE_UNPLUGGED");
+                Disconnect();
+            }
+        }
+
+        public void SendABS(float value)
+        {
+            try
+            {
+                var sp = serialPort;
+                if (sp != null && sp.IsOpen)
+                {
+                    value = Math.Clamp(value, 0, 30);
+                    var line = string.Empty;
+                    
+                        line = $"ABS{value}{sp.NewLine}";
+                    sp.Write(line);
                 }
             }
             catch (Exception ex)
