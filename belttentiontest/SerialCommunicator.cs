@@ -277,6 +277,7 @@ namespace belttentiontest
                 var ok = await SendHandshakeAsync(trial, ct, preWriteDelayMs, waitMs).ConfigureAwait(false);
                 if (ok)
                 {
+                    isConnected = true;
                     return trial;
                 }
 
@@ -349,6 +350,9 @@ namespace belttentiontest
 
         public void SendRequestSettings()
         {
+            if (!isConnected)
+                return;
+
             _getSettings = true;
             string msg = $"SETTINGS";
             try
@@ -369,6 +373,9 @@ namespace belttentiontest
 
         public void SendUpdatedSettings(int lmin, int lmax, int rmin, int rmax, bool linvert, bool rinvert, bool both)
         {
+            if (!isConnected)
+                return;
+
             string msg = $"SN:{lmin}-{lmax}-{rmin}-{rmax}-{(linvert ? 1 : 0)}-{(rinvert ? 1 : 0)}-{(both ? 1 : 0)}";
             try
             {
@@ -377,6 +384,11 @@ namespace belttentiontest
                 {
                     sp.WriteLine(msg);
                     LogToFile("Sent settings: " + msg);
+                }
+                else
+                {
+                    MessageReceived?.Invoke("DEVICE_UNPLUGGED");
+                    Disconnect();
                 }
             }
             catch (Exception ex)
@@ -389,6 +401,8 @@ namespace belttentiontest
 
         public void SendABS(float value)
         {
+            if (!isConnected)
+                return;
             try
             {
                 var sp = serialPort;
@@ -399,6 +413,11 @@ namespace belttentiontest
                     
                         line = $"ABS{value}{sp.NewLine}";
                     sp.Write(line);
+                }
+                else
+                {
+                    MessageReceived?.Invoke("DEVICE_UNPLUGGED");
+                    Disconnect();
                 }
             }
             catch (Exception ex)
@@ -411,6 +430,8 @@ namespace belttentiontest
 
         public void SendValue(float value, bool leftMotor)
         {
+            if (!isConnected)
+                return;
             try
             {
                 var sp = serialPort;
@@ -424,6 +445,11 @@ namespace belttentiontest
                         line = $"R:{value}{sp.NewLine}";
                     sp.Write(line);
                 }
+                else
+                {
+                    MessageReceived?.Invoke("DEVICE_UNPLUGGED");
+                    Disconnect();
+                }
             }
             catch (Exception ex)
             {
@@ -431,8 +457,9 @@ namespace belttentiontest
                 MessageReceived?.Invoke("DEVICE_UNPLUGGED");
                 Disconnect();
             }
-        }
+         }
 
+        bool isConnected = false;
         public void Disconnect()
         {
             try
@@ -441,6 +468,29 @@ namespace belttentiontest
             }
             catch { }
             try { ClosePort(); } catch { }
+            isConnected = false;
+
+
+            Task.Run(async () =>
+            {
+                Form1.Instance.LabelStatus = "Disconnected. Reconnecting";
+                int tries = 0;
+                for (int i = 0; i < 5; i++)
+                {
+                    using var manualCts = new CancellationTokenSource();
+                    bool ok = await ConnectAsync(manualCts.Token).ConfigureAwait(false);
+
+                    if (isConnected)
+                    {
+                        Form1.Instance.UpdateConnectionStatusConnected();
+                        return;
+                    }
+                    tries++;
+                    await Task.Delay(1500).ConfigureAwait(false);
+                }
+
+                
+            });
         }
 
         /// <summary>
@@ -499,6 +549,83 @@ namespace belttentiontest
                 File.AppendAllText(logPath, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}\n");
             }
             catch { }
+        }
+
+       
+
+        // Synchronous version of TryOpenAndHandshakeSimpleAsync
+        private SerialPort? TryOpenAndHandshakeSimple(string portName)
+        {
+            SerialPort trial = new SerialPort(portName, 9600)
+            {
+                NewLine = "\n",
+                ReadTimeout = 200,
+                WriteTimeout = 500,
+                DtrEnable = true,
+                RtsEnable = true
+            };
+
+            try
+            {
+                trial.Open();
+                trial.ErrorReceived += SerialPort_ErrorReceived;
+            }
+            catch
+            {
+                try { trial.Dispose(); } catch { }
+                return null;
+            }
+
+            try
+            {
+                // Send handshake synchronously
+                trial.DiscardInBuffer();
+                Thread.Sleep(2000);
+                try { trial.Write("HELLO\n"); } catch { }
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                while (sw.ElapsedMilliseconds < 3000)
+                {
+                    try
+                    {
+                        var available = trial.BytesToRead;
+                        if (available > 0)
+                        {
+                            var s = trial.ReadExisting();
+                            if (!string.IsNullOrEmpty(s) && s.IndexOf("READY", StringComparison.OrdinalIgnoreCase) >= 0)
+                            {
+                                isConnected = true;
+                                return trial;
+                            }
+                        }
+                    }
+                    catch { }
+                    Thread.Sleep(100);
+                }
+                try { trial.Close(); trial.Dispose(); } catch { }
+                return null;
+            }
+            catch
+            {
+                try { trial.Close(); trial.Dispose(); } catch { }
+                return null;
+            }
+        }
+
+        public async Task<bool> ConnectAsync(CancellationToken ct)
+        {
+            string[] ports = SerialPort.GetPortNames();
+            if (ports.Length == 0)
+            {
+                return false;
+            }
+
+            bool ok = await ManualScanAsync(ct).ConfigureAwait(false);
+            if (ok)
+            {
+                isConnected = true;
+                SendRequestSettings();
+            }
+            return ok;
         }
     }
 }

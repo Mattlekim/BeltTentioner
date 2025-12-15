@@ -39,8 +39,30 @@ namespace belttentiontest
 
         private string carSettingsFile => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "car_settings.json");
 
+        // Singleton instance for Form1
+        private static Form1? _instance;
+        public static Form1 Instance
+        {
+            get
+            {
+                if (_instance == null || _instance.IsDisposed)
+                {
+                    _instance = new Form1();
+                }
+                return _instance;
+            }
+        }
+
+        protected override void OnHandleDestroyed(EventArgs e)
+        {
+            base.OnHandleDestroyed(e);
+            if (ReferenceEquals(_instance, this))
+                _instance = null;
+        }
+
         public Form1()
         {
+            _instance = this;
             InitializeComponent();
 
             SetControlsEnabled(false);
@@ -149,13 +171,7 @@ namespace belttentiontest
             maxGForceRecorded = 0f; //reset max G-Force on new connection
             labelMaxGForce.Text = $"Max G-Force: {maxGForceRecorded:F2}";
 
-            CarName = "NA";
-            BeginInvoke(new Action(() =>
-            {
-                lb_carName.Text = $"Car: {CarName}";
-
-                LoadCarSettings(CarName);
-            }));
+           
 
             if (!IsHandleCreated)
             {
@@ -295,16 +311,12 @@ namespace belttentiontest
 
             if (message == "DEVICE_UNPLUGGED")
             {
-                communicator.Disconnect();
                 BeginInvoke(new Action(() =>
                 {
                     ShowDisconnectedUI("Device unplugged");
                 }));
                 return;
             }
-
-
-
         }
 
         private void OnHandshakeCompleteFromSerial()
@@ -526,6 +538,34 @@ namespace belttentiontest
             communicator.SendValue(yValue, lMotor);
         }
 
+        public string LabelStatus
+        {
+            get { return labelStatus.Text; }
+            set
+            {
+                Invoke(new Action(() =>
+                {
+                    labelStatus.Text = value;
+                    labelStatus.ForeColor = Color.Red;
+                }
+                ));
+            }
+        }
+
+        public void UpdateConnectionStatusConnected()
+        {
+            Invoke(new Action(() =>
+            {
+                labelStatus.Text = $"Connected to Seatbelt";
+                labelStatus.ForeColor = System.Drawing.Color.Black;
+                SetControlsEnabled(true);
+                buttonConnect.Enabled = false;
+                buttonConnect.Text = "Connect";
+                communicator.StartSendLoop(() => checkBoxTest.Checked ? (int)numericUpDownTarget.Value : 0);
+            }));
+            Log($"Manual connect: Connected to {communicator.PortName}");
+        }
+
         private async void buttonConnect_Click(object sender, EventArgs e)
         {
             try
@@ -535,37 +575,14 @@ namespace belttentiontest
                 buttonConnect.Text = "Connecting...";
                 buttonConnect.Enabled = false;
 
-                string[] ports = SerialPort.GetPortNames();
-                if (ports.Length == 0)
-                {
-                    labelStatus.Text = "No device found";
-                    labelStatus.ForeColor = System.Drawing.Color.Red;
-                    Log("No COM ports found");
-                    SetControlsEnabled(false);
-                    buttonConnect.Text = "Connect";
-                    buttonConnect.Enabled = true;
-                    return;
-                }
-
                 Invoke(new Action(() => labelStatus.Text = "Scanning ports..."));
 
                 using var manualCts = new CancellationTokenSource();
-                bool ok = await communicator.ManualScanAsync(manualCts.Token).ConfigureAwait(false);
+                bool ok = await communicator.ConnectAsync(manualCts.Token).ConfigureAwait(false);
                 if (ok)
                 {
                     handshakeComplete = true;
-                    Invoke(new Action(() =>
-                    {
-                        labelStatus.Text = $"Connected to Seatbelt";
-                        labelStatus.ForeColor = System.Drawing.Color.Black;
-                        SetControlsEnabled(true);
-                        buttonConnect.Enabled = false;
-                        buttonConnect.Text = "Connect";
-                        communicator.SendRequestSettings();
-
-                        communicator.StartSendLoop(() => checkBoxTest.Checked ? (int)numericUpDownTarget.Value : 0);
-                    }));
-                    Log($"Manual connect: Connected to {communicator.PortName}");
+                    UpdateConnectionStatusConnected();
                     return;
                 }
 
@@ -680,10 +697,22 @@ namespace belttentiontest
             {
                 CarSettingsStore.Instance = new CarSettingsStore();
             }
+
+            // If no settings for carName, try to copy from NA
             if (!CarSettingsStore.Instance.Settings.TryGetValue(carName, out var settings))
             {
-                settings = new CarSettings();
+                if (CarSettingsStore.Instance.Settings.TryGetValue("NA", out var naSettings))
+                {
+                    // Deep copy NA settings to new car
+                    settings = JsonSerializer.Deserialize<CarSettings>(JsonSerializer.Serialize(naSettings));
+                }
+                else
+                {
+                    settings = new CarSettings();
+                }
                 CarSettingsStore.Instance.Settings[carName] = settings;
+                // Save immediately so the new car gets its own settings file entry
+                SaveCarSettings(carName);
             }
             // Apply settings to UI
             _gForceMult = settings.MaxGForceMult;
