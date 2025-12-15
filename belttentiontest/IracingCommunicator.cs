@@ -99,6 +99,7 @@ namespace belttentiontest
             return true;
         }
 
+        private bool _lastABS_Status = false;
         public void OnClientTelemetryData()
         {
             if (!SetUpDatums())
@@ -118,6 +119,11 @@ namespace belttentiontest
             _absActive = false;
             _absActive = _iracingClient.Data.GetBool(Datum_ABS);
 
+            if (_absActive != _lastABS_Status)
+            {
+                Form1.Instance.UpdateABSStatus(_absActive);                
+            }
+            _lastABS_Status = _absActive;
             bool isReplay = _iracingClient.Data.GetBool(Datum_IsReplayPlaying);
             if (isReplay)
             {
@@ -164,7 +170,7 @@ namespace belttentiontest
             ScaledValueUpdated?.Invoke(-lmotor, lat_lMotor, ver_g_Force < 0 ? 0 : ver_g_Force, false);
             ScaledValueUpdated?.Invoke(-rmotor, lat_rMotor, ver_g_Force < 0 ? 0 : ver_g_Force, true);
 
-            if (!_absActive)
+            if (_absActive)
                 //if (_iracingClient.Data.GetFloat("BrakeABSCutPct") > .1f)
                 ABSValueUpdated?.Invoke();
             GForceUpdated?.Invoke(-Math.Clamp(g_Force, -1000, 0));

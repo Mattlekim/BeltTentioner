@@ -1,6 +1,7 @@
 using belttentiontest.Properties;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Ports;
@@ -14,6 +15,8 @@ namespace belttentiontest
 {
     public partial class Form1 : Form
     {
+        public bool ClosingForm { get; private set; } = false;
+
         public const float MAXPOSIBLEMOTORVALUE = 180;
 
         private SerialCommunicator communicator;
@@ -60,8 +63,16 @@ namespace belttentiontest
                 _instance = null;
         }
 
+        protected override void OnClosing(CancelEventArgs e)
+        {
+            ClosingForm = true;
+            base.OnClosing(e);
+        }
+
         public Form1()
         {
+            
+
             _instance = this;
             InitializeComponent();
 
@@ -550,6 +561,15 @@ namespace belttentiontest
                 }
                 ));
             }
+        }
+
+        public void UpdateABSStatus(bool active)
+        {
+            Invoke(new Action(() =>
+            {
+                lb_ABS_Status.Text = active ? "ABS Active" : "ABS Inactive";
+                lb_ABS_Status.ForeColor = active ? System.Drawing.Color.Red : System.Drawing.Color.Black;
+            }));
         }
 
         public void UpdateConnectionStatusConnected()

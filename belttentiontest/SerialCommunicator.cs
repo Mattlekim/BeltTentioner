@@ -470,7 +470,6 @@ namespace belttentiontest
             try { ClosePort(); } catch { }
             isConnected = false;
 
-
             Task.Run(async () =>
             {
                 Form1.Instance.LabelStatus = "Disconnected. Reconnecting";
@@ -488,8 +487,6 @@ namespace belttentiontest
                     tries++;
                     await Task.Delay(1500).ConfigureAwait(false);
                 }
-
-                
             });
         }
 

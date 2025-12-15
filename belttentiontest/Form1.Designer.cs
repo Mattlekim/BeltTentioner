@@ -71,6 +71,7 @@ namespace belttentiontest
             labelDistanceValue = new Label();
             labelMaxGForce = new Label();
             gb_Car_Settings = new GroupBox();
+            cb_invert_conering = new CheckBox();
             nudVertical = new NumericUpDown();
             label5 = new Label();
             nud_coneringStrengh = new NumericUpDown();
@@ -93,8 +94,7 @@ namespace belttentiontest
             cb_ABS_Enabled = new CheckBox();
             nud_ABS = new NumericUpDown();
             label6 = new Label();
-            lbtest = new Label();
-            cb_invert_conering = new CheckBox();
+            lb_ABS_Status = new Label();
             ((ISupportInitialize)numericUpDownTarget).BeginInit();
             ((ISupportInitialize)numericUpDownCurveAmount).BeginInit();
             ((ISupportInitialize)pictureBoxCurveGraph).BeginInit();
@@ -308,6 +308,17 @@ namespace belttentiontest
             gb_Car_Settings.TabStop = false;
             gb_Car_Settings.Text = "Car Settings";
             // 
+            // cb_invert_conering
+            // 
+            cb_invert_conering.AutoSize = true;
+            cb_invert_conering.Location = new Point(24, 365);
+            cb_invert_conering.Name = "cb_invert_conering";
+            cb_invert_conering.Size = new Size(145, 19);
+            cb_invert_conering.TabIndex = 55;
+            cb_invert_conering.Text = "Invert Conering Forces";
+            cb_invert_conering.UseVisualStyleBackColor = true;
+            cb_invert_conering.CheckedChanged += cb_invert_conering_CheckedChanged;
+            // 
             // nudVertical
             // 
             nudVertical.DecimalPlaces = 2;
@@ -500,13 +511,14 @@ namespace belttentiontest
             // 
             // groupBox2
             // 
+            groupBox2.Controls.Add(lb_ABS_Status);
             groupBox2.Controls.Add(bnt_testABS);
             groupBox2.Controls.Add(cb_ABS_Enabled);
             groupBox2.Controls.Add(nud_ABS);
             groupBox2.Controls.Add(label6);
             groupBox2.Location = new Point(15, 466);
             groupBox2.Name = "groupBox2";
-            groupBox2.Size = new Size(286, 59);
+            groupBox2.Size = new Size(286, 63);
             groupBox2.TabIndex = 27;
             groupBox2.TabStop = false;
             groupBox2.Text = "ABS (EXERIMENTAL)";
@@ -554,32 +566,20 @@ namespace belttentiontest
             label6.TabIndex = 36;
             label6.Text = "ABS Strength";
             // 
-            // lbtest
+            // lb_ABS_Status
             // 
-            lbtest.AutoSize = true;
-            lbtest.Location = new Point(127, 528);
-            lbtest.Name = "lbtest";
-            lbtest.Size = new Size(38, 15);
-            lbtest.TabIndex = 57;
-            lbtest.Text = "label7";
-            // 
-            // cb_invert_conering
-            // 
-            cb_invert_conering.AutoSize = true;
-            cb_invert_conering.Location = new Point(24, 365);
-            cb_invert_conering.Name = "cb_invert_conering";
-            cb_invert_conering.Size = new Size(145, 19);
-            cb_invert_conering.TabIndex = 55;
-            cb_invert_conering.Text = "Invert Conering Forces";
-            cb_invert_conering.UseVisualStyleBackColor = true;
-            cb_invert_conering.CheckedChanged += cb_invert_conering_CheckedChanged;
+            lb_ABS_Status.AutoSize = true;
+            lb_ABS_Status.Location = new Point(13, 45);
+            lb_ABS_Status.Name = "lb_ABS_Status";
+            lb_ABS_Status.Size = new Size(51, 15);
+            lb_ABS_Status.TabIndex = 57;
+            lb_ABS_Status.Text = "ABS: Off";
             // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(314, 734);
-            Controls.Add(lbtest);
             Controls.Add(groupBox2);
             Controls.Add(groupBox1);
             Controls.Add(gb_Car_Settings);
@@ -632,7 +632,7 @@ namespace belttentiontest
         private Label label6;
         private CheckBox cb_ABS_Enabled;
         private Button bnt_testABS;
-        private Label lbtest;
         private CheckBox cb_invert_conering;
+        private Label lb_ABS_Status;
     }
 }

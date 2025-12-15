@@ -20,9 +20,9 @@ bool L_INVERT = false, R_INVERT = false, DUAL_MOTORS = false;
 // Track last time a data was received
 unsigned long lastDataTime = 0;
 
-int ABS_STRENGTH = 6;
+int ABS_STRENGTH = 20;
 bool ABS_ACTIVATED = true;
-float ABS_FRQ = 1;
+float ABS_FRQ = 2;
 float abs_frame = 0;
 float L_ABS, R_ABS;
 
