@@ -699,6 +699,8 @@ namespace belttentiontest
             nud_ABS.Value = (int)settings.AbsStrength; // NEW
             cb_ABS_Enabled.Checked = settings.AbsEnabled; // NEW
             irCommunicator.ABSStrength = settings.AbsStrength;
+            cb_invert_conering.Checked = settings.InvertCornering; // NEW
+            irCommunicator.InvertCornering = settings.InvertCornering;
         }
 
         private void SaveCarSettings(string carName)
@@ -711,7 +713,8 @@ namespace belttentiontest
                 CorneringStrength = (float)nud_coneringStrengh.Value,
                 VerticalStrength = (float)nudVertical.Value, // NEW
                 AbsStrength = (float)nud_ABS.Value, // NEW
-                AbsEnabled = cb_ABS_Enabled.Checked // NEW
+                AbsEnabled = cb_ABS_Enabled.Checked, // NEW
+                InvertCornering = cb_invert_conering.Checked // NEW
             };
             CarSettingsStore.Instance.Settings[carName] = settings;
             try
@@ -835,6 +838,11 @@ namespace belttentiontest
         private void groupBox2_Enter(object sender, EventArgs e)
         {
 
+        }
+
+        private void cb_invert_conering_CheckedChanged(object sender, EventArgs e)
+        {
+            irCommunicator.InvertCornering = cb_invert_conering.Checked;
         }
     }
 }

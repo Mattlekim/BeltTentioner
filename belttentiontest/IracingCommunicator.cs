@@ -159,6 +159,8 @@ namespace belttentiontest
                 lat_lMotor = 0;
             }
 
+            
+
             ScaledValueUpdated?.Invoke(-lmotor, lat_lMotor, ver_g_Force < 0 ? 0 : ver_g_Force, false);
             ScaledValueUpdated?.Invoke(-rmotor, lat_rMotor, ver_g_Force < 0 ? 0 : ver_g_Force, true);
 
@@ -248,5 +250,7 @@ namespace belttentiontest
             // Ensure StopMonitoring is quick and non-blocking
             try { StopMonitoring(); } catch { }
         }
+
+        public bool InvertCornering { get; set; } = false;
     }
 }

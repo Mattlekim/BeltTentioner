@@ -94,6 +94,7 @@ namespace belttentiontest
             nud_ABS = new NumericUpDown();
             label6 = new Label();
             lbtest = new Label();
+            cb_invert_conering = new CheckBox();
             ((ISupportInitialize)numericUpDownTarget).BeginInit();
             ((ISupportInitialize)numericUpDownCurveAmount).BeginInit();
             ((ISupportInitialize)pictureBoxCurveGraph).BeginInit();
@@ -155,7 +156,7 @@ namespace belttentiontest
             // labelGForce
             // 
             labelGForce.AutoSize = true;
-            labelGForce.Location = new Point(16, 299);
+            labelGForce.Location = new Point(16, 288);
             labelGForce.Name = "labelGForce";
             labelGForce.Size = new Size(76, 15);
             labelGForce.TabIndex = 7;
@@ -187,7 +188,7 @@ namespace belttentiontest
             // 
             // pictureBoxCurveGraph
             // 
-            pictureBoxCurveGraph.Location = new Point(16, 163);
+            pictureBoxCurveGraph.Location = new Point(16, 155);
             pictureBoxCurveGraph.Name = "pictureBoxCurveGraph";
             pictureBoxCurveGraph.Size = new Size(260, 117);
             pictureBoxCurveGraph.TabIndex = 13;
@@ -215,7 +216,7 @@ namespace belttentiontest
             // label1
             // 
             label1.AutoSize = true;
-            label1.Location = new Point(115, 283);
+            label1.Location = new Point(115, 273);
             label1.Name = "label1";
             label1.Size = new Size(49, 15);
             label1.TabIndex = 17;
@@ -246,7 +247,7 @@ namespace belttentiontest
             // labelAnalogValue
             // 
             labelAnalogValue.AutoSize = true;
-            labelAnalogValue.Location = new Point(16, 142);
+            labelAnalogValue.Location = new Point(16, 138);
             labelAnalogValue.Name = "labelAnalogValue";
             labelAnalogValue.Size = new Size(66, 15);
             labelAnalogValue.TabIndex = 19;
@@ -255,7 +256,7 @@ namespace belttentiontest
             // labelTargetValue
             // 
             labelTargetValue.AutoSize = true;
-            labelTargetValue.Location = new Point(104, 142);
+            labelTargetValue.Location = new Point(104, 138);
             labelTargetValue.Name = "labelTargetValue";
             labelTargetValue.Size = new Size(61, 15);
             labelTargetValue.TabIndex = 20;
@@ -264,7 +265,7 @@ namespace belttentiontest
             // labelDistanceValue
             // 
             labelDistanceValue.AutoSize = true;
-            labelDistanceValue.Location = new Point(204, 142);
+            labelDistanceValue.Location = new Point(204, 138);
             labelDistanceValue.Name = "labelDistanceValue";
             labelDistanceValue.Size = new Size(73, 15);
             labelDistanceValue.TabIndex = 21;
@@ -273,7 +274,7 @@ namespace belttentiontest
             // labelMaxGForce
             // 
             labelMaxGForce.AutoSize = true;
-            labelMaxGForce.Location = new Point(160, 299);
+            labelMaxGForce.Location = new Point(160, 288);
             labelMaxGForce.Name = "labelMaxGForce";
             labelMaxGForce.Size = new Size(101, 15);
             labelMaxGForce.TabIndex = 22;
@@ -281,6 +282,7 @@ namespace belttentiontest
             // 
             // gb_Car_Settings
             // 
+            gb_Car_Settings.Controls.Add(cb_invert_conering);
             gb_Car_Settings.Controls.Add(nudVertical);
             gb_Car_Settings.Controls.Add(label5);
             gb_Car_Settings.Controls.Add(nud_coneringStrengh);
@@ -310,7 +312,7 @@ namespace belttentiontest
             // 
             nudVertical.DecimalPlaces = 2;
             nudVertical.Increment = new decimal(new int[] { 1, 0, 0, 65536 });
-            nudVertical.Location = new Point(214, 357);
+            nudVertical.Location = new Point(214, 337);
             nudVertical.Maximum = new decimal(new int[] { 30, 0, 0, 0 });
             nudVertical.Minimum = new decimal(new int[] { 5, 0, 0, 65536 });
             nudVertical.Name = "nudVertical";
@@ -322,7 +324,7 @@ namespace belttentiontest
             // label5
             // 
             label5.AutoSize = true;
-            label5.Location = new Point(21, 360);
+            label5.Location = new Point(21, 340);
             label5.Name = "label5";
             label5.Size = new Size(93, 15);
             label5.TabIndex = 53;
@@ -332,7 +334,7 @@ namespace belttentiontest
             // 
             nud_coneringStrengh.DecimalPlaces = 2;
             nud_coneringStrengh.Increment = new decimal(new int[] { 1, 0, 0, 65536 });
-            nud_coneringStrengh.Location = new Point(213, 324);
+            nud_coneringStrengh.Location = new Point(213, 307);
             nud_coneringStrengh.Maximum = new decimal(new int[] { 30, 0, 0, 0 });
             nud_coneringStrengh.Minimum = new decimal(new int[] { 5, 0, 0, 65536 });
             nud_coneringStrengh.Name = "nud_coneringStrengh";
@@ -344,7 +346,7 @@ namespace belttentiontest
             // label4
             // 
             label4.AutoSize = true;
-            label4.Location = new Point(20, 327);
+            label4.Location = new Point(20, 310);
             label4.Name = "label4";
             label4.Size = new Size(108, 15);
             label4.TabIndex = 35;
@@ -561,6 +563,17 @@ namespace belttentiontest
             lbtest.TabIndex = 57;
             lbtest.Text = "label7";
             // 
+            // cb_invert_conering
+            // 
+            cb_invert_conering.AutoSize = true;
+            cb_invert_conering.Location = new Point(24, 365);
+            cb_invert_conering.Name = "cb_invert_conering";
+            cb_invert_conering.Size = new Size(145, 19);
+            cb_invert_conering.TabIndex = 55;
+            cb_invert_conering.Text = "Invert Conering Forces";
+            cb_invert_conering.UseVisualStyleBackColor = true;
+            cb_invert_conering.CheckedChanged += cb_invert_conering_CheckedChanged;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
@@ -620,5 +633,6 @@ namespace belttentiontest
         private CheckBox cb_ABS_Enabled;
         private Button bnt_testABS;
         private Label lbtest;
+        private CheckBox cb_invert_conering;
     }
 }
