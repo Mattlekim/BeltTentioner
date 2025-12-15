@@ -90,11 +90,12 @@ namespace belttentiontest
             lblSettingsSaved = new Label();
             lblChangesNotSaved = new Label();
             groupBox2 = new GroupBox();
+            lb_ABS_Status = new Label();
             bnt_testABS = new Button();
             cb_ABS_Enabled = new CheckBox();
             nud_ABS = new NumericUpDown();
             label6 = new Label();
-            lb_ABS_Status = new Label();
+            cb_AutoConnect = new CheckBox();
             ((ISupportInitialize)numericUpDownTarget).BeginInit();
             ((ISupportInitialize)numericUpDownCurveAmount).BeginInit();
             ((ISupportInitialize)pictureBoxCurveGraph).BeginInit();
@@ -146,7 +147,7 @@ namespace belttentiontest
             // 
             // textBoxIracingStatus
             // 
-            textBoxIracingStatus.Location = new Point(15, 47);
+            textBoxIracingStatus.Location = new Point(15, 54);
             textBoxIracingStatus.Name = "textBoxIracingStatus";
             textBoxIracingStatus.ReadOnly = true;
             textBoxIracingStatus.Size = new Size(125, 23);
@@ -311,11 +312,11 @@ namespace belttentiontest
             // cb_invert_conering
             // 
             cb_invert_conering.AutoSize = true;
-            cb_invert_conering.Location = new Point(24, 365);
+            cb_invert_conering.Location = new Point(24, 334);
             cb_invert_conering.Name = "cb_invert_conering";
-            cb_invert_conering.Size = new Size(145, 19);
+            cb_invert_conering.Size = new Size(149, 19);
             cb_invert_conering.TabIndex = 55;
-            cb_invert_conering.Text = "Invert Conering Forces";
+            cb_invert_conering.Text = "Invert Cornering Forces";
             cb_invert_conering.UseVisualStyleBackColor = true;
             cb_invert_conering.CheckedChanged += cb_invert_conering_CheckedChanged;
             // 
@@ -323,7 +324,7 @@ namespace belttentiontest
             // 
             nudVertical.DecimalPlaces = 2;
             nudVertical.Increment = new decimal(new int[] { 1, 0, 0, 65536 });
-            nudVertical.Location = new Point(214, 337);
+            nudVertical.Location = new Point(214, 358);
             nudVertical.Maximum = new decimal(new int[] { 30, 0, 0, 0 });
             nudVertical.Minimum = new decimal(new int[] { 5, 0, 0, 65536 });
             nudVertical.Name = "nudVertical";
@@ -335,7 +336,7 @@ namespace belttentiontest
             // label5
             // 
             label5.AutoSize = true;
-            label5.Location = new Point(21, 340);
+            label5.Location = new Point(21, 361);
             label5.Name = "label5";
             label5.Size = new Size(93, 15);
             label5.TabIndex = 53;
@@ -524,6 +525,15 @@ namespace belttentiontest
             groupBox2.Text = "ABS (EXERIMENTAL)";
             groupBox2.Enter += groupBox2_Enter;
             // 
+            // lb_ABS_Status
+            // 
+            lb_ABS_Status.AutoSize = true;
+            lb_ABS_Status.Location = new Point(13, 45);
+            lb_ABS_Status.Name = "lb_ABS_Status";
+            lb_ABS_Status.Size = new Size(51, 15);
+            lb_ABS_Status.TabIndex = 57;
+            lb_ABS_Status.Text = "ABS: Off";
+            // 
             // bnt_testABS
             // 
             bnt_testABS.Location = new Point(238, 20);
@@ -566,20 +576,23 @@ namespace belttentiontest
             label6.TabIndex = 36;
             label6.Text = "ABS Strength";
             // 
-            // lb_ABS_Status
+            // cb_AutoConnect
             // 
-            lb_ABS_Status.AutoSize = true;
-            lb_ABS_Status.Location = new Point(13, 45);
-            lb_ABS_Status.Name = "lb_ABS_Status";
-            lb_ABS_Status.Size = new Size(51, 15);
-            lb_ABS_Status.TabIndex = 57;
-            lb_ABS_Status.Text = "ABS: Off";
+            cb_AutoConnect.AutoSize = true;
+            cb_AutoConnect.Location = new Point(164, 57);
+            cb_AutoConnect.Name = "cb_AutoConnect";
+            cb_AutoConnect.Size = new Size(131, 19);
+            cb_AutoConnect.TabIndex = 28;
+            cb_AutoConnect.Text = "Connect On Startup";
+            cb_AutoConnect.UseVisualStyleBackColor = true;
+            cb_AutoConnect.CheckedChanged += cb_AutoConnect_CheckedChanged;
             // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(314, 734);
+            Controls.Add(cb_AutoConnect);
             Controls.Add(groupBox2);
             Controls.Add(groupBox1);
             Controls.Add(gb_Car_Settings);
@@ -634,5 +647,6 @@ namespace belttentiontest
         private Button bnt_testABS;
         private CheckBox cb_invert_conering;
         private Label lb_ABS_Status;
+        private CheckBox cb_AutoConnect;
     }
 }

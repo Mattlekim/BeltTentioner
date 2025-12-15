@@ -69,13 +69,45 @@ namespace belttentiontest
             base.OnClosing(e);
         }
 
+        // Standalone setting for auto-connect on startup
+        private const string AutoConnectSettingsFile = "autoconnect.json";
+        public static bool AutoConnectOnStartup { get; set; } = false;
+
+        private static void LoadAutoConnectSetting()
+        {
+            try
+            {
+                if (File.Exists(AutoConnectSettingsFile))
+                {
+                    var json = File.ReadAllText(AutoConnectSettingsFile);
+                    AutoConnectOnStartup = JsonSerializer.Deserialize<bool>(json);
+                }
+            }
+            catch { AutoConnectOnStartup = false; }
+        }
+
+        private static void SaveAutoConnectSetting()
+        {
+            try
+            {
+                var json = JsonSerializer.Serialize(AutoConnectOnStartup);
+                File.WriteAllText(AutoConnectSettingsFile, json);
+            }
+            catch { }
+        }
+
         public Form1()
         {
-            
-
+            LoadAutoConnectSetting();
+           
             _instance = this;
             InitializeComponent();
+             cb_AutoConnect.Checked = AutoConnectOnStartup;
 
+            buttonConnect.Text = "Connecting...";
+            buttonConnect.Enabled = false;
+
+            labelStatus.Text = "Scanning ports...";
             SetControlsEnabled(false);
             buttonConnect.Enabled = true;
 
@@ -152,6 +184,22 @@ namespace belttentiontest
             updateTimer.Start();
 
             LoadCarSettings(CarName);
+
+            // Auto-connect on startup if enabled
+            if (AutoConnectOnStartup)
+            {
+                // Fire and forget, UI will update via events
+                _ = Task.Run(async () =>
+                {
+                    using var cts = new CancellationTokenSource();
+                    bool ok = await communicator.ConnectAsync(cts.Token).ConfigureAwait(false);
+                    if (ok)
+                    {
+                        handshakeComplete = true;
+                        UpdateConnectionStatusConnected();
+                    }
+                });
+            }
         }
 
         // Timer tick event handler
@@ -182,7 +230,7 @@ namespace belttentiontest
             maxGForceRecorded = 0f; //reset max G-Force on new connection
             labelMaxGForce.Text = $"Max G-Force: {maxGForceRecorded:F2}";
 
-           
+
 
             if (!IsHandleCreated)
             {
@@ -693,7 +741,7 @@ namespace belttentiontest
         {
             foreach (Control ctl in this.Controls)
             {
-                if (ctl != buttonConnect)
+                if (ctl != buttonConnect && ctl != cb_AutoConnect)
                 {
                     if (ctl is not Label)
                         ctl.Enabled = enabled;
@@ -892,6 +940,12 @@ namespace belttentiontest
         private void cb_invert_conering_CheckedChanged(object sender, EventArgs e)
         {
             irCommunicator.InvertCornering = cb_invert_conering.Checked;
+        }
+
+        private void cb_AutoConnect_CheckedChanged(object sender, EventArgs e)
+        {
+            AutoConnectOnStartup = cb_AutoConnect.Checked;
+            SaveAutoConnectSetting();
         }
     }
 }
