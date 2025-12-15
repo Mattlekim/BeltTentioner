@@ -507,7 +507,8 @@ namespace belttentiontest
             groupBox2.Size = new Size(286, 59);
             groupBox2.TabIndex = 27;
             groupBox2.TabStop = false;
-            groupBox2.Text = "ABS";
+            groupBox2.Text = "ABS (EXERIMENTAL)";
+            groupBox2.Enter += groupBox2_Enter;
             // 
             // bnt_testABS
             // 

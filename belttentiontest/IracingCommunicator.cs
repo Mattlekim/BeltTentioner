@@ -34,6 +34,12 @@ namespace belttentiontest
 
         IRacingSdk? _iracingClient;
 
+        IRacingSdkDatum? Datum_ABS = null;
+        IRacingSdkDatum? Datum_IsReplayPlaying = null;
+        IRacingSdkDatum? Datum_LongAccel = null;
+        IRacingSdkDatum? Datum_LatAccel = null;
+        IRacingSdkDatum? Datum_VertAccel = null;
+
         public Action<string>? CarNameChanged;
         // Singleton: make constructor private
         private IracingCommunicator()
@@ -75,102 +81,94 @@ namespace belttentiontest
      
         private bool _absActive = false;
 
+        private bool _dataInitialized = false;
+        private bool SetUpDatums()
+        {
+            if (_iracingClient == null)
+                return false;
+            
+            if (_dataInitialized)
+                return true;
+
+            Datum_ABS = _iracingClient.Data.TelemetryDataProperties["BrakeABSactive"];
+            Datum_IsReplayPlaying = _iracingClient.Data.TelemetryDataProperties["IsReplayPlaying"];
+            Datum_LongAccel = _iracingClient.Data.TelemetryDataProperties["LongAccel"];
+            Datum_LatAccel = _iracingClient.Data.TelemetryDataProperties["LatAccel"];
+            Datum_VertAccel = _iracingClient.Data.TelemetryDataProperties["VertAccel"];
+            _dataInitialized = true;
+            return true;
+        }
+
         public void OnClientTelemetryData()
         {
-            if (_iracingClient != null)
+            if (!SetUpDatums())
+                return;
+
+            if (_iracingClient?.Data.SessionInfo != null)
             {
+                string carName = _iracingClient.Data.SessionInfo.DriverInfo.Drivers[_iracingClient.Data.SessionInfo.DriverInfo.DriverCarIdx].CarScreenName;
 
-                if (_iracingClient.Data.SessionInfo != null)
+                if (carName != _oldCarName)
                 {
-                    string carName = _iracingClient.Data.SessionInfo.DriverInfo.Drivers[_iracingClient.Data.SessionInfo.DriverInfo.DriverCarIdx].CarScreenName;
-
-                    if (carName != _oldCarName)
-                    {
-                        CarNameChanged?.Invoke(carName);
-                    }
-                    _oldCarName = carName;
+                    CarNameChanged?.Invoke(carName);
                 }
+                _oldCarName = carName;
+            }
 
-                _absActive = false;
-                _absActive = _iracingClient.Data.GetBool("BrakeABSactive");
+            _absActive = false;
+            _absActive = _iracingClient.Data.GetBool(Datum_ABS);
 
-                bool isReplay = _iracingClient.Data.GetBool("IsReplayPlaying");
-                if (isReplay)
-                {
-                    ScaledValueUpdated?.Invoke(0, 0, 0, false);
-                    ScaledValueUpdated?.Invoke(0, 0, 0, true);
-                    GForceUpdated?.Invoke(0);
-                    return;
-                }
-                float longitude = _iracingClient.Data.GetFloat("LongAccel");
-                float g_Force = longitude / 9.81f;
-
-                float lmotor = g_Force, rmotor = g_Force;
-
-                if (lmotor > 0)
-                    lmotor = 0;
-
-                if (rmotor > 0)
-                    rmotor = 0;
-
-                float lat = _iracingClient.Data.GetFloat("LatAccel");
-                float lat_g_Force = lat / 9.81f;
-
-                float ver = _iracingClient.Data.GetFloat("VertAccel");
-                float ver_g_Force = ver / 9.81f;
-                // Notify subscribers with the new g_Force value
-
-                float lat_lMotor = 0, lat_rMotor = 0;
-
-
-                if (lat_g_Force > 0) //turning left
-                {
-                    lat_lMotor = Math.Abs(lat_g_Force);
-                    lat_rMotor = 0;
-                }
-                else //turning right
-                {
-                    lat_rMotor = Math.Abs(lat_g_Force);
-                    lat_lMotor = 0;
-                }
-
-            
-
-                ScaledValueUpdated?.Invoke(-lmotor, lat_lMotor, ver_g_Force < 0 ? 0: ver_g_Force, false);
-                ScaledValueUpdated?.Invoke(-rmotor, lat_rMotor, ver_g_Force < 0 ? 0 : ver_g_Force, true);
-
-                if (!_absActive)
-                    ABSValueUpdated?.Invoke();
-                GForceUpdated?.Invoke(-Math.Clamp(g_Force,-1000,0));
+            bool isReplay = _iracingClient.Data.GetBool(Datum_IsReplayPlaying);
+            if (isReplay)
+            {
+                ScaledValueUpdated?.Invoke(0, 0, 0, false);
+                ScaledValueUpdated?.Invoke(0, 0, 0, true);
+                GForceUpdated?.Invoke(0);
                 return;
             }
 
-         
-            // Telemetry data received - placeholder for future processing
-        }
-        bool flip;
-        public void CalculateABSEffect(ref float lmotor, ref float rmotor)
-        {
-            if (flip)
+            float longitude = _iracingClient.Data.GetFloat(Datum_LongAccel);
+            float g_Force = longitude / 9.81f;
+
+            float lmotor = g_Force, rmotor = g_Force;
+
+            if (lmotor > 0)
+                lmotor = 0;
+
+            if (rmotor > 0)
+                rmotor = 0;
+
+            float lat = _iracingClient.Data.GetFloat(Datum_LatAccel);
+            float lat_g_Force = lat / 9.81f;
+
+            float ver = _iracingClient.Data.GetFloat(Datum_VertAccel);
+            float ver_g_Force = ver / 9.81f;
+            // Notify subscribers with the new g_Force value
+
+            float lat_lMotor = 0, lat_rMotor = 0;
+
+
+            if (lat_g_Force > 0) //turning left
             {
-                lmotor += ABSStrength;
-                rmotor += ABSStrength;
-                flip = !flip;
-                return;
+                lat_lMotor = Math.Abs(lat_g_Force);
+                lat_rMotor = 0;
+            }
+            else //turning right
+            {
+                lat_rMotor = Math.Abs(lat_g_Force);
+                lat_lMotor = 0;
             }
 
+            ScaledValueUpdated?.Invoke(-lmotor, lat_lMotor, ver_g_Force < 0 ? 0 : ver_g_Force, false);
+            ScaledValueUpdated?.Invoke(-rmotor, lat_rMotor, ver_g_Force < 0 ? 0 : ver_g_Force, true);
 
-            // ABS effect: alternate between 0 and ABSStrength at the desired frequency (using ABSFrequency)
-            float t = (float)DateTime.Now.TimeOfDay.TotalSeconds;
-            float freq = ABSFrequency > 0 ? ABSFrequency : 40.0f; // Default to 40Hz if not set
-            float squarel = Math.Sin(t * freq * 2 * Math.PI) > 0 ? 1.0f : 0.0f;
-            float squarer = Math.Sin((t + ABSFrequency) * freq * 2 * Math.PI) > 0 ? 1.0f : 0.0f;
-            float absPulsel = squarel * ABSStrength;
-            float absPulser = squarer * ABSStrength;
-            lmotor += absPulsel;
-            rmotor += absPulser;
+            if (!_absActive)
+                //if (_iracingClient.Data.GetFloat("BrakeABSCutPct") > .1f)
+                ABSValueUpdated?.Invoke();
+            GForceUpdated?.Invoke(-Math.Clamp(g_Force, -1000, 0));
+            return;
         }
-
+   
         public float ABSFrequency { get; set; } = 4.0f; // Frequency in Hz, default 40Hz
 
         private void UnsubscribeFromSdkEvents()
@@ -206,10 +204,7 @@ namespace belttentiontest
             }
         }
 
-
         public float ABSStrength = 1f;
-        
-
      
         /// <summary>
         /// Stop monitoring and shutdown the IRacing SDK client without blocking indefinitely.

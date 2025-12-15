@@ -39,8 +39,6 @@ namespace belttentiontest
 
         private string carSettingsFile => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "car_settings.json");
 
-        private float testhorGforce = 0; // Default value for sl_horGforce
-
         public Form1()
         {
             InitializeComponent();
@@ -128,7 +126,7 @@ namespace belttentiontest
         {
             bool lmotor = lb_SelectedMotor.SelectedIndex == 0;
 
-            
+
 
             if (checkBoxTest.Checked)
                 OnScaledValueUpdated((int)numericUpDownTarget.Value, 0, 0, lmotor);
@@ -142,17 +140,15 @@ namespace belttentiontest
 
             if (_testABS)
             {
-
                 OnABSValueUpdated();
             }
-
-            // TODO: Add periodic update logic here
-            // Example: Update a label with current time
-            // labelStatus.Text = $"Status: {DateTime.Now:HH:mm:ss.fff}";
         }
 
         private void OnIracingConnected()
         {
+            maxGForceRecorded = 0f; //reset max G-Force on new connection
+            labelMaxGForce.Text = $"Max G-Force: {maxGForceRecorded:F2}";
+
             CarName = "NA";
             BeginInvoke(new Action(() =>
             {
@@ -199,7 +195,7 @@ namespace belttentiontest
 
         private void Log(string message, bool append = true)
         {
-            // textBoxLog removed, so Log does nothing
+            // Log does nothing but can be used
         }
 
         private void ShowDisconnectedUI(string reason = "Device disconnected")
@@ -445,10 +441,8 @@ namespace belttentiontest
         private bool _testABS = false;
         private void OnABSValueUpdated()
         {
-            if (_testABS)
-            {
+            if (cb_ABS_Enabled.Checked)
                 communicator.SendABS((int)nud_ABS.Value);
-            }
         }
 
         private void OnScaledValueUpdated(float longValue, float LatValue, float verVal, bool lMotor)
@@ -527,11 +521,7 @@ namespace belttentiontest
                 }
                 if (yValue < 0) yValue = 0;
                 if (yValue > maxV) yValue = maxV + R_MIN;
-
             }
-
-
-
 
             communicator.SendValue(yValue, lMotor);
         }
@@ -704,8 +694,8 @@ namespace belttentiontest
             numericUpDownCurveAmount.Value = (decimal)settings.CurveAmount;
             nud_coneringStrengh.Value = (decimal)settings.CorneringStrength;
             nudVertical.Value = (decimal)settings.VerticalStrength; // NEW
-            if (settings.AbsStrength < 1)
-                settings.AbsStrength = 1;
+            if (settings.AbsStrength < 3)
+                settings.AbsStrength = 3;
             nud_ABS.Value = (int)settings.AbsStrength; // NEW
             cb_ABS_Enabled.Checked = settings.AbsEnabled; // NEW
             irCommunicator.ABSStrength = settings.AbsStrength;
@@ -839,8 +829,12 @@ namespace belttentiontest
             if (_testABS)
                 return;
             _testABS = true;
-            Task.Delay(20000).ContinueWith(_ => _testABS = false);
+            Task.Delay(2000).ContinueWith(_ => _testABS = false);
         }
 
+        private void groupBox2_Enter(object sender, EventArgs e)
+        {
+
+        }
     }
 }
