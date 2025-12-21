@@ -96,13 +96,15 @@ namespace belttentiontest
             catch { }
         }
 
+        private double _coneringCurveAmount = 1.0; // backing field for new setting
+
         public Form1()
         {
             LoadAutoConnectSetting();
            
             _instance = this;
             InitializeComponent();
-             cb_AutoConnect.Checked = AutoConnectOnStartup;
+            cb_AutoConnect.Checked = AutoConnectOnStartup;
 
             buttonConnect.Text = "Connecting...";
             buttonConnect.Enabled = false;
@@ -437,6 +439,7 @@ namespace belttentiontest
             {
                 g.Clear(System.Drawing.Color.White);
                 var pen = new System.Drawing.Pen(System.Drawing.Color.Blue, 2);
+                var penLat = new System.Drawing.Pen(System.Drawing.Color.Red, 2); // Red for lateral
                 var font = new System.Drawing.Font("Arial", 8);
                 var brush = System.Drawing.Brushes.Black;
                 // Draw Y axis label (rotated)
@@ -467,7 +470,7 @@ namespace belttentiontest
                     g.DrawString(tickLabel, font, brush, tickX - tickLabelSize.Width / 2, tickY - tickLabelSize.Height - 2);
                 }
                 int maxV = (int)(((float)_maxPower / 100f) * MAXPOSIBLEMOTORVALUE);
-                // Draw curve (leave axisSpace at bottom, and xPadding on sides)
+                // Draw main curve (blue)
                 for (int x = 0; x < graphWidth; x++)
                 {
                     float inputValue = (float)(x * 7.0 / (graphWidth - 1)); // X axis: 0..7 (float)
@@ -483,11 +486,32 @@ namespace belttentiontest
                         double prevNormalized = prevInputValue / 7.0;
                         double prevCurved = Math.Pow(prevNormalized, curveAmount);
                         int prevYValue = (int)(Math.Round(prevCurved * MAXPOSIBLEMOTORVALUE) * _gForceMult);
-
                         if (prevYValue > maxV) prevYValue = maxV;
                         int prevY = graphHeight - 1 - (int)(prevYValue / MAXPOSIBLEMOTORVALUE * (graphHeight - 1));
                         int prevDrawX = xPadding + x - 1;
                         g.DrawLine(pen, prevDrawX, prevY, drawX, y);
+                    }
+                }
+                // Draw lateral load curve (red)
+                float corneringStrength = (float)nud_coneringStrengh.Value;
+                for (int x = 0; x < graphWidth; x++)
+                {
+                    float inputValue = (float)(x * 5.0 / (graphWidth - 1)); // X axis: 0..5 (float, only positive)
+                    float lat_normal = inputValue / 5.0f; // normalize to 0..1
+                    double lat_curved = Math.Pow(lat_normal, _coneringCurveAmount);
+                    float latValue = (float)lat_curved * 5f * corneringStrength; // scale and apply strength
+                    // Map to Y axis (full scale)
+                    int y = graphHeight - 1 - (int)(latValue / 7.0 * (graphHeight - 1));
+                    int drawX = xPadding + (int)(inputValue / 7.0 * (graphWidth - 1));
+                    if (x > 0)
+                    {
+                        float prevInputValue = (float)((x - 1) * 5.0 / (graphWidth - 1));
+                        float prevLat_normal = prevInputValue / 5.0f;
+                        double prevLat_curved = Math.Pow(prevLat_normal, _coneringCurveAmount);
+                        float prevLatValue = (float)prevLat_curved * 5f * corneringStrength;
+                        int prevY = graphHeight - 1 - (int)(prevLatValue / 7.0 * (graphHeight - 1));
+                        int prevDrawX = xPadding + (int)(prevInputValue / 7.0 * (graphWidth - 1));
+                        g.DrawLine(penLat, prevDrawX, prevY, drawX, y);
                     }
                 }
             }
@@ -518,9 +542,6 @@ namespace belttentiontest
 
         private void OnScaledValueUpdated(float longValue, float LatValue, float verVal, bool lMotor)
         {
-
-
-
             if (checkBoxTest.Checked)
                 longValue = (float)numericUpDownTarget.Value;
 
@@ -537,7 +558,7 @@ namespace belttentiontest
             LatValue = Math.Clamp(LatValue, 0, 5);
 
             float lat_normal = LatValue / 5.0f; // normalize to 0..1
-            double lat_curved = Math.Pow(lat_normal, curveAmount);
+            double lat_curved = Math.Pow(lat_normal, _coneringCurveAmount);
             LatValue = (float)lat_curved * 5f; // scale back to 0..5
 
             if (lMotor)
@@ -798,6 +819,9 @@ namespace belttentiontest
             irCommunicator.ABSStrength = settings.AbsStrength;
             cb_invert_conering.Checked = settings.InvertCornering; // NEW
             irCommunicator.InvertCornering = settings.InvertCornering;
+            // Set new setting to UI
+            _coneringCurveAmount = settings.ConeringCurveAmount;
+            nud_ConeringCurveAmount.Value = (decimal)settings.ConeringCurveAmount;
         }
 
         private void SaveCarSettings(string carName)
@@ -811,7 +835,8 @@ namespace belttentiontest
                 VerticalStrength = (float)nudVertical.Value, // NEW
                 AbsStrength = (float)nud_ABS.Value, // NEW
                 AbsEnabled = cb_ABS_Enabled.Checked, // NEW
-                InvertCornering = cb_invert_conering.Checked // NEW
+                InvertCornering = cb_invert_conering.Checked, // NEW
+                ConeringCurveAmount = (double)nud_ConeringCurveAmount.Value // NEW
             };
             CarSettingsStore.Instance.Settings[carName] = settings;
             try
@@ -884,6 +909,7 @@ namespace belttentiontest
         {
 
             SaveCarSettings(CarName);
+            DrawCurveGraph();
         }
 
 
@@ -904,6 +930,7 @@ namespace belttentiontest
                 return;
             settings.VerticalStrength = (float)nudVertical.Value;
             SaveCarSettings(CarName);
+            DrawCurveGraph();
         }
 
         private void nud_ABS_ValueChanged(object sender, EventArgs e)
@@ -946,6 +973,13 @@ namespace belttentiontest
         {
             AutoConnectOnStartup = cb_AutoConnect.Checked;
             SaveAutoConnectSetting();
+        }
+
+        private void nud_ConeringCurveAmount_ValueChanged(object sender, EventArgs e)
+        {
+            _coneringCurveAmount = (double)nud_ConeringCurveAmount.Value;
+            SaveCarSettings(CarName);
+            DrawCurveGraph();
         }
     }
 }

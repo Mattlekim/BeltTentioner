@@ -13,6 +13,7 @@ namespace belttentiontest
         public float AbsStrength { get; set; } = 1.0f; // NEW: ABS strength
         public bool AbsEnabled { get; set; } = false;  // NEW: ABS enabled
         public bool InvertCornering { get; set; } = false; // Added for invert cornering
+        public double ConeringCurveAmount { get; set; } = 1.0; // NEW: Cornering curve amount
     }
 
     public class CarSettingsStore
