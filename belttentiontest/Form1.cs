@@ -30,7 +30,6 @@ namespace belttentiontest
         // Timer for periodic updates
         private System.Windows.Forms.Timer? updateTimer;
 
-        private double curveAmount = 1.0; // Default curve amount, can be set via UI or property
         private int lastCurvedValue = 0;
 
         private string CarName = "NA";
@@ -98,6 +97,8 @@ namespace belttentiontest
 
         private double _coneringCurveAmount = 1.0; // backing field for new setting
 
+        private MemoryMapFileWriter? _mmfWriter;
+
         public Form1()
         {
             LoadAutoConnectSetting();
@@ -105,6 +106,8 @@ namespace belttentiontest
             _instance = this;
             InitializeComponent();
             cb_AutoConnect.Checked = AutoConnectOnStartup;
+
+            _mmfWriter = new MemoryMapFileWriter("BeltTensionerSettings", 64 * 1024);
 
             buttonConnect.Text = "Connecting...";
             buttonConnect.Enabled = false;
@@ -177,7 +180,6 @@ namespace belttentiontest
                     UpdateIracingLabel(irCommunicator?.IsConnected ?? false);
                 }
             };
-
 
             // Initialize and start update timer
             updateTimer = new System.Windows.Forms.Timer();
@@ -475,7 +477,7 @@ namespace belttentiontest
                 {
                     float inputValue = (float)(x * 7.0 / (graphWidth - 1)); // X axis: 0..7 (float)
                     double normalized = inputValue / 7.0;
-                    double curved = Math.Pow(normalized, curveAmount); // 0..1
+                    double curved = Math.Pow(normalized, _curveAmount); // 0..1
                     int yValue = (int)(Math.Round(curved * MAXPOSIBLEMOTORVALUE) * _gForceMult); // full scale
                     if (yValue > maxV) yValue = maxV;
                     int y = graphHeight - 1 - (int)(yValue / MAXPOSIBLEMOTORVALUE * (graphHeight - 1)); // Y axis: 0..1023
@@ -484,7 +486,7 @@ namespace belttentiontest
                     {
                         float prevInputValue = (float)((x - 1) * 7.0 / (graphWidth - 1));
                         double prevNormalized = prevInputValue / 7.0;
-                        double prevCurved = Math.Pow(prevNormalized, curveAmount);
+                        double prevCurved = Math.Pow(prevNormalized, _curveAmount);
                         int prevYValue = (int)(Math.Round(prevCurved * MAXPOSIBLEMOTORVALUE) * _gForceMult);
                         if (prevYValue > maxV) prevYValue = maxV;
                         int prevY = graphHeight - 1 - (int)(prevYValue / MAXPOSIBLEMOTORVALUE * (graphHeight - 1));
@@ -527,7 +529,7 @@ namespace belttentiontest
 
         private void numericUpDownCurveAmount_ValueChanged(object sender, EventArgs e)
         {
-            curveAmount = (double)numericUpDownCurveAmount.Value;
+            _curveAmount = (double)numericUpDownCurveAmount.Value;
             SaveCarSettings(CarName);
             DrawCurveGraph();
         }
@@ -540,16 +542,18 @@ namespace belttentiontest
                 communicator.SendABS((int)nud_ABS.Value);
         }
 
+        private float _displayGForce = 0, _displayLatForce = 0, _displayVForce = 0;
+
         private void OnScaledValueUpdated(float longValue, float LatValue, float verVal, bool lMotor)
         {
             if (checkBoxTest.Checked)
                 longValue = (float)numericUpDownTarget.Value;
-
+                
 
             // Apply curve: value in [0,1023], curveAmount >= 0.0
             float inputValue = Math.Clamp(longValue, 0, 7);
             double normalized = inputValue / 7.0;
-            double curved = Math.Pow(normalized, curveAmount); // 0..1
+            double curved = Math.Pow(normalized, _curveAmount); // 0..1
             float yValue = (float)curved * _gForceMult; // full scale
             yValue *= (_maxPower / 100f);
             float maxV = L_MAX - L_MIN;
@@ -560,7 +564,7 @@ namespace belttentiontest
             float lat_normal = LatValue / 5.0f; // normalize to 0..1
             double lat_curved = Math.Pow(lat_normal, _coneringCurveAmount);
             LatValue = (float)lat_curved * 5f; // scale back to 0..5
-
+            _displayVForce = 0;
             if (lMotor)
             {
                 if (L_INVERT)
@@ -596,6 +600,7 @@ namespace belttentiontest
                 yValue = (yValue * (R_MAX - R_MIN)) + R_MIN;
                 if (R_INVERT)
                 {
+                    _displayLatForce = -LatValue * (float)nud_ConeringCurveAmount.Value;
                     yValue -= LatValue * (float)nud_coneringStrengh.Value; // add cornering effect
                     if (verVal > 1)
                     {
@@ -604,11 +609,12 @@ namespace belttentiontest
                 }
                 else
                 {
+                    _displayLatForce = -LatValue * (float)nud_ConeringCurveAmount.Value;
                     yValue += LatValue * (float)nud_coneringStrengh.Value; // add cornering effect
                     if (verVal > 1)
                     {
                         yValue += (verVal - 1) * (float)nudVertical.Value;
-                        yValue += (verVal - 1) * (float)nudVertical.Value;
+                       
                     }
                 }
                 if (yValue < 0) yValue = 0;
@@ -745,6 +751,7 @@ namespace belttentiontest
             Settings.Default.Save();
             updateTimer?.Stop();
             updateTimer?.Dispose();
+            _mmfWriter?.Dispose();
             base.OnFormClosing(e);
         }
 
@@ -843,8 +850,34 @@ namespace belttentiontest
             {
                 var json = JsonSerializer.Serialize(CarSettingsStore.Instance, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(carSettingsFile, json);
+                
             }
             catch { }
+        }
+
+        private void WriteSettingsToMemoryMappedFile(string json)
+        {
+            if (this.CarName == string.Empty || this.CarName == null)
+                return;
+
+            var structSettings = new MemoryMapFileFormat
+            {
+
+                CarName = this.CarName,
+                MaxGForceMult = (float)numericUpDownGForceToBelt.Value,
+                MaxPower = _maxPower,
+                CurveAmount =_curveAmount,
+                CorneringStrength = (float)nud_coneringStrengh.Value,
+                VerticalStrength = (float)nudVertical.Value,
+                AbsStrength = (float)nud_ABS.Value,
+                AbsEnabled = (byte)(cb_ABS_Enabled.Checked ? 1 : 0),
+                InvertCornering = (byte)(cb_invert_conering.Checked ? 1 : 0),
+                ConeringCurveAmount = (float)nud_ConeringCurveAmount.Value
+
+
+                
+            };
+            _mmfWriter?.WriteSettings(structSettings);
         }
 
         private void nud_Motor_Start_ValueChanged(object sender, EventArgs e)

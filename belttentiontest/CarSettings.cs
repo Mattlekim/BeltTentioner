@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 
 namespace belttentiontest
 {
@@ -32,4 +33,6 @@ namespace belttentiontest
 
         public Dictionary<string, CarSettings> Settings { get; set; } = new();
     }
+
+    
 }
