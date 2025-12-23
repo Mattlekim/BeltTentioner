@@ -14,8 +14,10 @@ namespace belttentiontest
         private readonly IntPtr _ptr;
         private bool _disposed;
 
-        public MemoryMapFileWriter(string mapName, int size)
+        public MemoryMapFileWriter()
         {
+            string mapName = "BeltTensionerSettings";
+            int size = 64 * 1024;
             _mmf = MemoryMappedFile.CreateOrOpen(mapName, size);
             _accessor = _mmf.CreateViewAccessor(0, size);
             _structSize = Marshal.SizeOf<MemoryMapFileFormat>();

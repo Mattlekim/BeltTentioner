@@ -30,6 +30,9 @@ namespace belttentiontest
         // Timer for periodic updates
         private System.Windows.Forms.Timer? updateTimer;
 
+        // Timer for MMF updates
+        private System.Windows.Forms.Timer? mmfUpdateTimer;
+
         private int lastCurvedValue = 0;
 
         private string CarName = "NA";
@@ -102,12 +105,17 @@ namespace belttentiontest
         public Form1()
         {
             LoadAutoConnectSetting();
-           
             _instance = this;
             InitializeComponent();
             cb_AutoConnect.Checked = AutoConnectOnStartup;
 
-            _mmfWriter = new MemoryMapFileWriter("BeltTensionerSettings", 64 * 1024);
+            _mmfWriter = new MemoryMapFileWriter();
+
+            // MMF update timer: call WriteSettingsToMemoryMappedFile 30 times/sec
+            mmfUpdateTimer = new System.Windows.Forms.Timer();
+            mmfUpdateTimer.Interval = 33; // ~30 times per second
+            mmfUpdateTimer.Tick += (s, e) => WriteSettingsToMemoryMappedFile(""); // Pass actual JSON if needed
+            mmfUpdateTimer.Start();
 
             buttonConnect.Text = "Connecting...";
             buttonConnect.Enabled = false;
@@ -140,6 +148,8 @@ namespace belttentiontest
                     // Stop and dispose timer
                     updateTimer?.Stop();
                     updateTimer?.Dispose();
+                    mmfUpdateTimer?.Stop(); // Stop MMF update timer
+                    mmfUpdateTimer?.Dispose(); // Dispose MMF update timer
                 }
                 catch { }
             };
@@ -569,6 +579,10 @@ namespace belttentiontest
         
             float yValue = value.CalcluateMotorSignalOutput(lmotorSettings);
 
+            _displayGForce = value.BreakingForce;
+            _displayLatForce = lMotor ? -value.ConeringForce : value.ConeringForce;
+            _displayVForce = value.VerticalForce;
+
             communicator.SendValue(yValue, lMotor);
         }
 
@@ -699,6 +713,8 @@ namespace belttentiontest
             Settings.Default.Save();
             updateTimer?.Stop();
             updateTimer?.Dispose();
+            mmfUpdateTimer?.Stop(); // Stop MMF update timer
+            mmfUpdateTimer?.Dispose(); // Dispose MMF update timer
             _mmfWriter?.Dispose();
             base.OnFormClosing(e);
         }
@@ -820,10 +836,14 @@ namespace belttentiontest
                 AbsStrength = (float)nud_ABS.Value,
                 AbsEnabled = (byte)(cb_ABS_Enabled.Checked ? 1 : 0),
                 InvertCornering = (byte)(cb_invert_conering.Checked ? 1 : 0),
-                ConeringCurveAmount = (float)nud_ConeringCurveAmount.Value
+                ConeringCurveAmount = (float)nud_ConeringCurveAmount.Value,
 
+                GForce = _displayGForce,
+                LateralG = _displayLatForce,
+                VerticalG = _displayVForce,
 
-                
+                ConnectedToSim = irCommunicator != null ? irCommunicator.IsConnected : false,
+
             };
             _mmfWriter?.WriteSettings(structSettings);
         }
