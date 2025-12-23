@@ -117,6 +117,12 @@ namespace belttentiontest
             mmfUpdateTimer.Tick += (s, e) => WriteSettingsToMemoryMappedFile(""); // Pass actual JSON if needed
             mmfUpdateTimer.Start();
 
+            // MMF update timer: call WriteSettingsToMemoryMappedFile 30 times/sec
+            mmfUpdateTimer = new System.Windows.Forms.Timer();
+            mmfUpdateTimer.Interval = 33; // ~30 times per second
+            mmfUpdateTimer.Tick += (s, e) => WriteSettingsToMemoryMappedFile(""); // Pass actual JSON if needed
+            mmfUpdateTimer.Start();
+
             buttonConnect.Text = "Connecting...";
             buttonConnect.Enabled = false;
 
