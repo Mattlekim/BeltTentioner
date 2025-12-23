@@ -544,82 +544,30 @@ namespace belttentiontest
 
         private float _displayGForce = 0, _displayLatForce = 0, _displayVForce = 0;
 
-        private void OnScaledValueUpdated(float longValue, float LatValue, float verVal, bool lMotor)
+
+
+        private void OnScaledValueUpdated(float simBrakingValue, float SimConeringValue, float SimVeriticalValue, bool lMotor)
         {
             if (checkBoxTest.Checked)
-                longValue = (float)numericUpDownTarget.Value;
-                
-
-            // Apply curve: value in [0,1023], curveAmount >= 0.0
-            float inputValue = Math.Clamp(longValue, 0, 7);
-            double normalized = inputValue / 7.0;
-            double curved = Math.Pow(normalized, _curveAmount); // 0..1
-            float yValue = (float)curved * _gForceMult; // full scale
-            yValue *= (_maxPower / 100f);
-            float maxV = L_MAX - L_MIN;
-
-
-            LatValue = Math.Clamp(LatValue, 0, 5);
-
-            float lat_normal = LatValue / 5.0f; // normalize to 0..1
-            double lat_curved = Math.Pow(lat_normal, _coneringCurveAmount);
-            LatValue = (float)lat_curved * 5f; // scale back to 0..5
-            _displayVForce = 0;
-            if (lMotor)
+                simBrakingValue = (float)numericUpDownTarget.Value;
+               
+            
+            MotorSettings lmotorSettings = new MotorSettings
             {
-                if (L_INVERT)
-                    yValue = 1 - yValue;
-                yValue = (yValue * (L_MAX - L_MIN)) + L_MIN;
+                MaxPower = _maxPower,
+                GForceMult = _gForceMult,
+                CurveAmount = (float)_curveAmount,
+                ConeringCurveAmount = (float)_coneringCurveAmount,
+                ConeringStrengh = (float)nud_coneringStrengh.Value,
+                VerticalStrengh = (float)nudVertical.Value,
+                Min = lMotor ? L_MIN : R_MIN,
+                Max = lMotor ? L_MAX : R_MAX,
+                Invert = lMotor ? L_INVERT : R_INVERT,
+            };
 
-                if (L_INVERT)
-                {
-                    yValue -= LatValue * (float)nud_coneringStrengh.Value; // add cornering effect
-                    if (verVal > 1)
-                    {
-                        yValue -= (verVal - 1) * (float)nudVertical.Value;
-                    }
-                }
-                else
-                {
-                    yValue += LatValue * (float)nud_coneringStrengh.Value; // add cornering effect
-                    if (verVal > 1)
-                    {
-                        yValue += (verVal - 1) * (float)nudVertical.Value;
-                    }
-                }
-
-                if (yValue < 0) yValue = 0;
-                if (yValue > maxV) yValue = maxV + L_MIN;
-
-
-            }
-            else
-            {
-                if (R_INVERT)
-                    yValue = 1 - yValue;
-                yValue = (yValue * (R_MAX - R_MIN)) + R_MIN;
-                if (R_INVERT)
-                {
-                    _displayLatForce = -LatValue * (float)nud_ConeringCurveAmount.Value;
-                    yValue -= LatValue * (float)nud_coneringStrengh.Value; // add cornering effect
-                    if (verVal > 1)
-                    {
-                        yValue -= (verVal - 1) * (float)nudVertical.Value;
-                    }
-                }
-                else
-                {
-                    _displayLatForce = -LatValue * (float)nud_ConeringCurveAmount.Value;
-                    yValue += LatValue * (float)nud_coneringStrengh.Value; // add cornering effect
-                    if (verVal > 1)
-                    {
-                        yValue += (verVal - 1) * (float)nudVertical.Value;
-                       
-                    }
-                }
-                if (yValue < 0) yValue = 0;
-                if (yValue > maxV) yValue = maxV + R_MIN;
-            }
+            MotorOutputValues value = lmotorSettings.CalculateMotorValue(simBrakingValue, SimConeringValue, SimVeriticalValue);
+        
+            float yValue = value.CalcluateMotorSignalOutput(lmotorSettings);
 
             communicator.SendValue(yValue, lMotor);
         }
