@@ -23,5 +23,7 @@ namespace belttentiontest
         public double ConeringCurveAmount;
 
         public float GForce, LateralG, VerticalG;
+
+        public bool ConnectedToSim;
     }
 }
