@@ -64,14 +64,14 @@ namespace belttentiontest
         public float CalculateLateralForces(MotorSettings settings)
         {
             float curved = settings.CalculateCurve(ConeringForceInput, settings.ConeringCurveAmount, MotorSettings.ConeringGForceScale);
-            ConeringForceOutput = curved * settings.GForceMult;
+            ConeringForceOutput = curved * settings.ConeringStrengh;
             return ConeringForceOutput;
         }
 
         public float CalculateVerticalForces(MotorSettings settings)
         {
             float curved = settings.CalculateCurve(VerticalForceInput, settings.ConeringCurveAmount, MotorSettings.VerticalGForceScale);
-            VerticalForceOutput = curved * settings.GForceMult;
+            VerticalForceOutput = curved * settings.VerticalStrengh;
             return VerticalForceOutput;
         }
 

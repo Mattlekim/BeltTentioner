@@ -277,15 +277,15 @@ namespace belttentiontest
 
             BeginInvoke(new Action(() =>
             {
-                textBoxIracingStatus.Text = "Iracing Not Connect";
+                textBoxIracingStatus.Text = "IRacing Not Connect";
                 Log("iRacing: Not connected");
             }));
         }
 
         private void UpdateIracingLabel(bool connected)
         {
-            textBoxIracingStatus.Text = connected ? "Iracing Connected" : "Iracing Not Connect";
-            Log(connected ? "iRacing: Connected" : "iRacing: Not connected");
+            textBoxIracingStatus.Text = connected ? "IRacing Connected" : "IRacing Not Connect";
+            Log(connected ? "IRacing: Connected" : "IRacing: Not connected");
         }
 
         private void Log(string message, bool append = true)
@@ -448,22 +448,29 @@ namespace belttentiontest
             }));
         }
 
+        private float _lastLongForceInput = 0f;
+        private float _lastLatForceInput = 0f;
+
         private void DrawCurveGraph()
         {
             if (pictureBoxCurveGraph == null) return;
             int width = pictureBoxCurveGraph.Width;
             int height = pictureBoxCurveGraph.Height;
-            int axisSpace = 20; // Space reserved for X axis labels/ticks
-            int xPadding = 12; // Padding on left and right sides
+            int axisSpace = 20;
+            int xPadding = 12;
             int graphWidth = width - 2 * xPadding;
+            int graphHeight = height - axisSpace;
             var bmp = new System.Drawing.Bitmap(width, height);
             using (var g = System.Drawing.Graphics.FromImage(bmp))
             {
                 g.Clear(System.Drawing.Color.White);
-                var pen = new System.Drawing.Pen(System.Drawing.Color.Blue, 2);
-                var penLat = new System.Drawing.Pen(System.Drawing.Color.Red, 2); // Red for lateral
+                var penMain = new System.Drawing.Pen(System.Drawing.Color.Blue, 2);
+                var penLat = new System.Drawing.Pen(System.Drawing.Color.Green, 2);
+                var penMax = new System.Drawing.Pen(System.Drawing.Color.OrangeRed, 2);
+                var penPreview = new System.Drawing.Pen(System.Drawing.Color.Purple, 2);
                 var font = new System.Drawing.Font("Arial", 8);
                 var brush = System.Drawing.Brushes.Black;
+
                 // Draw Y axis label (rotated)
                 string yLabel = "Output To Belt";
                 var yLabelSize = g.MeasureString(yLabel, font);
@@ -472,14 +479,11 @@ namespace belttentiontest
                 g.DrawString(yLabel, font, brush, -(yLabelSize.Width / 2), 0);
                 g.ResetTransform();
 
-                // Draw X and Y axis lines
-                int graphHeight = height - axisSpace;
-                // Y axis (vertical)
+                // Draw axes
                 g.DrawLine(System.Drawing.Pens.Black, xPadding, 0, xPadding, graphHeight - 1);
-                // X axis (horizontal)
                 g.DrawLine(System.Drawing.Pens.Black, xPadding, graphHeight - 1, xPadding + graphWidth - 1, graphHeight - 1);
 
-                // Draw X axis tick marks and numbers (0 to 7)
+                // Draw X axis ticks and labels
                 int numTicks = 8;
                 for (int i = 0; i <= numTicks; i++)
                 {
@@ -491,50 +495,104 @@ namespace belttentiontest
                     var tickLabelSize = g.MeasureString(tickLabel, font);
                     g.DrawString(tickLabel, font, brush, tickX - tickLabelSize.Width / 2, tickY - tickLabelSize.Height - 2);
                 }
-                int maxV = (int)(((float)_maxPower / 100f) * MAXPOSIBLEMOTORVALUE);
-                // Draw main curve (blue)
+
+                // Prepare settings
+                MotorSettings settings = new MotorSettings
+                {
+                    MaxPower = _maxPower,
+                    GForceMult = _gForceMult,
+                    CurveAmount = (float)_curveAmount,
+                    ConeringCurveAmount = (float)_coneringCurveAmount,
+                    ConeringStrengh = (float)nud_coneringStrengh.Value,
+                    VerticalStrengh = (float)nudVertical.Value,
+                    Min = 0,
+                    Max = 90,
+                    Invert = false
+                };
+                float min = settings.Min;
+                float max = settings.Max;
+                if (min > max) (min, max) = (max, min);
+                float motorRange = max - min;
+                if (motorRange == 0) motorRange = 1;
+
+                // Helper for Y mapping
+                int MapY(float yValue) => (int)((1.0f - (Math.Clamp(yValue, min, max) - min) / motorRange) * (graphHeight - 1));
+
+                // Draw max output as a solid yellow line
+                float maxOutput = min + (motorRange * (_maxPower / 100f));
+                int yMax = MapY(maxOutput);
+                g.DrawLine(penMax, xPadding, yMax, xPadding + graphWidth - 1, yMax);
+
+                // Main curve (longitudinal G)
+                int? prevY = null, prevX = null;
                 for (int x = 0; x < graphWidth; x++)
                 {
-                    float inputValue = (float)(x * 7.0 / (graphWidth - 1)); // X axis: 0..7 (float)
-                    double normalized = inputValue / 7.0;
-                    double curved = Math.Pow(normalized, _curveAmount); // 0..1
-                    int yValue = (int)(Math.Round(curved * MAXPOSIBLEMOTORVALUE) * _gForceMult); // full scale
-                    if (yValue > maxV) yValue = maxV;
-                    int y = graphHeight - 1 - (int)(yValue / MAXPOSIBLEMOTORVALUE * (graphHeight - 1)); // Y axis: 0..1023
+                    float inputValue = (float)(x * MotorSettings.LongGForceScale / (graphWidth - 1));
+                    MotorOutputValues output = settings.Setup(inputValue, 0, 0);
+                    float yValue = output.CalcluateMotorSignalOutput(settings);
+                    int y = MapY(yValue);
                     int drawX = xPadding + x;
-                    if (x > 0)
-                    {
-                        float prevInputValue = (float)((x - 1) * 7.0 / (graphWidth - 1));
-                        double prevNormalized = prevInputValue / 7.0;
-                        double prevCurved = Math.Pow(prevNormalized, _curveAmount);
-                        int prevYValue = (int)(Math.Round(prevCurved * MAXPOSIBLEMOTORVALUE) * _gForceMult);
-                        if (prevYValue > maxV) prevYValue = maxV;
-                        int prevY = graphHeight - 1 - (int)(prevYValue / MAXPOSIBLEMOTORVALUE * (graphHeight - 1));
-                        int prevDrawX = xPadding + x - 1;
-                        g.DrawLine(pen, prevDrawX, prevY, drawX, y);
-                    }
+                    if (prevY.HasValue)
+                        g.DrawLine(penMain, prevX.Value, prevY.Value, drawX, y);
+                    prevY = y;
+                    prevX = drawX;
                 }
-                // Draw lateral load curve (red)
-                float corneringStrength = (float)nud_coneringStrengh.Value;
+
+                // Lateral curve (cornering G)
+                prevY = null; prevX = null;
                 for (int x = 0; x < graphWidth; x++)
                 {
-                    float inputValue = (float)(x * 5.0 / (graphWidth - 1)); // X axis: 0..5 (float, only positive)
-                    float lat_normal = inputValue / 5.0f; // normalize to 0..1
-                    double lat_curved = Math.Pow(lat_normal, _coneringCurveAmount);
-                    float latValue = (float)lat_curved * 5f * corneringStrength; // scale and apply strength
-                    // Map to Y axis (full scale)
-                    int y = graphHeight - 1 - (int)(latValue / 7.0 * (graphHeight - 1));
-                    int drawX = xPadding + (int)(inputValue / 7.0 * (graphWidth - 1));
-                    if (x > 0)
-                    {
-                        float prevInputValue = (float)((x - 1) * 5.0 / (graphWidth - 1));
-                        float prevLat_normal = prevInputValue / 5.0f;
-                        double prevLat_curved = Math.Pow(prevLat_normal, _coneringCurveAmount);
-                        float prevLatValue = (float)prevLat_curved * 5f * corneringStrength;
-                        int prevY = graphHeight - 1 - (int)(prevLatValue / 7.0 * (graphHeight - 1));
-                        int prevDrawX = xPadding + (int)(prevInputValue / 7.0 * (graphWidth - 1));
-                        g.DrawLine(penLat, prevDrawX, prevY, drawX, y);
-                    }
+                    float inputValue = (float)(x * MotorSettings.ConeringGForceScale / (graphWidth - 1));
+                    MotorOutputValues output = settings.Setup(0, inputValue, 0);
+                    float yValue = output.CalcluateMotorSignalOutput(settings);
+                    int drawX = xPadding + (int)(inputValue / MotorSettings.LongGForceScale * (graphWidth - 1));
+                    int y = MapY(yValue);
+                    if (prevY.HasValue)
+                        g.DrawLine(penLat, prevX.Value, prevY.Value, drawX, y);
+                    prevY = y;
+                    prevX = drawX;
+                }
+
+                // Live preview: show actual positions if enabled
+                if (cb_livePrieview != null && cb_livePrieview.Checked)
+                {
+                    // Longitudinal force marker
+                    int longX = xPadding + (int)(_lastLongForceInput / MotorSettings.LongGForceScale * (graphWidth - 1));
+                    MotorOutputValues longOutput = settings.Setup(_lastLongForceInput, 0, 0);
+                    int longY = MapY(longOutput.CalcluateMotorSignalOutput(settings));
+                    g.FillEllipse(System.Drawing.Brushes.Green, longX - 5, longY - 5, 10, 10);
+
+                    // Lateral force marker
+                    int latX = xPadding + (int)(_lastLatForceInput / MotorSettings.LongGForceScale * (graphWidth - 1));
+                    MotorOutputValues latOutput = settings.Setup(0, _lastLatForceInput, 0);
+                    int latY = MapY(latOutput.CalcluateMotorSignalOutput(settings));
+                    g.FillEllipse(System.Drawing.Brushes.Blue, latX - 5, latY - 5, 10, 10);
+
+                    // Combined bar (long + lat + vertical)
+                    float combinedLong = _lastLongForceInput;
+                    float combinedLat = _lastLatForceInput;
+                    float combinedVert = 0f;
+                    MotorOutputValues combinedOutput = settings.Setup(combinedLong, combinedLat, combinedVert);
+                    float combinedValue = combinedOutput.CalcluateMotorSignalOutput(settings);
+                    // Bar max is based on settings.MaxPower (0-100 percent of motor range)
+                    float barMaxValue = min + (motorRange * (settings.MaxPower / 100f));
+                    float barPercent = (combinedValue - min) / (barMaxValue - min);
+                    barPercent = Math.Clamp(barPercent, 0f, 1f);
+                    int barMaxHeight = (int)((barMaxValue - min) / motorRange * (graphHeight - 1));
+                    int barHeight = (int)(barPercent * barMaxHeight);
+                    int barWidth = 20;
+                    int barX = xPadding + graphWidth - barWidth - 2;
+                    int barY = graphHeight - barHeight;
+                    // Color logic
+                    System.Drawing.Brush barBrush = System.Drawing.Brushes.Red;
+                    if (barPercent < 0.6f)
+                        barBrush = System.Drawing.Brushes.Green;
+                    else if (barPercent < 0.9f)
+                        barBrush = System.Drawing.Brushes.Orange;
+                    g.FillRectangle(barBrush, barX, barY, barWidth, barHeight);
+                    // Draw the bar's max outline
+                    int barMaxY = graphHeight - barMaxHeight;
+                    g.DrawRectangle(System.Drawing.Pens.Black, barX, barMaxY, barWidth, barMaxHeight);
                 }
             }
             pictureBoxCurveGraph.Image = bmp;
@@ -604,7 +662,18 @@ namespace belttentiontest
             
             _displayVForce = value.VerticalForceInput;
 
-            communicator.SendValue(yValue, lMotor);
+            
+
+
+            if (cb_livePrieview != null && cb_livePrieview.Checked)
+            {
+
+                // Store latest force inputs for live preview
+                _lastLongForceInput = _lastLongForceInput * .9f +  simBrakingValue * .1f;
+                _lastLatForceInput = _lastLatForceInput * .9f + SimConeringValue * .1f;
+                DrawCurveGraph();
+            }
+                communicator.SendValue(yValue, lMotor);
         }
 
         public string LabelStatus
