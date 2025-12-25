@@ -107,13 +107,24 @@ namespace belttentiontest
 
             if (_iracingClient?.Data.SessionInfo != null)
             {
-                string carName = _iracingClient.Data.SessionInfo.DriverInfo.Drivers[_iracingClient.Data.SessionInfo.DriverInfo.DriverCarIdx].CarScreenName;
-
-                if (carName != _oldCarName)
+                try
                 {
-                    CarNameChanged?.Invoke(carName);
+                    if (_iracingClient.Data.SessionInfo.DriverInfo.DriverCarIdx > _iracingClient.Data.SessionInfo.DriverInfo.Drivers.Count)
+                    {
+                        string carName = _iracingClient.Data.SessionInfo.DriverInfo.Drivers[_iracingClient.Data.SessionInfo.DriverInfo.DriverCarIdx].CarScreenName;
+
+                        if (carName != _oldCarName)
+                        {
+                            CarNameChanged?.Invoke(carName);
+                        }
+
+                        _oldCarName = carName;
+                    }
                 }
-                _oldCarName = carName;
+                catch
+                {
+
+                }
             }
 
             _absActive = false;

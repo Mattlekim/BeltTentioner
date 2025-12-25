@@ -390,10 +390,14 @@ namespace belttentiontest
 
             if (message == "DEVICE_UNPLUGGED")
             {
-                BeginInvoke(new Action(() =>
+                try
                 {
-                    ShowDisconnectedUI("Device unplugged");
-                }));
+                    BeginInvoke(new Action(() =>
+                    {
+                        ShowDisconnectedUI("Device unplugged");
+                    }));
+                }
+                catch { }                
                 return;
             }
         }
@@ -566,7 +570,8 @@ namespace belttentiontest
         {
             if (checkBoxTest.Checked)
                 simBrakingValue = (float)numericUpDownTarget.Value;
-               
+
+            SimVeriticalValue -= 1f; //remove gravity
             
             MotorSettings lmotorSettings = new MotorSettings
             {
@@ -581,13 +586,23 @@ namespace belttentiontest
                 Invert = lMotor ? L_INVERT : R_INVERT,
             };
 
-            MotorOutputValues value = lmotorSettings.CalculateMotorValue(simBrakingValue, SimConeringValue, SimVeriticalValue);
+            MotorOutputValues value = lmotorSettings.Setup(simBrakingValue, SimConeringValue, SimVeriticalValue);
         
             float yValue = value.CalcluateMotorSignalOutput(lmotorSettings);
 
-            _displayGForce = value.BreakingForce;
-            _displayLatForce = lMotor ? -value.ConeringForce : value.ConeringForce;
-            _displayVForce = value.VerticalForce;
+            _displayGForce = value.LongForceInput;
+            if (lMotor)
+            {
+                if (value.ConeringForceInput != 0)
+                    _displayLatForce = -value.ConeringForceInput;
+            }
+            else
+            {
+                if (value.ConeringForceInput != 0)
+                    _displayLatForce = value.ConeringForceInput;
+            }
+            
+            _displayVForce = value.VerticalForceInput;
 
             communicator.SendValue(yValue, lMotor);
         }
@@ -849,7 +864,7 @@ namespace belttentiontest
                 VerticalG = _displayVForce,
 
                 ConnectedToSim = irCommunicator != null ? irCommunicator.IsConnected : false,
-
+                ConnectedToBelt = communicator.IsConnected,
             };
             _mmfWriter?.WriteSettings(structSettings);
         }

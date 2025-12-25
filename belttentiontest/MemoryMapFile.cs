@@ -25,5 +25,6 @@ namespace belttentiontest
         public float GForce, LateralG, VerticalG;
 
         public bool ConnectedToSim;
+        public bool ConnectedToBelt;
     }
 }
