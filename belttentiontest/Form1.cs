@@ -1,3 +1,4 @@
+using BeltTentionerLib;
 using belttentiontest.Properties;
 using System;
 using System.Collections.Generic;
@@ -43,6 +44,7 @@ namespace belttentiontest
         private float maxGForceRecorded = 0f; // Max G-Force recorded
 
         private string carSettingsFile => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "car_settings.json");
+
 
         // Singleton instance for Form1
         private static Form1? _instance;
@@ -134,6 +136,15 @@ namespace belttentiontest
             communicator.MessageReceived += OnMessageReceivedFromSerial;
             communicator.HandshakeComplete += OnHandshakeCompleteFromSerial;
 
+            WindowsMessageBridge.BeltMessageReceived += (msg) =>
+            {
+                switch (msg.Type)
+                {
+                    case BeltMessageType.GForce:
+                        SetGForceMult(msg.Value);
+                        break;
+                }
+            };
             // Auto-detection on startup disabled. Manual connect via button only.
 
             // Ensure cancellation when form closes
@@ -1071,6 +1082,14 @@ namespace belttentiontest
             _coneringCurveAmount = (double)nud_ConeringCurveAmount.Value;
             SaveCarSettings(CarName);
             DrawCurveGraph();
+        }
+
+        protected override void WndProc(ref Message m)
+        {
+            if (!WindowsMessageBridge.DecodeWndProc(ref m))
+            {
+                base.WndProc(ref m);
+            }
         }
     }
 }

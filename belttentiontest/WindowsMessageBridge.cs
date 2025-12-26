@@ -28,10 +28,13 @@ namespace BeltTentionerLib
         {
             result = null;
             var parts = msg.Split(':');
-            if (parts.Length == 2 && Enum.TryParse(parts[0], out BeltMessageType type) && float.TryParse(parts[1], out float value))
+            if (parts.Length == 2)
             {
-                result = new BeltMessage(type, value);
-                return true;
+                if (Enum.TryParse(parts[0], out BeltMessageType type) && float.TryParse(parts[1], out float value))
+                {
+                    result = new BeltMessage(type, value);
+                    return true;
+                }
             }
             return false;
         }
@@ -39,14 +42,39 @@ namespace BeltTentionerLib
 
     public class WindowsMessageBridge
     {
+        public const int WM_COPYDATA = 0x004A;
+
+        // For receiving messages in a Form
+        public static event Action<BeltMessage>? BeltMessageReceived;
+        public static event Action<string>? MessageReceived;
+
+    
+        // Call this from your Form's WndProc
+        public static void HandleWndProc(ref Message m)
+        {
+            if (m.Msg == WM_COPYDATA)
+            {
+                COPYDATASTRUCT cds = Marshal.PtrToStructure<COPYDATASTRUCT>(m.LParam);
+                byte[] data = new byte[cds.cbData];
+                Marshal.Copy(cds.lpData, data, 0, cds.cbData);
+                string msg = Encoding.UTF8.GetString(data);
+                MessageReceived?.Invoke(msg);
+                if (BeltMessage.TryParse(msg, out var beltMsg) && beltMsg != null)
+                {
+                  
+                   
+                    BeltMessageReceived?.Invoke(beltMsg);
+                }
+                m.Result = IntPtr.Zero;
+            }
+        }
+
         // Win32 API declarations
         [DllImport("user32.dll", SetLastError = true)]
         public static extern IntPtr FindWindow(string? lpClassName, string? lpWindowName);
 
         [DllImport("user32.dll", SetLastError = true)]
         public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
-
-        public const int WM_COPYDATA = 0x004A;
 
         // For sending string data
         [StructLayout(LayoutKind.Sequential)]
@@ -91,25 +119,17 @@ namespace BeltTentionerLib
             return true;
         }
 
-        // For receiving messages in a Form
-        public static event Action<BeltMessage>? BeltMessageReceived;
-        public static event Action<string>? MessageReceived;
-
-        // Call this from your Form's WndProc
-        public static void HandleWndProc(ref Message m)
+        // Decodes and handles Windows messages
+        public static bool DecodeWndProc(ref Message m)
         {
-            if (m.Msg == WM_COPYDATA)
+            switch (m.Msg)
             {
-                COPYDATASTRUCT cds = Marshal.PtrToStructure<COPYDATASTRUCT>(m.LParam);
-                byte[] data = new byte[cds.cbData];
-                Marshal.Copy(cds.lpData, data, 0, cds.cbData);
-                string msg = Encoding.UTF8.GetString(data);
-                MessageReceived?.Invoke(msg);
-                if (BeltMessage.TryParse(msg, out var beltMsg) && beltMsg != null)
-                {
-                    BeltMessageReceived?.Invoke(beltMsg);
-                }
-                m.Result = IntPtr.Zero;
+                case WM_COPYDATA:
+                    HandleWndProc(ref m);
+                    return true;
+                // Add more cases for other Windows messages here
+                default:
+                    return false;
             }
         }
     }
