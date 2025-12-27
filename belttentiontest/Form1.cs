@@ -141,7 +141,17 @@ namespace belttentiontest
                 switch (msg.Type)
                 {
                     case BeltMessageType.GForce:
-                        SetGForceMult(msg.Value);
+
+                        numericUpDownGForceToBelt.Value = (decimal)msg.Value;
+                        
+                        break;
+
+                    case BeltMessageType.GCurve:
+                        numericUpDownCurveAmount.Value = (decimal)msg.Value;
+                        break;
+
+                    case BeltMessageType.VForce:
+                        nudVertical.Value = (decimal)msg.Value;
                         break;
                 }
             };
@@ -929,7 +939,7 @@ namespace belttentiontest
             {
 
                 CarName = this.CarName,
-                MaxGForceMult = (float)numericUpDownGForceToBelt.Value,
+                LongStrengh = (float)numericUpDownGForceToBelt.Value,
                 MaxPower = _maxPower,
                 CurveAmount =_curveAmount,
                 CorneringStrength = (float)nud_coneringStrengh.Value,

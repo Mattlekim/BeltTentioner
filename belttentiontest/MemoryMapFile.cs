@@ -12,7 +12,7 @@ namespace belttentiontest
     {
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
         public string CarName;
-        public float MaxGForceMult;
+        public float LongStrengh;
         public int MaxPower;
         public double CurveAmount;
         public float CorneringStrength;

@@ -635,7 +635,7 @@ namespace belttentiontest
             Controls.Add(buttonConnect);
             Controls.Add(labelStatus);
             Name = "Form1";
-            Text = "Belt Tention Test";
+            Text = "Belt Tensioner";
             ((ISupportInitialize)numericUpDownTarget).EndInit();
             ((ISupportInitialize)numericUpDownCurveAmount).EndInit();
             ((ISupportInitialize)pictureBoxCurveGraph).EndInit();

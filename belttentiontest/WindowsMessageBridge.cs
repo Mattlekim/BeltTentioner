@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Forms;
@@ -48,24 +49,46 @@ namespace BeltTentionerLib
         public static event Action<BeltMessage>? BeltMessageReceived;
         public static event Action<string>? MessageReceived;
 
-    
+        // Log received BeltMessages for debugging
+        static WindowsMessageBridge()
+        {
+            BeltMessageReceived += (msg) =>
+            {
+                try
+                {
+                    Debug.WriteLine($"[App] Received BeltMessage: Type={msg.Type}, Value={msg.Value}");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[App] Exception in BeltMessageReceived: {ex}");
+                }
+            };
+        }
+
         // Call this from your Form's WndProc
         public static void HandleWndProc(ref Message m)
         {
             if (m.Msg == WM_COPYDATA)
             {
-                COPYDATASTRUCT cds = Marshal.PtrToStructure<COPYDATASTRUCT>(m.LParam);
-                byte[] data = new byte[cds.cbData];
-                Marshal.Copy(cds.lpData, data, 0, cds.cbData);
-                string msg = Encoding.UTF8.GetString(data);
-                MessageReceived?.Invoke(msg);
-                if (BeltMessage.TryParse(msg, out var beltMsg) && beltMsg != null)
+                try
                 {
-                  
-                   
-                    BeltMessageReceived?.Invoke(beltMsg);
+                    COPYDATASTRUCT cds = Marshal.PtrToStructure<COPYDATASTRUCT>(m.LParam);
+                    byte[] data = new byte[cds.cbData];
+                    Marshal.Copy(cds.lpData, data, 0, cds.cbData);
+                    string msg = Encoding.UTF8.GetString(data);
+                    Debug.WriteLine($"[HandleWndProc] Received WM_COPYDATA message: '{msg}'");
+                    MessageReceived?.Invoke(msg);
+                    if (BeltMessage.TryParse(msg, out var beltMsg) && beltMsg != null)
+                    {
+                        Debug.WriteLine($"[HandleWndProc] Parsed BeltMessage: Type={beltMsg.Type}, Value={beltMsg.Value}");
+                        BeltMessageReceived?.Invoke(beltMsg);
+                    }
+                    m.Result = IntPtr.Zero;
                 }
-                m.Result = IntPtr.Zero;
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[HandleWndProc] Exception: {ex}");
+                }
             }
         }
 
@@ -76,7 +99,7 @@ namespace BeltTentionerLib
         [DllImport("user32.dll", SetLastError = true)]
         public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
 
-        // For sending string data
+        // For sending string da
         [StructLayout(LayoutKind.Sequential)]
         public struct COPYDATASTRUCT
         {
@@ -86,17 +109,52 @@ namespace BeltTentionerLib
         }
 
         // Send a BeltMessage to another window by title
-        public static bool SendBeltMessage(string targetWindowTitle, BeltMessageType type, float value)
+        public static bool SendBeltMessage(BeltMessageType type, float value)
         {
-            return SendStringMessage(targetWindowTitle, new BeltMessage(type, value).ToString());
+            return SendStringMessage("Belt Tensioner", new BeltMessage(type, value).ToString());
         }
+        public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
+        [DllImport("user32.dll")]
+        public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+
+        [DllImport("user32.dll")]
+        public static extern bool IsWindowVisible(IntPtr hWnd);
+
+        public static void ListAllWindows()
+        {
+            EnumWindows((hWnd, lParam) =>
+            {
+                if (IsWindowVisible(hWnd))
+                {
+                    StringBuilder sb = new StringBuilder(256);
+                    GetWindowText(hWnd, sb, sb.Capacity);
+                    string title = sb.ToString();
+                    if (!string.IsNullOrWhiteSpace(title))
+                        Console.WriteLine(title);
+                }
+                return true;
+            }, IntPtr.Zero);
+        }
+        
+       
         // Send a string message to another window by title
         public static bool SendStringMessage(string targetWindowTitle, string message)
         {
-            IntPtr hWnd = FindWindow(null, targetWindowTitle);
-            if (hWnd == IntPtr.Zero)
-                return false;
+            ListAllWindows();
+
+            IntPtr hPointer = FindWindow(null, targetWindowTitle);
+                if (hPointer == IntPtr.Zero)
+                {
+                    Debug.WriteLine($"[SendStringMessage] Window '{targetWindowTitle}' not found.");
+                    return false;
+                }
+            
+
+            Debug.WriteLine($"[SendStringMessage] Sending to window '{targetWindowTitle}' (hWnd: 0x{hPointer.ToInt64():X}) message: '{message}'");
 
             byte[] sarr = Encoding.UTF8.GetBytes(message);
             IntPtr ptr = Marshal.AllocHGlobal(sarr.Length);
@@ -112,7 +170,7 @@ namespace BeltTentionerLib
             IntPtr cdsPtr = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(COPYDATASTRUCT)));
             Marshal.StructureToPtr(cds, cdsPtr, false);
 
-            SendMessage(hWnd, WM_COPYDATA, IntPtr.Zero, cdsPtr);
+            SendMessage(hPointer, WM_COPYDATA, IntPtr.Zero, cdsPtr);
 
             Marshal.FreeHGlobal(ptr);
             Marshal.FreeHGlobal(cdsPtr);
@@ -122,15 +180,14 @@ namespace BeltTentionerLib
         // Decodes and handles Windows messages
         public static bool DecodeWndProc(ref Message m)
         {
-            switch (m.Msg)
+            // Only handle custom WM_COPYDATA messages, ignore all others
+            if (m.Msg == WM_COPYDATA)
             {
-                case WM_COPYDATA:
-                    HandleWndProc(ref m);
-                    return true;
-                // Add more cases for other Windows messages here
-                default:
-                    return false;
+                HandleWndProc(ref m);
+                return true;
             }
+            // Do not handle any other Windows messages here
+            return false;
         }
     }
 }
