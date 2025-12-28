@@ -120,7 +120,7 @@ namespace belttentiontest
             labelStatus.AutoSize = true;
             labelStatus.Font = new Font("Segoe UI", 14F);
             labelStatus.ForeColor = Color.Red;
-            labelStatus.Location = new Point(42, 4);
+            labelStatus.Location = new Point(11, 26);
             labelStatus.Name = "labelStatus";
             labelStatus.Size = new Size(201, 25);
             labelStatus.TabIndex = 1;
@@ -141,7 +141,7 @@ namespace belttentiontest
             // 
             // buttonConnect
             // 
-            buttonConnect.Location = new Point(197, 33);
+            buttonConnect.Location = new Point(225, 28);
             buttonConnect.Name = "buttonConnect";
             buttonConnect.Size = new Size(75, 23);
             buttonConnect.TabIndex = 3;

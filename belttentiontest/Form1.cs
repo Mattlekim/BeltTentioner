@@ -261,6 +261,16 @@ namespace belttentiontest
                     }
                 });
             }
+
+            // Add Help menu with About...
+            var menuStrip = new MenuStrip();
+            var helpMenu = new ToolStripMenuItem("Help");
+            var aboutMenuItem = new ToolStripMenuItem("About...");
+            aboutMenuItem.Click += (s, e) => ShowAboutBox();
+            helpMenu.DropDownItems.Add(aboutMenuItem);
+            menuStrip.Items.Add(helpMenu);
+            this.MainMenuStrip = menuStrip;
+            this.Controls.Add(menuStrip);
         }
 
         // Timer tick event handler
@@ -1112,6 +1122,14 @@ namespace belttentiontest
             _coneringCurveAmount = (double)nud_ConeringCurveAmount.Value;
             SaveCarSettings(CarName);
             DrawCurveGraph();
+        }
+
+        private void ShowAboutBox()
+        {
+            using (var about = new AboutBox())
+            {
+                about.ShowDialog(this);
+            }
         }
 
         protected override void WndProc(ref Message m)
