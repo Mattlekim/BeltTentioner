@@ -55,7 +55,7 @@ jobs:
         run: |
           $version = "${{ steps.version.outputs.VERSION }}"
           $versionInfo = @"
-          BeltTensioner Build Information
+          BeltTentioner Build Information
           ================================
           Version: $version
           Build Number: $env:GITHUB_RUN_NUMBER
@@ -68,6 +68,6 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: BeltTensioner-v${{ steps.version.outputs.VERSION }}-Release
+          name: BeltTentioner-v${{ steps.version.outputs.VERSION }}-Release
           path: ./publish
           retention-days: 30
