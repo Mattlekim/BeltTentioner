@@ -3,6 +3,8 @@ name: Build and Release
 on:
   push:
     branches: [master, main]
+    tags:
+      - 'v*'
   pull_request:
     branches: [master, main]
   workflow_dispatch:
@@ -11,7 +13,7 @@ jobs:
   build:
     runs-on: windows-latest
     permissions:
-      contents: read
+      contents: write
 
     steps:
       - name: Checkout code
@@ -67,9 +69,42 @@ jobs:
           "@
           $versionInfo | Out-File -FilePath ./publish/version.txt -Encoding UTF8
 
+      - name: Create ZIP archive
+        shell: pwsh
+        run: |
+          Compress-Archive -Path ./publish/* -DestinationPath BeltTentioner-v${{ steps.version.outputs.VERSION }}-Windows.zip
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: BeltTentioner-v${{ steps.version.outputs.VERSION }}-Release
           path: ./publish
           retention-days: 30
+
+      - name: Create Release
+        if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.VERSION }}
+          name: BeltTentioner v${{ steps.version.outputs.VERSION }}
+          body: |
+            ## BeltTentioner Release v${{ steps.version.outputs.VERSION }}
+
+            ### Changes
+            - Build #${{ github.run_number }}
+            - Commit: ${{ github.sha }}
+
+            ### Installation
+            1. Download the ZIP file below
+            2. Extract to your desired location
+            3. Run the application
+
+            ### Build Information
+            - Built on: ${{ github.event.head_commit.timestamp }}
+            - Branch: ${{ github.ref_name }}
+          files: |
+            BeltTentioner-v${{ steps.version.outputs.VERSION }}-Windows.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
