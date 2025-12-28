@@ -141,9 +141,7 @@ namespace belttentiontest
                 switch (msg.Type)
                 {
                     case BeltMessageType.GForce:
-
                         numericUpDownGForceToBelt.Value = (decimal)msg.Value;
-                        
                         break;
 
                     case BeltMessageType.GCurve:
@@ -152,6 +150,28 @@ namespace belttentiontest
 
                     case BeltMessageType.VForce:
                         nudVertical.Value = (decimal)msg.Value;
+                        break;
+
+                    case BeltMessageType.CForce:
+                        nud_coneringStrengh.Value = (decimal)msg.Value;
+                        break;
+
+                    case BeltMessageType.CCurve:
+                        nud_ConeringCurveAmount.Value = (decimal)msg.Value;
+                        break;
+
+                    case BeltMessageType.MaxOutput:
+                        numericUpDownMaxPower.Value = (decimal)msg.Value;
+                        break;
+
+                    case BeltMessageType.InvertConeringForces:
+                        ck_Inverted.Checked = msg.Value != 0;
+                        break;
+                    case BeltMessageType.ABSEnabled:
+                        cb_ABS_Enabled.Checked = msg.Value != 0;
+                        break;
+                    case BeltMessageType.ABSStrength:
+                        nud_ABS.Value = (decimal)msg.Value;
                         break;
                 }
             };

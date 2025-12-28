@@ -12,7 +12,11 @@ namespace BeltTentionerLib
         GCurve,
         CForce,
         CCurve,
-        VForce
+        VForce,
+        MaxOutput,
+        InvertConeringForces,
+        ABSEnabled,
+        ABSStrength
     }
 
     public class BeltMessage
