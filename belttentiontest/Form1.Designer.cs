@@ -53,6 +53,7 @@ namespace belttentiontest
         /// </summary>
         private void InitializeComponent()
         {
+            ComponentResourceManager resources = new ComponentResourceManager(typeof(Form1));
             labelStatus = new Label();
             numericUpDownTarget = new GForceUpDown();
             buttonConnect = new Button();
@@ -634,6 +635,7 @@ namespace belttentiontest
             Controls.Add(textBoxIracingStatus);
             Controls.Add(buttonConnect);
             Controls.Add(labelStatus);
+            Icon = (Icon)resources.GetObject("$this.Icon");
             Name = "Form1";
             Text = "Belt Tensioner";
             ((ISupportInitialize)numericUpDownTarget).EndInit();
