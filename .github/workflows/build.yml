@@ -2,62 +2,72 @@ name: Build and Release
 
 on:
   push:
-    branches: [ master, main ]
+    branches: [master, main]
   pull_request:
-    branches: [ master, main ]
+    branches: [master, main]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: windows-latest
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: 8.0.x
-        
-    - name: Calculate version
-      id: version
-      shell: pwsh
-      run: |
-        $major = 1
-        $minor = 0
-        $patch = $env:GITHUB_RUN_NUMBER
-        $version = "$major.$minor.$patch"
-        echo "VERSION=$version" >> $env:GITHUB_OUTPUT
-        echo "Building version: $version"
-        
-    - name: Restore dependencies
-      run: dotnet restore belttentiontest.sln
-      
-    - name: Build solution
-      run: dotnet build belttentiontest.sln --configuration Release --no-restore /p:Version=${{ steps.version.outputs.VERSION }} /p:AssemblyVersion=${{ steps.version.outputs.VERSION }} /p:FileVersion=${{ steps.version.outputs.VERSION }}
-      
-    - name: Publish application
-      run: dotnet publish belttentiontest/belttentiontest.csproj --configuration Release --no-build --output ./publish
-      
-    - name: Create version file
-      shell: pwsh
-      run: |
-        $version = "${{ steps.version.outputs.VERSION }}"
-        $versionInfo = @"
-        BeltTensioner Build Information
-        ================================
-        Version: $version
-        Build Number: $env:GITHUB_RUN_NUMBER
-        Build Date: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
-        Commit: $env:GITHUB_SHA
-        Branch: $env:GITHUB_REF_NAME
-        "@
-        $versionInfo | Out-File -FilePath ./publish/version.txt -Encoding UTF8
-        
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: BeltTensioner-v${{ steps.version.outputs.VERSION }}-Release
-        path: ./publish
-        retention-days: 30
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Calculate version
+        id: version
+        shell: pwsh
+        run: |
+          $major = 1
+          $minor = 0
+          $patch = $env:GITHUB_RUN_NUMBER
+          $version = "$major.$minor.$patch"
+          echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+          echo "Building version: $version"
+
+      - name: Restore dependencies
+        run: dotnet restore belttentiontest.sln
+
+      - name: Build solution
+        run: >
+          dotnet build belttentiontest.sln
+          --configuration Release
+          --no-restore
+          /p:Version=${{ steps.version.outputs.VERSION }}
+          /p:AssemblyVersion=${{ steps.version.outputs.VERSION }}
+          /p:FileVersion=${{ steps.version.outputs.VERSION }}
+
+      - name: Publish application
+        run: >
+          dotnet publish belttentiontest/belttentiontest.csproj
+          --configuration Release
+          --no-build
+          --output ./publish
+
+      - name: Create version file
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.VERSION }}"
+          $versionInfo = @"
+          BeltTensioner Build Information
+          ================================
+          Version: $version
+          Build Number: $env:GITHUB_RUN_NUMBER
+          Build Date: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+          Commit: $env:GITHUB_SHA
+          Branch: $env:GITHUB_REF_NAME
+          "@
+          $versionInfo | Out-File -FilePath ./publish/version.txt -Encoding UTF8
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: BeltTensioner-v${{ steps.version.outputs.VERSION }}-Release
+          path: ./publish
+          retention-days: 30
