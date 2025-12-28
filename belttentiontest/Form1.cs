@@ -278,7 +278,8 @@ namespace belttentiontest
         {
             bool lmotor = lb_SelectedMotor.SelectedIndex == 0;
 
-
+            if (!communicator.IsConnected)
+                return;
 
             if (checkBoxTest.Checked)
                 OnScaledValueUpdated((int)numericUpDownTarget.Value, 0, 0, lmotor);
@@ -380,6 +381,7 @@ namespace belttentiontest
             }));
         }
 
+        private bool _motorSettingsLoaded = false;
         private void OnMessageReceivedFromSerial(string message)
         {
             if (message != null && message.Length > 0)
@@ -403,7 +405,7 @@ namespace belttentiontest
                             L_MAX = Math.Clamp(L_MAX, 0, (int)MAXPOSIBLEMOTORVALUE);
                             R_MIN = Math.Clamp(R_MIN, 0, (int)MAXPOSIBLEMOTORVALUE);
                             R_MAX = Math.Clamp(R_MAX, 0, (int)MAXPOSIBLEMOTORVALUE);
-
+                            _motorSettingsLoaded = true;
                             UpdateWindows();
 
 
@@ -677,11 +679,15 @@ namespace belttentiontest
 
         private void OnScaledValueUpdated(float simBrakingValue, float SimConeringValue, float SimVeriticalValue, bool lMotor)
         {
+            if (!_motorSettingsLoaded)
+                return; //if we have not loaded in the correct motor settings return false
+
             if (checkBoxTest.Checked)
                 simBrakingValue = (float)numericUpDownTarget.Value;
 
             SimVeriticalValue -= 1f; //remove gravity
-            
+            if (SimVeriticalValue < 0)
+                SimVeriticalValue = 0;
             MotorSettings lmotorSettings = new MotorSettings
             {
                 MaxPower = _maxPower,
@@ -695,8 +701,10 @@ namespace belttentiontest
                 Invert = lMotor ? L_INVERT : R_INVERT,
             };
 
+            
+
             MotorOutputValues value = lmotorSettings.Setup(simBrakingValue, SimConeringValue, SimVeriticalValue);
-        
+
             float yValue = value.CalcluateMotorSignalOutput(lmotorSettings);
 
             _displayGForce = value.LongForceInput;
@@ -710,21 +718,20 @@ namespace belttentiontest
                 if (value.ConeringForceInput != 0)
                     _displayLatForce = value.ConeringForceInput;
             }
-            
+
             _displayVForce = value.VerticalForceInput;
-
-            
-
-
             if (cb_livePrieview != null && cb_livePrieview.Checked)
             {
 
                 // Store latest force inputs for live preview
-                _lastLongForceInput = _lastLongForceInput * .9f +  simBrakingValue * .1f;
+                _lastLongForceInput = _lastLongForceInput * .9f + simBrakingValue * .1f;
                 _lastLatForceInput = _lastLatForceInput * .9f + SimConeringValue * .1f;
                 DrawCurveGraph();
             }
-                communicator.SendValue(yValue, lMotor);
+
+          
+            communicator.SendValue(yValue, lMotor);
+            
         }
 
         public string LabelStatus
@@ -1034,6 +1041,7 @@ namespace belttentiontest
             lblChangesNotSaved.Visible = false;
             await Task.Delay(1500);
             lblSettingsSaved.Visible = false;
+            _motorSettingsLoaded = true;
         }
 
         private void lb_SelectedMotor_SelectedIndexChanged(object sender, EventArgs e)
