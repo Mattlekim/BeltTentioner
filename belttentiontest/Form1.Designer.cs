@@ -230,13 +230,13 @@ namespace belttentiontest
             // 
             // numericUpDownGForceToBelt
             // 
-            numericUpDownGForceToBelt.DecimalPlaces = 2;
             numericUpDownGForceToBelt.Location = new Point(213, 95);
+            numericUpDownGForceToBelt.Maximum = new decimal(new int[] { 400, 0, 0, 0 });
             numericUpDownGForceToBelt.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
             numericUpDownGForceToBelt.Name = "numericUpDownGForceToBelt";
             numericUpDownGForceToBelt.Size = new Size(60, 23);
             numericUpDownGForceToBelt.TabIndex = 17;
-            numericUpDownGForceToBelt.Value = new decimal(new int[] { 1, 0, 0, 0 });
+            numericUpDownGForceToBelt.Value = new decimal(new int[] { 100, 0, 0, 0 });
             numericUpDownGForceToBelt.ValueChanged += numericUpDownGForceToBelt_ValueChanged_1;
             // 
             // labelGForceToBelt
@@ -338,14 +338,13 @@ namespace belttentiontest
             // 
             // nudVertical
             // 
-            nudVertical.DecimalPlaces = 2;
             nudVertical.Increment = new decimal(new int[] { 1, 0, 0, 65536 });
             nudVertical.Location = new Point(214, 386);
             nudVertical.Minimum = new decimal(new int[] { 5, 0, 0, 65536 });
             nudVertical.Name = "nudVertical";
             nudVertical.Size = new Size(60, 23);
             nudVertical.TabIndex = 54;
-            nudVertical.Value = new decimal(new int[] { 1, 0, 0, 0 });
+            nudVertical.Value = new decimal(new int[] { 10, 0, 0, 0 });
             nudVertical.ValueChanged += nudVertical_ValueChanged;
             // 
             // label5
@@ -359,14 +358,13 @@ namespace belttentiontest
             // 
             // nud_coneringStrengh
             // 
-            nud_coneringStrengh.DecimalPlaces = 2;
             nud_coneringStrengh.Increment = new decimal(new int[] { 1, 0, 0, 65536 });
             nud_coneringStrengh.Location = new Point(213, 317);
             nud_coneringStrengh.Minimum = new decimal(new int[] { 5, 0, 0, 65536 });
             nud_coneringStrengh.Name = "nud_coneringStrengh";
             nud_coneringStrengh.Size = new Size(60, 23);
             nud_coneringStrengh.TabIndex = 36;
-            nud_coneringStrengh.Value = new decimal(new int[] { 1, 0, 0, 0 });
+            nud_coneringStrengh.Value = new decimal(new int[] { 50, 0, 0, 0 });
             nud_coneringStrengh.ValueChanged += nud_coneringStrengh_ValueChanged_1;
             // 
             // label4
@@ -493,7 +491,6 @@ namespace belttentiontest
             // 
             // nud_Motor_End
             // 
-            nud_Motor_End.DecimalPlaces = 2;
             nud_Motor_End.Location = new Point(190, 45);
             nud_Motor_End.Maximum = new decimal(new int[] { 270, 0, 0, 0 });
             nud_Motor_End.Name = "nud_Motor_End";
@@ -504,7 +501,6 @@ namespace belttentiontest
             // 
             // nud_Motor_Start
             // 
-            nud_Motor_Start.DecimalPlaces = 2;
             nud_Motor_Start.Location = new Point(190, 16);
             nud_Motor_Start.Maximum = new decimal(new int[] { 270, 0, 0, 0 });
             nud_Motor_Start.Name = "nud_Motor_Start";
