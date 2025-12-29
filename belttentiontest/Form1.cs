@@ -165,7 +165,7 @@ namespace belttentiontest
                         break;
 
                     case BeltMessageType.InvertConeringForces:
-                        ck_Inverted.Checked = msg.Value != 0;
+                        cb_invert_conering.Checked = msg.Value != 0;
                         break;
                     case BeltMessageType.ABSEnabled:
                         cb_ABS_Enabled.Checked = msg.Value != 0;
