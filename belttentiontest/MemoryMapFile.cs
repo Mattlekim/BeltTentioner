@@ -28,5 +28,8 @@ namespace belttentiontest
         public bool ConnectedToBelt;
 
         public float MotorRange;
+        public float MotorLatValue;
+        public float MotorLonValue; 
+        public float MotorVerValue;
     }
 }

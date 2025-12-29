@@ -675,7 +675,7 @@ namespace belttentiontest
 
         private float _displayGForce = 0, _displayLatForce = 0, _displayVForce = 0;
 
-
+        private MotorOutputValues _lastMotorOutputValues;
 
         private void OnScaledValueUpdated(float simBrakingValue, float SimConeringValue, float SimVeriticalValue, bool lMotor)
         {
@@ -706,6 +706,10 @@ namespace belttentiontest
             MotorOutputValues value = lmotorSettings.Setup(simBrakingValue, SimConeringValue, SimVeriticalValue);
 
             float yValue = value.CalcluateMotorSignalOutput(lmotorSettings);
+
+            if (lMotor)
+                _lastMotorOutputValues = value;
+            
 
             _displayGForce = value.LongForceInput;
             if (lMotor)
@@ -992,7 +996,11 @@ namespace belttentiontest
 
                 ConnectedToSim = irCommunicator != null ? irCommunicator.IsConnected : false,
                 ConnectedToBelt = communicator.IsConnected,
-                MotorRange = Math.Abs(L_MAX - L_MIN)
+                MotorRange = Math.Abs(L_MAX - L_MIN),
+                MotorLatValue = _lastMotorOutputValues.ConeringForceInput,
+                MotorLonValue = _lastMotorOutputValues.LongForceInput,
+                MotorVerValue = _lastMotorOutputValues.VerticalForceInput
+
             };
             _mmfWriter?.WriteSettings(structSettings);
         }
