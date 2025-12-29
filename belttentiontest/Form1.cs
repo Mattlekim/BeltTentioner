@@ -978,7 +978,7 @@ namespace belttentiontest
                 CarName = this.CarName,
                 LongStrengh = (float)numericUpDownGForceToBelt.Value,
                 MaxPower = _maxPower,
-                CurveAmount =_curveAmount,
+                CurveAmount = _curveAmount,
                 CorneringStrength = (float)nud_coneringStrengh.Value,
                 VerticalStrength = (float)nudVertical.Value,
                 AbsStrength = (float)nud_ABS.Value,
@@ -992,6 +992,7 @@ namespace belttentiontest
 
                 ConnectedToSim = irCommunicator != null ? irCommunicator.IsConnected : false,
                 ConnectedToBelt = communicator.IsConnected,
+                MotorRange = Math.Abs(L_MAX - L_MIN)
             };
             _mmfWriter?.WriteSettings(structSettings);
         }

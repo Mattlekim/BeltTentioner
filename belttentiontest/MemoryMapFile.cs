@@ -26,5 +26,7 @@ namespace belttentiontest
 
         public bool ConnectedToSim;
         public bool ConnectedToBelt;
+
+        public float MotorRange;
     }
 }
