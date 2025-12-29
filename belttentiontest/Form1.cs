@@ -707,11 +707,18 @@ namespace belttentiontest
 
             float yValue = value.CalcluateMotorSignalOutput(lmotorSettings);
 
-            if (lMotor)
-                _lastMotorOutputValues = value;
-            
 
-            _displayGForce = value.LongForceInput;
+
+
+            if (lMotor)
+            {
+                float latValue = _lastMotorOutputValues.ConeringForceOutput;
+                _lastMotorOutputValues = value;
+            }
+            else
+
+
+                _displayGForce = value.LongForceInput;
             if (lMotor)
             {
                 if (value.ConeringForceInput != 0)
@@ -997,9 +1004,9 @@ namespace belttentiontest
                 ConnectedToSim = irCommunicator != null ? irCommunicator.IsConnected : false,
                 ConnectedToBelt = communicator.IsConnected,
                 MotorRange = Math.Abs(L_MAX - L_MIN),
-                MotorLatValue = _lastMotorOutputValues.ConeringForceInput,
-                MotorLonValue = _lastMotorOutputValues.LongForceInput,
-                MotorVerValue = _lastMotorOutputValues.VerticalForceInput
+                MotorLatValue = _lastMotorOutputValues.ConeringForceOutput,
+                MotorLonValue = _lastMotorOutputValues.LongForceOutput,
+                MotorVerValue = _lastMotorOutputValues.VerticalForceOutput
 
             };
             _mmfWriter?.WriteSettings(structSettings);
