@@ -450,7 +450,7 @@ namespace belttentiontest
                         ShowDisconnectedUI("Device unplugged");
                     }));
                 }
-                catch { }                
+                catch { }
                 return;
             }
         }
@@ -581,7 +581,7 @@ namespace belttentiontest
                 for (int x = 0; x < graphWidth; x++)
                 {
                     float inputValue = (float)(x * MotorSettings.LongGForceScale / (graphWidth - 1));
-                    MotorOutputValues output = settings.Setup(inputValue, 0, 0);
+                    MotorOutputValues output = settings.Setup(inputValue, 0, 0, (int)percentageUpDownRestingPoint.Value);
                     float yValue = output.CalcluateMotorSignalOutput(settings);
                     int y = MapY(yValue);
                     int drawX = xPadding + x;
@@ -596,7 +596,7 @@ namespace belttentiontest
                 for (int x = 0; x < graphWidth; x++)
                 {
                     float inputValue = (float)(x * MotorSettings.ConeringGForceScale / (graphWidth - 1));
-                    MotorOutputValues output = settings.Setup(0, inputValue, 0);
+                    MotorOutputValues output = settings.Setup(0, inputValue, 0, (int)percentageUpDownRestingPoint.Value);
                     float yValue = output.CalcluateMotorSignalOutput(settings);
                     int drawX = xPadding + (int)(inputValue / MotorSettings.LongGForceScale * (graphWidth - 1));
                     int y = MapY(yValue);
@@ -611,13 +611,13 @@ namespace belttentiontest
                 {
                     // Longitudinal force marker
                     int longX = xPadding + (int)(_lastLongForceInput / MotorSettings.LongGForceScale * (graphWidth - 1));
-                    MotorOutputValues longOutput = settings.Setup(_lastLongForceInput, 0, 0);
+                    MotorOutputValues longOutput = settings.Setup(_lastLongForceInput, 0, 0, (int)percentageUpDownRestingPoint.Value);
                     int longY = MapY(longOutput.CalcluateMotorSignalOutput(settings));
                     g.FillEllipse(System.Drawing.Brushes.Green, longX - 5, longY - 5, 10, 10);
 
                     // Lateral force marker
                     int latX = xPadding + (int)(_lastLatForceInput / MotorSettings.LongGForceScale * (graphWidth - 1));
-                    MotorOutputValues latOutput = settings.Setup(0, _lastLatForceInput, 0);
+                    MotorOutputValues latOutput = settings.Setup(0, _lastLatForceInput, 0, (int)percentageUpDownRestingPoint.Value);
                     int latY = MapY(latOutput.CalcluateMotorSignalOutput(settings));
                     g.FillEllipse(System.Drawing.Brushes.Blue, latX - 5, latY - 5, 10, 10);
 
@@ -625,7 +625,7 @@ namespace belttentiontest
                     float combinedLong = _lastLongForceInput;
                     float combinedLat = _lastLatForceInput;
                     float combinedVert = 0f;
-                    MotorOutputValues combinedOutput = settings.Setup(combinedLong, combinedLat, combinedVert);
+                    MotorOutputValues combinedOutput = settings.Setup(combinedLong, combinedLat, combinedVert, (int)percentageUpDownRestingPoint.Value);
                     float combinedValue = combinedOutput.CalcluateMotorSignalOutput(settings);
                     // Bar max is based on settings.MaxPower (0-100 percent of motor range)
                     float barMaxValue = min + (motorRange * (settings.MaxPower / 100f));
@@ -686,8 +686,8 @@ namespace belttentiontest
                 simBrakingValue = (float)numericUpDownTarget.Value;
 
             SimVeriticalValue -= 1f; //remove gravity
-            if (SimVeriticalValue < 0)
-                SimVeriticalValue = 0;
+            if (SimVeriticalValue < -2) //clamp it to -2G to avoid extreme values from jumps etc throwing off the belt tensioner
+                SimVeriticalValue = -2;
             MotorSettings lmotorSettings = new MotorSettings
             {
                 MaxPower = _maxPower,
@@ -701,33 +701,36 @@ namespace belttentiontest
                 Invert = lMotor ? L_INVERT : R_INVERT,
             };
 
-            
 
-            MotorOutputValues value = lmotorSettings.Setup(simBrakingValue, SimConeringValue, SimVeriticalValue);
+
+            MotorOutputValues value = lmotorSettings.Setup(simBrakingValue, SimConeringValue, SimVeriticalValue, (int)percentageUpDownRestingPoint.Value);
 
             float yValue = value.CalcluateMotorSignalOutput(lmotorSettings);
 
 
 
 
+
+
+            _displayGForce = value.LongForceInput;
             if (lMotor)
             {
-                float latValue = _lastMotorOutputValues.ConeringForceOutput;
+                float tmp = _lastMotorOutputValues.ConeringForceOutput;
                 _lastMotorOutputValues = value;
-            }
-            else
-
-
-                _displayGForce = value.LongForceInput;
-            if (lMotor)
-            {
+                _lastMotorOutputValues.ConeringForceOutput = tmp;
                 if (value.ConeringForceInput != 0)
+                {
                     _displayLatForce = -value.ConeringForceInput;
+                    _lastMotorOutputValues.ConeringForceOutput = -value.ConeringForceOutput;
+                }
             }
             else
             {
                 if (value.ConeringForceInput != 0)
+                {
                     _displayLatForce = value.ConeringForceInput;
+                    _lastMotorOutputValues.ConeringForceOutput = value.ConeringForceOutput;
+                }
             }
 
             _displayVForce = value.VerticalForceInput;
@@ -740,9 +743,9 @@ namespace belttentiontest
                 DrawCurveGraph();
             }
 
-          
+
             communicator.SendValue(yValue, lMotor);
-            
+
         }
 
         public string LabelStatus
@@ -932,6 +935,8 @@ namespace belttentiontest
                 CarSettingsStore.Instance.Settings[carName] = settings;
                 // Save immediately so the new car gets its own settings file entry
                 SaveCarSettings(carName);
+
+                
             }
             // Apply settings to UI
             _gForceMult = settings.MaxGForceMult;
@@ -952,6 +957,9 @@ namespace belttentiontest
             // Set new setting to UI
             _coneringCurveAmount = settings.ConeringCurveAmount;
             nud_ConeringCurveAmount.Value = (decimal)settings.ConeringCurveAmount;
+            percentageUpDownRestingPoint.Value = (decimal)settings.RestingPoint;
+            lb_carName.Text = carName;
+            DrawCurveGraph();
         }
 
         private void SaveCarSettings(string carName)
@@ -966,14 +974,16 @@ namespace belttentiontest
                 AbsStrength = (float)nud_ABS.Value, // NEW
                 AbsEnabled = cb_ABS_Enabled.Checked, // NEW
                 InvertCornering = cb_invert_conering.Checked, // NEW
-                ConeringCurveAmount = (double)nud_ConeringCurveAmount.Value // NEW
+                ConeringCurveAmount = (double)nud_ConeringCurveAmount.Value, // NEW
+                RestingPoint = (int)percentageUpDownRestingPoint.Value // NEW
+                
             };
             CarSettingsStore.Instance.Settings[carName] = settings;
             try
             {
                 var json = JsonSerializer.Serialize(CarSettingsStore.Instance, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(carSettingsFile, json);
-                
+
             }
             catch { }
         }
@@ -1162,6 +1172,11 @@ namespace belttentiontest
             {
                 base.WndProc(ref m);
             }
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+
         }
     }
 }

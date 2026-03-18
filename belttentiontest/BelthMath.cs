@@ -21,8 +21,10 @@ namespace belttentiontest
         public float VerticalForceOutput;
         public float LongForceOutput;
 
+        public float RestingPoint;
+
         public float TotalForceOutput => ConeringForceOutput + VerticalForceOutput + LongForceOutput;
-        public static MotorOutputValues FromValues(float conering, float vertical, float breaking)
+        public static MotorOutputValues FromValues(float conering, float vertical, float breaking, int restingpoint)
         {
             return new MotorOutputValues
             {
@@ -31,7 +33,8 @@ namespace belttentiontest
                 LongForceInput = breaking,
                 ConeringWeight = 1,
                 VerticalWeight = 1,
-                BreakingWeight = 1
+                BreakingWeight = 1,
+                RestingPoint = restingpoint
             };
         }
 
@@ -49,7 +52,8 @@ namespace belttentiontest
             LongForceInput = 0,
             ConeringWeight = 0,
             VerticalWeight = 0,
-            BreakingWeight = 0
+            BreakingWeight = 0,
+            RestingPoint = 0
         };
 
         private float CalculateLongForces(MotorSettings settings)
@@ -77,9 +81,11 @@ namespace belttentiontest
 
         public float CalcluateMotorSignalOutput(MotorSettings settings)
         { 
+
+
             float signal = (CalculateLongForces(settings) * BreakingWeight) + (CalculateLateralForces(settings) * ConeringWeight) + (CalculateVerticalForces(settings) * VerticalWeight); //add all forces
 
-            signal = settings.ClampToMaxMotorPower(signal);
+            signal = settings.ClampToMaxMotorPower(signal + RestingPoint);
 
             if (settings.Invert)
                 signal = settings.Max - signal;
@@ -111,8 +117,14 @@ namespace belttentiontest
         public float CalculateCurve(float inputValue, float curveAmount, float scale)
         {
             // Apply curve: value in [0,1023], curveAmount >= 0.0
+            bool iNumber = inputValue < 0 ? true : false;
+
+
+            inputValue = Math.Abs(inputValue);
             double normalized = inputValue / scale;
-            return (float)Math.Pow(normalized, curveAmount); // 0..1
+
+            float output = (float)Math.Pow(normalized, curveAmount); // 0..1
+            return iNumber ? -output : output;
               
         }
 
@@ -133,11 +145,11 @@ namespace belttentiontest
             return scaledValue;
         }
 
-        public MotorOutputValues Setup(float SimLongValue, float SimLateralValue, float SimVerValue)
+        public MotorOutputValues Setup(float SimLongValue, float SimLateralValue, float SimVerValue, int restingPoint)
         {
-            SimLongValue = Math.Clamp(SimLongValue, 0, LongGForceScale);
+            SimLongValue = Math.Clamp(SimLongValue, -4, LongGForceScale);
             SimLateralValue = Math.Clamp(SimLateralValue, 0, ConeringGForceScale);
-            SimVerValue = Math.Clamp(SimVerValue, 0, VerticalGForceScale);
+            SimVerValue = Math.Clamp(SimVerValue, -2, VerticalGForceScale);
 
             MotorOutputValues motorOutput = MotorOutputValues.Zero;
            
@@ -146,6 +158,8 @@ namespace belttentiontest
             motorOutput.ConeringForceInput = SimLateralValue;
                
             motorOutput.VerticalForceInput = SimVerValue;
+
+            motorOutput.RestingPoint = restingPoint;
 
             motorOutput.EnableAll();
             return motorOutput;

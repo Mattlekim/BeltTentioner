@@ -9,6 +9,9 @@ namespace belttentiontest
     // Uses IRacingSdk events when available.
     public class IracingCommunicator : IDisposable
     {
+        public const int MAX_NEG_GFORCE_ACC = 4; //Forces are inverted that get sent to motor so even though we are limiting to 4g of acceleration,
+                                                 //4 will result in revers motor of 4g under accleration
+
         private static readonly Lazy<IracingCommunicator> _instance = new(() => new IracingCommunicator());
         public static IracingCommunicator Instance => _instance.Value;
 
@@ -99,6 +102,7 @@ namespace belttentiontest
             return true;
         }
 
+        
         private bool _lastABS_Status = false;
         public void OnClientTelemetryData()
         {
@@ -149,11 +153,11 @@ namespace belttentiontest
 
             float lmotor = g_Force, rmotor = g_Force;
 
-            if (lmotor > 0)
-                lmotor = 0;
+            if (lmotor > MAX_NEG_GFORCE_ACC)
+                lmotor = MAX_NEG_GFORCE_ACC;
 
-            if (rmotor > 0)
-                rmotor = 0;
+            if (rmotor > MAX_NEG_GFORCE_ACC)
+                rmotor = MAX_NEG_GFORCE_ACC;
 
             float lat = _iracingClient.Data.GetFloat(Datum_LatAccel);
             float lat_g_Force = lat / 9.81f;

@@ -15,6 +15,7 @@ namespace belttentiontest
         public bool AbsEnabled { get; set; } = false;  // NEW: ABS enabled
         public bool InvertCornering { get; set; } = false; // Added for invert cornering
         public double ConeringCurveAmount { get; set; } = 1.0; // NEW: Cornering curve amount
+        public int RestingPoint { get; set; } = 0; // NEW: Resting point for the motor
     }
 
     public class CarSettingsStore
