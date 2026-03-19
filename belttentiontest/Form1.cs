@@ -936,7 +936,7 @@ namespace belttentiontest
                 // Save immediately so the new car gets its own settings file entry
                 SaveCarSettings(carName);
 
-                
+
             }
             // Apply settings to UI
             _gForceMult = settings.MaxGForceMult;
@@ -976,7 +976,7 @@ namespace belttentiontest
                 InvertCornering = cb_invert_conering.Checked, // NEW
                 ConeringCurveAmount = (double)nud_ConeringCurveAmount.Value, // NEW
                 RestingPoint = (int)percentageUpDownRestingPoint.Value // NEW
-                
+
             };
             CarSettingsStore.Instance.Settings[carName] = settings;
             try
@@ -1175,6 +1175,16 @@ namespace belttentiontest
         }
 
         private void Form1_Load(object sender, EventArgs e)
+        {
+
+        }
+
+        private void gb_Car_Settings_Enter(object sender, EventArgs e)
+        {
+
+        }
+
+        private void labelCurveAmount_Click(object sender, EventArgs e)
         {
 
         }
