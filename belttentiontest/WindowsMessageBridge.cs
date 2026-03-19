@@ -16,7 +16,7 @@ namespace BeltTentionerLib
         MaxOutput,
         InvertConeringForces,
         ABSEnabled,
-        ABSStrength
+        ABSStrength,
     }
 
     public class BeltMessage

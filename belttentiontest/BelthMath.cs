@@ -74,8 +74,10 @@ namespace belttentiontest
 
         public float CalculateVerticalForces(MotorSettings settings)
         {
-            float curved = settings.CalculateCurve(VerticalForceInput, settings.ConeringCurveAmount, MotorSettings.VerticalGForceScale);
+            float curved = settings.CalculateCurve(VerticalForceInput, 1, MotorSettings.VerticalGForceScale);
             VerticalForceOutput = curved * settings.VerticalStrengh;
+
+           
             return VerticalForceOutput;
         }
 
@@ -85,7 +87,7 @@ namespace belttentiontest
 
             float signal = (CalculateLongForces(settings) * BreakingWeight) + (CalculateLateralForces(settings) * ConeringWeight) + (CalculateVerticalForces(settings) * VerticalWeight); //add all forces
 
-            signal = settings.ClampToMaxMotorPower(signal + RestingPoint);
+            signal = settings.ClampToMaxMotorPower(signal + RestingPoint); //make sure its within range of motor
 
             if (settings.Invert)
                 signal = settings.Max - signal;
@@ -100,7 +102,7 @@ namespace belttentiontest
     {
         public const float LongGForceScale = 7.0f; // 7g max for long
         public const float ConeringGForceScale = 5.0f; // 5g max for lateral and vertical
-        public const float VerticalGForceScale = 5.0f;
+        public const float VerticalGForceScale = 3.0f;
 
 
         public float MaxPower;

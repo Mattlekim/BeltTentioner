@@ -113,7 +113,7 @@ namespace belttentiontest
             {
                 try
                 {
-                    if (_iracingClient.Data.SessionInfo.DriverInfo.DriverCarIdx > _iracingClient.Data.SessionInfo.DriverInfo.Drivers.Count)
+                    if (_iracingClient.Data.SessionInfo.DriverInfo.DriverCarIdx <= _iracingClient.Data.SessionInfo.DriverInfo.Drivers.Count)
                     {
                         string carName = _iracingClient.Data.SessionInfo.DriverInfo.Drivers[_iracingClient.Data.SessionInfo.DriverInfo.DriverCarIdx].CarScreenName;
 
