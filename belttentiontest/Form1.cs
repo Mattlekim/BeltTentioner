@@ -104,17 +104,33 @@ namespace belttentiontest
 
         private MemoryMapFileWriter? _mmfWriter;
 
+
+        bool _isLoading = false;
         public Form1()
         {
+            _isLoading = true;
             LoadAutoConnectSetting();
             _instance = this;
             InitializeComponent();
+            ThinTrackBar.Bind(_ttb_maxOutput, numericUpDownMaxPower);
+            ThinTrackBar.Bind(_ttb_restingPoint, percentageUpDownRestingPoint);
+
+            ThinTrackBar.Bind(_ttb_brakingCurve, numericUpDownCurveAmount);
+            ThinTrackBar.Bind(_ttb_brakingStr, numericUpDownGForceToBelt);
+
+            ThinTrackBar.Bind(_ttb_corneringCurve, nud_ConeringCurveAmount);
+            ThinTrackBar.Bind(_ttb_corneringStr, nud_coneringStrengh);
+
+            ThinTrackBar.Bind(_ttb_verStr, nudVertical);
+
             cb_AutoConnect.Checked = AutoConnectOnStartup;
 
             // custom paint for braking groupbox border
             _gb_Braking.Paint += _gb_Braking_Paint;
             // custom paint for cornering groupbox border (green)
             _gb_cornering.Paint += _gb_cornering_Paint;
+
+            _gb_vertical.Paint += _gb_vertical_Paint;
 
             _mmfWriter = new MemoryMapFileWriter();
 
@@ -276,6 +292,8 @@ namespace belttentiontest
             menuStrip.Items.Add(helpMenu);
             this.MainMenuStrip = menuStrip;
             this.Controls.Add(menuStrip);
+
+            _isLoading = false;
         }
 
         // Timer tick event handler
@@ -292,8 +310,8 @@ namespace belttentiontest
             if (IracingCommunicator.Instance != null)
                 if (!IracingCommunicator.Instance.IsConnected)
                 {
-                    OnScaledValueUpdated(0.1f, 0, 0, false); //keep communications alive with small value when not connected to iRacing
-                    OnScaledValueUpdated(0.1f, 0, 0, true); //keep communications alive     with small value when not connected to iRacing
+                    OnScaledValueUpdated(0.1f, 0, 1, false); //keep communications alive with small value when not connected to iRacing
+                    OnScaledValueUpdated(0.1f, 0, 1, true); //keep communications alive     with small value when not connected to iRacing
                 }
 
             if (_testABS)
@@ -324,7 +342,7 @@ namespace belttentiontest
 
         private void OnIracingDisconnected()
         {
-            SaveCarSettings(CarName);
+            SaveSoon();
             CarName = "NA";
             LoadCarSettings(CarName);
             lb_carName.Text = CarName;
@@ -357,7 +375,7 @@ namespace belttentiontest
         {
             labelStatus.Text = reason;
             labelStatus.ForeColor = System.Drawing.Color.Red;
-   
+
             SetControlsEnabled(false);
             buttonConnect.Enabled = true;
         }
@@ -438,7 +456,7 @@ namespace belttentiontest
                 var (analogValue, target, distance) = parsed.Value;
                 Debug.WriteLine($"Serial Data: Analog={analogValue}, Target={target}, Distance={distance}");
                 // Display values on the form
-              
+
                 return;
             }
 
@@ -521,7 +539,9 @@ namespace belttentiontest
                 g.Clear(System.Drawing.Color.White);
                 var penMain = new System.Drawing.Pen(System.Drawing.Color.Blue, 2);
                 var penLat = new System.Drawing.Pen(System.Drawing.Color.Green, 2);
+                var penVer = new System.Drawing.Pen(System.Drawing.Color.Orange, 2);
                 var penMax = new System.Drawing.Pen(System.Drawing.Color.OrangeRed, 2);
+                var penResting = new System.Drawing.Pen(System.Drawing.Color.Cyan, 2);
                 var penPreview = new System.Drawing.Pen(System.Drawing.Color.Purple, 2);
                 var font = new System.Drawing.Font("Arial", 8);
                 var brush = System.Drawing.Brushes.Black;
@@ -539,16 +559,16 @@ namespace belttentiontest
                 g.DrawLine(System.Drawing.Pens.Black, xPadding, graphHeight - 1, xPadding + graphWidth - 1, graphHeight - 1);
 
                 // Draw X axis ticks and labels
-                int numTicks = 10;
-                for (int i = 0; i <= numTicks; i++)
+                int numTicks = 9;
+                for (int i = -2; i <= numTicks; i++)
                 {
                     float tickValue = i;
                     int tickX = xPadding + (int)Math.Round(tickValue / 10.0 * (graphWidth - 1));
-                    int tickY = height - 1;
+                    int tickY = height - 16;
                     g.DrawLine(System.Drawing.Pens.Black, tickX, tickY - 4, tickX, tickY);
                     string tickLabel = (tickValue - 2).ToString("0.##");
                     var tickLabelSize = g.MeasureString(tickLabel, font);
-                    g.DrawString(tickLabel, font, brush, tickX - tickLabelSize.Width / 2, tickY - tickLabelSize.Height - 2);
+                    g.DrawString(tickLabel, font, brush, tickX - tickLabelSize.Width / 2, tickY - tickLabelSize.Height + 12);
                 }
 
                 // Prepare settings
@@ -578,51 +598,94 @@ namespace belttentiontest
                 int yMax = MapY(maxOutput);
                 g.DrawLine(penMax, xPadding, yMax, xPadding + graphWidth - 1, yMax);
 
+                int yResting = MapY(motorRange * ((float)percentageUpDownRestingPoint.Value / 100f));
+                g.DrawLine(penResting, xPadding, yResting, xPadding + graphWidth - 1, yResting);
                 // Main curve (longitudinal G)
                 int? prevY = null, prevX = null;
-                for (int x = 0; x < graphWidth; x++)
-                {
-                    float inputValue = (float)(x * MotorSettings.LongGForceScale / (graphWidth - 1));
-                    MotorOutputValues output = settings.Setup(inputValue, 0, 0, (int)percentageUpDownRestingPoint.Value);
-                    float yValue = output.CalcluateMotorSignalOutput(settings);
-                    int y = MapY(yValue);
-                    int drawX = xPadding + x + 47;
-                    if (prevY.HasValue)
-                        g.DrawLine(penMain, prevX.Value, prevY.Value, drawX, y);
-                    prevY = y;
-                    prevX = drawX;
-                }
+
+                if (_cb_showBraking.Checked)
+                    for (int x = -47; x < graphWidth; x++)
+                    {
+                        float inputValue = (float)(x / (float)graphWidth) * 10;
+                        if (inputValue > MotorSettings.LongGForceScale)
+                            break;
+                        MotorOutputValues output = settings.Setup(inputValue, 0, 0, (int)percentageUpDownRestingPoint.Value);
+                        float yValue = output.CalcluateMotorSignalOutput(settings);
+                        int y = MapY(yValue);
+                        int drawX = xPadding + x + 47;
+                        if (prevY.HasValue)
+                            g.DrawLine(penMain, prevX.Value, prevY.Value, drawX, y);
+                        prevY = y;
+                        prevX = drawX;
+                    }
 
                 // Lateral curve (cornering G)
                 prevY = null; prevX = null;
-                for (int x = 0; x < graphWidth; x++)
-                {
-                    float inputValue = (float)(x * MotorSettings.ConeringGForceScale / (graphWidth - 1));
-                    MotorOutputValues output = settings.Setup(0, inputValue, 0, (int)percentageUpDownRestingPoint.Value);
-                    float yValue = output.CalcluateMotorSignalOutput(settings);
-                    int drawX = 47 + xPadding + (int)(inputValue / MotorSettings.LongGForceScale * (graphWidth - 1));
-                    int y = MapY(yValue);
-                    if (prevY.HasValue)
-                        g.DrawLine(penLat, prevX.Value, prevY.Value, drawX, y);
-                    prevY = y;
-                    prevX = drawX;
-                }
+                if (_cb_showCorn.Checked)
+                    for (int x = 0; x < graphWidth; x++)
+                    {
+                        float inputValue = (float)(x / (float)graphWidth) * 10;
+
+                        if (inputValue > MotorSettings.ConeringGForceScale)
+                            break;
+                        MotorOutputValues output = settings.Setup(0, inputValue, 0, (int)percentageUpDownRestingPoint.Value);
+                        float yValue = output.CalcluateMotorSignalOutput(settings);
+                        int drawX = 47 + xPadding + x;
+                        int y = MapY(yValue);
+                        if (prevY.HasValue)
+                            g.DrawLine(penLat, prevX.Value, prevY.Value, drawX, y);
+                        prevY = y;
+                        prevX = drawX;
+                    }
+
+                prevY = null; prevX = null;
+
+                if (_cb_showVer.Checked)
+                    for (int x = -47; x < graphWidth; x++)
+                    {
+                        float inputValue = (float)(x / (float)graphWidth) * 10;
+                        MotorOutputValues output = settings.Setup(0, 0, inputValue, (int)percentageUpDownRestingPoint.Value);
+
+                        float yValue = output.CalcluateMotorSignalOutput(settings);
+                        if (inputValue > MotorSettings.VerticalGForceScale)
+                            break;
+                        int drawX = 47 + xPadding + x;
+                        int y = MapY(yValue);
+                        if (prevY.HasValue)
+                            g.DrawLine(penVer, prevX.Value, prevY.Value, drawX, y);
+                        prevY = y;
+                        prevX = drawX;
+                    }
 
                 // Live preview: show actual positions if enabled
                 if (cb_livePrieview != null && cb_livePrieview.Checked)
                 {
-                    // Longitudinal force marker
-                    int longX = xPadding + (int)(_lastLongForceInput / MotorSettings.LongGForceScale * (graphWidth - 1));
-                    MotorOutputValues longOutput = settings.Setup(_lastLongForceInput, 0, 0, (int)percentageUpDownRestingPoint.Value);
-                    int longY = MapY(longOutput.CalcluateMotorSignalOutput(settings));
-                    g.FillEllipse(System.Drawing.Brushes.Blue, longX - 5 + 47, longY - 5, 10, 10);
+                    if (_cb_showBraking.Checked)
+                    {
+                        // Longitudinal force marker
+                        int longX = xPadding + (int)(_lastLongForceInput / MotorSettings.LongGForceScale * (graphWidth - 1));
+                        MotorOutputValues longOutput = settings.Setup(_lastLongForceInput, 0, 0, (int)percentageUpDownRestingPoint.Value);
+                        int longY = MapY(longOutput.CalcluateMotorSignalOutput(settings));
+                        g.FillEllipse(System.Drawing.Brushes.Blue, longX - 5 + 47, longY - 5, 10, 10);
+                    }
 
                     // Lateral force marker
-                    int latX = xPadding + (int)(_lastLatForceInput / MotorSettings.LongGForceScale * (graphWidth - 1));
-                    MotorOutputValues latOutput = settings.Setup(0, _lastLatForceInput, 0, (int)percentageUpDownRestingPoint.Value);
-                    int latY = MapY(latOutput.CalcluateMotorSignalOutput(settings));
-                    g.FillEllipse(System.Drawing.Brushes.Green, latX - 5 + 47, latY - 5, 10, 10);
+                    if (_cb_showCorn.Checked)
+                    {
+                        int latX = xPadding + (int)(_lastLatForceInput / MotorSettings.LongGForceScale * (graphWidth - 1));
+                        MotorOutputValues latOutput = settings.Setup(0, _lastLatForceInput, 0, (int)percentageUpDownRestingPoint.Value);
+                        int latY = MapY(latOutput.CalcluateMotorSignalOutput(settings));
+                        g.FillEllipse(System.Drawing.Brushes.Green, latX - 5 + 47, latY - 5, 10, 10);
+                    }
 
+                    // Vertical force marker
+                    if (_cb_showVer.Checked)
+                    {
+                        int verX = xPadding + (int)(_lastVertForceInput / MotorSettings.LongGForceScale * (graphWidth - 1));
+                        MotorOutputValues verOutput = settings.Setup(0, 0, _lastVertForceInput, (int)percentageUpDownRestingPoint.Value);
+                        int verY = MapY(verOutput.CalcluateMotorSignalOutput(settings));
+                        g.FillEllipse(System.Drawing.Brushes.Orange, verX - 5 + 47, verY - 5, 10, 10);
+                    }
                     // Combined bar (long + lat + vertical)
                     float combinedLong = _lastLongForceInput;
                     float combinedLat = _lastLatForceInput;
@@ -640,28 +703,15 @@ namespace belttentiontest
                     int barX = xPadding + graphWidth - barWidth - 2 + 12;
                     int barY = graphHeight - barHeight;
                     // Color logic
-                    System.Drawing.Brush barBrush = System.Drawing.Brushes.Red;
-                    if (barPercent < 0.6f)
-                        barBrush = System.Drawing.Brushes.Green;
-                    else if (barPercent < 0.9f)
-                        barBrush = System.Drawing.Brushes.Orange;
 
-                    barBrush = BrushUtils.LerpBrush(Brushes.Green, Brushes.Red, barPercent);
-                    
+                    Brush barBrush = BrushUtils.LerpBrush(Brushes.Green, Brushes.Red, barPercent);
+
                     g.FillRectangle(barBrush, barX, barY, barWidth, barHeight);
                     // Draw the bar's max outline
                     int barMaxY = graphHeight - barMaxHeight;
                     g.DrawRectangle(System.Drawing.Pens.Black, barX, barMaxY, barWidth, barMaxHeight);
 
-               /*    float barPercentVer = (combinedVert * 10 + 10 - min) / (barMaxValue - min);
-                    barHeight = (int)(barPercentVer * barMaxHeight);
-                    barY = graphHeight - barHeight;
-                    barX -= 15;
-                    barBrush = Brushes.Orange;
-                   
-                    g.FillRectangle(barBrush, barX, barY, barWidth, barHeight);
 
-                    */
                 }
             }
             pictureBoxCurveGraph.Image = bmp;
@@ -670,14 +720,14 @@ namespace belttentiontest
         private void numericUpDownMaxPower_ValueChanged(object sender, EventArgs e)
         {
             _maxPower = (int)numericUpDownMaxPower.Value;
-            SaveCarSettings(CarName);
+            SaveSoon();
             DrawCurveGraph();
         }
 
         private void numericUpDownCurveAmount_ValueChanged(object sender, EventArgs e)
         {
             _curveAmount = (double)numericUpDownCurveAmount.Value;
-            SaveCarSettings(CarName);
+            SaveSoon();
             DrawCurveGraph();
         }
 
@@ -701,6 +751,8 @@ namespace belttentiontest
             if (checkBoxTest.Checked)
                 simBrakingValue = (float)numericUpDownTarget.Value;
 
+
+
             SimVeriticalValue -= 1f; //remove gravity
             if (SimVeriticalValue < -2) //clamp it to -2G to avoid extreme values from jumps etc throwing off the belt tensioner
                 SimVeriticalValue = -2;
@@ -716,13 +768,13 @@ namespace belttentiontest
                 Max = lMotor ? L_MAX : R_MAX,
                 Invert = lMotor ? L_INVERT : R_INVERT,
             };
-    
+
 
 
             MotorOutputValues value = lmotorSettings.Setup(simBrakingValue, SimConeringValue, SimVeriticalValue, (int)percentageUpDownRestingPoint.Value);
 
             float yValue = value.CalcluateMotorSignalOutput(lmotorSettings);
-        
+
 
             _displayGForce = value.LongForceInput;
             if (lMotor)
@@ -857,13 +909,13 @@ namespace belttentiontest
         private void numericUpDownGForceToBelt_ValueChanged(object sender, EventArgs e)
         {
             SetGForceMult((float)numericUpDownGForceToBelt.Value);
-            SaveCarSettings(CarName);
+            SaveSoon();
         }
 
         private void numericUpDownGForceToBelt_ValueChanged_1(object sender, EventArgs e)
         {
             _gForceMult = (float)numericUpDownGForceToBelt.Value;
-            SaveCarSettings(CarName);
+            SaveSoon();
             DrawCurveGraph(); // Update graph when belt strength changes
         }
 
@@ -884,7 +936,7 @@ namespace belttentiontest
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
 
-            SaveCarSettings(CarName);
+            SaveCarSettings();
             Settings.Default.Save();
             updateTimer?.Stop();
             updateTimer?.Dispose();
@@ -947,7 +999,7 @@ namespace belttentiontest
                 }
                 CarSettingsStore.Instance.Settings[carName] = settings;
                 // Save immediately so the new car gets its own settings file entry
-                SaveCarSettings(carName);
+                SaveCarSettings();
 
 
             }
@@ -983,8 +1035,40 @@ namespace belttentiontest
             DrawCurveGraph();
         }
 
-        private void SaveCarSettings(string carName)
+
+        System.Timers.Timer _timer;
+
+
+
+        public void SaveSoon()
         {
+            if (_isLoading)
+                return;
+
+            if (_timer == null)
+            {
+                _timer = new System.Timers.Timer(3000);
+                _timer.Elapsed += (s, e) =>
+                {
+
+                    SaveCarSettings();
+
+                };
+                _timer.Start();
+                _timer.AutoReset = false;
+            }
+            else
+            {
+                _timer.Stop();
+                _timer.Close();
+                _timer.Dispose();
+                _timer = null;
+            }
+        }
+
+        private void SaveCarSettings()
+        {
+            if (_isLoading) return; // Don't save while we're still loading settings    
             var settings = new CarSettings
             {
                 MaxGForceMult = (float)numericUpDownGForceToBelt.Value,
@@ -999,7 +1083,7 @@ namespace belttentiontest
                 RestingPoint = (int)percentageUpDownRestingPoint.Value // NEW
 
             };
-            CarSettingsStore.Instance.Settings[carName] = settings;
+            CarSettingsStore.Instance.Settings[CarName] = settings;
             try
             {
                 var json = JsonSerializer.Serialize(CarSettingsStore.Instance, new JsonSerializerOptions { WriteIndented = true });
@@ -1099,13 +1183,13 @@ namespace belttentiontest
         private void nud_coneringStrengh_ValueChanged(object sender, EventArgs e)
         {
 
-            SaveCarSettings(CarName);
+            SaveSoon();
         }
 
         private void nud_coneringStrengh_ValueChanged_1(object sender, EventArgs e)
         {
 
-            SaveCarSettings(CarName);
+            SaveSoon();
             DrawCurveGraph();
         }
 
@@ -1126,7 +1210,7 @@ namespace belttentiontest
             if (!CarSettingsStore.Instance.Settings.TryGetValue(CarName, out var settings))
                 return;
             settings.VerticalStrength = (float)nudVertical.Value;
-            SaveCarSettings(CarName);
+            SaveSoon();
             DrawCurveGraph();
         }
 
@@ -1136,7 +1220,7 @@ namespace belttentiontest
                 return;
             settings.AbsStrength = (float)nud_ABS.Value;
             irCommunicator.ABSStrength = settings.AbsStrength;
-            SaveCarSettings(CarName);
+            SaveSoon();
         }
 
         private void cb_ABS_Enabled_CheckedChanged(object sender, EventArgs e)
@@ -1144,7 +1228,7 @@ namespace belttentiontest
             if (!CarSettingsStore.Instance.Settings.TryGetValue(CarName, out var settings))
                 return;
             settings.AbsEnabled = cb_ABS_Enabled.Checked;
-            SaveCarSettings(CarName);
+            SaveSoon();
         }
 
 
@@ -1175,7 +1259,7 @@ namespace belttentiontest
         private void nud_ConeringCurveAmount_ValueChanged(object sender, EventArgs e)
         {
             _coneringCurveAmount = (double)nud_ConeringCurveAmount.Value;
-            SaveCarSettings(CarName);
+            SaveSoon();
             DrawCurveGraph();
         }
 
@@ -1304,6 +1388,81 @@ namespace belttentiontest
             {
                 g.DrawString(text, gb.Font, fore, textX, 0);
             }
+        }
+
+        // Custom paint to draw green border around cornering GroupBox
+        private void _gb_vertical_Paint(object? sender, PaintEventArgs e)
+        {
+            if (sender is not GroupBox gb) return;
+            var g = e.Graphics;
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+
+            // Measure text
+            var text = gb.Text ?? string.Empty;
+            var textSize = g.MeasureString(text, gb.Font);
+
+            // Coordinates
+            int left = 0;
+            int top = (int)(textSize.Height / 2);
+            int right = gb.ClientRectangle.Width - 1;
+            int bottom = gb.ClientRectangle.Height - 1;
+            int textX = 8;
+            int textLeft = textX - 4;
+            int textRight = textX + (int)textSize.Width + 4;
+
+            // Fill the background behind the text to hide default border under text
+            using (var b = new System.Drawing.SolidBrush(gb.BackColor))
+            {
+                g.FillRectangle(b, textX - 2, 0, textSize.Width + 4, (int)textSize.Height);
+            }
+
+            // Draw the green border as lines but skip the segment under the caption
+            using (var pen = new System.Drawing.Pen(System.Drawing.Color.Orange, 2))
+            {
+                // Top left segment
+                g.DrawLine(pen, left, top, Math.Max(left, textLeft), top);
+                // Top right segment
+                g.DrawLine(pen, Math.Min(right, textRight), top, right, top);
+                // Left vertical
+                g.DrawLine(pen, left, top, left, bottom);
+                // Right vertical
+                g.DrawLine(pen, right, top, right, bottom);
+                // Bottom horizontal
+                g.DrawLine(pen, left, bottom, right, bottom);
+            }
+
+            // Draw the caption text on top
+            using (var fore = new System.Drawing.SolidBrush(gb.ForeColor))
+            {
+                g.DrawString(text, gb.Font, fore, textX, 0);
+            }
+        }
+        private void percentageUpDownRestingPoint_ValueChanged(object sender, EventArgs e)
+        {
+            SaveSoon();
+            DrawCurveGraph();
+        }
+
+
+
+        private void _ttb_maxOutput_Scroll(object sender, EventArgs e)
+        {
+
+        }
+
+        private void _cb_showBraking_CheckedChanged(object sender, EventArgs e)
+        {
+            DrawCurveGraph();
+        }
+
+        private void _cb_showCorn_CheckedChanged(object sender, EventArgs e)
+        {
+            DrawCurveGraph();
+        }
+
+        private void _cb_showVer_CheckedChanged(object sender, EventArgs e)
+        {
+            DrawCurveGraph();
         }
     }
 }
