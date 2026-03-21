@@ -333,7 +333,7 @@ namespace belttentiontest
             _ttb_restingPoint.FillColor = Color.Cyan;
             _ttb_restingPoint.Location = new Point(94, 72);
             _ttb_restingPoint.Maximum = 100F;
-            _ttb_restingPoint.Minimum = 1F;
+            _ttb_restingPoint.Minimum = 0F;
             _ttb_restingPoint.Name = "_ttb_restingPoint";
             _ttb_restingPoint.Size = new Size(100, 20);
             _ttb_restingPoint.TabIndex = 110;

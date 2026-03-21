@@ -11,6 +11,10 @@ namespace belttentiontest
             // To customize application configuration such as set high DPI settings or default font,
             // see https://aka.ms/applicationconfiguration.
             ApplicationConfiguration.Initialize();
+
+            // Initialize crash logging so unhandled exceptions are recorded
+            CrashLogger.Initialize();
+
             Application.Run(new Form1());
         }
     }
