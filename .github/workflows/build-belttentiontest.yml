@@ -1,0 +1,24 @@
+name: Build belttentiontest only
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restore belttentiontest
+      run: dotnet restore ./belttentiontest/belttentiontest.csproj
+
+    - name: Build belttentiontest
+      run: dotnet build --configuration Release ./belttentiontest/belttentiontest.csproj --no-restore
