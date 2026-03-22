@@ -99,6 +99,7 @@ namespace belttentiontest
             Name = "AboutBox";
             StartPosition = FormStartPosition.CenterParent;
             Text = "About";
+            Load += AboutBox_Load;
             ResumeLayout(false);
             PerformLayout();
         }

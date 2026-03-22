@@ -6,16 +6,24 @@ namespace belttentiontest
 {
     public partial class AboutBox : Form
     {
+
+        public static string Version = "1.0.21";
+
         public AboutBox()
         {
             InitializeComponent();
             labelProductName.Text = "Belt Tensioner";
-            labelVersion.Text = $"Version: {Application.ProductVersion}";
-            labelCopyright.Text = "© 2025 Riddlersoft Games";
+            labelVersion.Text = $"Version: {Version}";
+            labelCopyright.Text = "© 2026 Riddlersoft Games";
             labelCompanyName.Text = "Riddlersoft Games";
         }
 
         private void buttonOK_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void AboutBox_Load(object sender, EventArgs e)
         {
 
         }

@@ -104,7 +104,10 @@ namespace belttentiontest
 
         private MemoryMapFileWriter? _mmfWriter;
 
-
+        public static void StopTimers()
+        {
+            Instance?.mmfUpdateTimer?.Stop();
+        }
         bool _isLoading = false;
         public Form1()
         {
@@ -133,12 +136,6 @@ namespace belttentiontest
             _gb_vertical.Paint += _gb_vertical_Paint;
 
             _mmfWriter = new MemoryMapFileWriter();
-
-            // MMF update timer: call WriteSettingsToMemoryMappedFile 30 times/sec
-            mmfUpdateTimer = new System.Windows.Forms.Timer();
-            mmfUpdateTimer.Interval = 33; // ~30 times per second
-            mmfUpdateTimer.Tick += (s, e) => WriteSettingsToMemoryMappedFile(""); // Pass actual JSON if needed
-            mmfUpdateTimer.Start();
 
             // MMF update timer: call WriteSettingsToMemoryMappedFile 30 times/sec
             mmfUpdateTimer = new System.Windows.Forms.Timer();
@@ -286,8 +283,11 @@ namespace belttentiontest
             // Add Help menu with About...
             var menuStrip = new MenuStrip();
             var helpMenu = new ToolStripMenuItem("Help");
+            var updateMenuItem = new ToolStripMenuItem("Check for Updates...");
+            updateMenuItem.Click += async (s, e) => await Updater.CheckForUpdatesAsync(this);
             var aboutMenuItem = new ToolStripMenuItem("About...");
             aboutMenuItem.Click += (s, e) => ShowAboutBox();
+            helpMenu.DropDownItems.Add(updateMenuItem);
             helpMenu.DropDownItems.Add(aboutMenuItem);
             menuStrip.Items.Add(helpMenu);
             this.MainMenuStrip = menuStrip;
