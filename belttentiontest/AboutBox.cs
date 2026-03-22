@@ -18,10 +18,6 @@ namespace belttentiontest
             labelCompanyName.Text = "Riddlersoft Games";
         }
 
-        private void buttonOK_Click(object sender, EventArgs e)
-        {
-
-        }
 
         private void AboutBox_Load(object sender, EventArgs e)
         {

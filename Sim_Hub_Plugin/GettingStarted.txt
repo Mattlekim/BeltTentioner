@@ -1,0 +1,101 @@
+Getting started :
+  - Create a separate copy of the demo project (the original will be overwritten during a SimHub update)
+  - Build
+  - Set the debug target to “External Program” and point it to the SimHub main EXE (typically: C:\Program Files (x86)\SimHub\SimHubWPF.exe)
+  - Start! You are ready to go!
+
+Notes :
+  - SimHub DLL references use the SIMHUB_INSTALL_PATH environment variable so they always point to the latest DLLs included with SimHub. When adding new SimHub DLLs, edit the .csproj manually so that they also reference SIMHUB_INSTALL_PATH.
+  - A post-build copy is configured to copy the DLL and PDB to the SimHub installation directory. If you add dependencies, please make sure:
+    - They do not conflict with the ones bundled in SimHub
+    - You add them to the post-build copy step
+
+
+Localization – Getting Started
+------------------------------
+
+SimHub provides a complete localization system that plugin authors can use easily.
+Each plugin can declare its own .resx file, and SimHub will automatically merge all languages,
+including user overrides.
+
+1) Create your plugin’s resource file
+
+Create a standard .resx file next to your plugin DLL:
+
+  MyPlugin.resx              (English – mandatory)
+  MyPlugin.fr.resx           (optional)
+  MyPlugin.de.resx           (optional)
+  …
+
+Important:
+The English “MyPlugin.resx” file (without culture suffix) is the reference file.
+Other languages automatically inherit all keys from it.
+
+
+----------------------------------------------------
+
+2) Localizing XAML with SLoc
+
+SimHub includes a markup extension that binds UI text to a .resx key:
+
+  <TextBlock Text="{SLoc MyPlugin_MySettingLabel, 'Default text'}" />
+
+- “MyPlugin_MySettingLabel” is the key stored in your .resx files.
+- “Default text” is design-time text only (for the Visual Studio designer).
+- At runtime SimHub loads the localized value from the .resx (or user overrides).
+
+
+----------------------------------------------------
+
+3) Localizing C# code
+
+You can retrieve localized values from code:
+
+  string label = Loc.GetValue("MyPlugin_MySettingLabel", "My setting");
+
+This returns the translated value from the .resx.
+The second parameter is a fallback only if the key is missing.
+
+
+----------------------------------------------------
+
+4) Automatic support in SimHub’s translation editor
+
+All your plugin localization keys automatically appear in SimHub’s translation editor.
+Users can translate your plugin safely:
+
+- Their changes are written to a .diff.resx override file.
+- Your original plugin .resx files are never overwritten.
+- SimHub merges reference + overrides at runtime.
+- If your plugin has multiple .resx files, the user is prompted to choose which one to edit.
+
+You do not need to write any additional code.
+SimHub handles loading, merging, and diffing internally.
+
+
+----------------------------------------------------
+
+5) Guidelines
+
+- Always put user-visible UI text in a .resx file.
+- Do not hardcode strings in code.
+- Keep your English reference file complete, otherwise missing keys cannot be translated inside SimHub.
+- Always use unique keys, ideally prefixed with your plugin name, for example:
+    MyPlugin_MySettingLabel
+    MyPlugin_Error_Timeout
+    MyPlugin_Tooltip_Enable
+  This avoids collisions with other plugins or SimHub’s own text.
+- Rename the demo .resx file according to your plugin name.
+
+
+----------------------------------------------------
+
+6) Summary
+
+- Create a “MyPlugin.resx” file for English.
+- Add other cultures as “MyPlugin.xx.resx” if needed.
+- Use SLoc in XAML and Loc.GetValue in C#.
+- SimHub automatically loads, merges, and manages translations.
+- Users can translate your plugin safely without modifying your files.
+
+----------------------------------------------------

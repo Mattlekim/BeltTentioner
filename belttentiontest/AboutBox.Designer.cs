@@ -80,7 +80,6 @@ namespace belttentiontest
             buttonOK.TabIndex = 4;
             buttonOK.Text = "OK";
             buttonOK.UseVisualStyleBackColor = true;
-            buttonOK.Click += buttonOK_Click;
             // 
             // AboutBox
             // 
