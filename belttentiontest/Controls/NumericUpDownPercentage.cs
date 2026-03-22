@@ -4,13 +4,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace belttentiontest
+namespace belttentiontest.Controls
 {
     public class PercentageUpDown : NumericUpDown
     {
         protected override void UpdateEditText()
         {
-            this.Text = (this.Value / 100M).ToString("P0");
+            Text = (Value / 100M).ToString("P0");
         }
     }
 

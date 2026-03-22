@@ -5,6 +5,8 @@
     /// </summary>
     public class DataPluginDemoSettings
     {
-        public int SpeedWarningLevel = 100;
+        public bool Enabled { get; set; } = true;
+
+        
     }
 }

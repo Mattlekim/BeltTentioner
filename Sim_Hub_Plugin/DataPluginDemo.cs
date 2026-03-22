@@ -2,12 +2,12 @@
 using SimHub.Plugins;
 using System;
 using System.Windows.Media;
-
+using SharedResources;
 namespace User.PluginSdkDemo
 {
-    [PluginDescription("My plugin description")]
-    [PluginAuthor("Author")]
-    [PluginName("Demo plugin")]
+    [PluginDescription("Simple Belt Tensioner Plugin To Connect To The Custom Belt Tensioner App")]
+    [PluginAuthor("Mattlekim")]
+    [PluginName("Belt Tensioner")]
     public class DataPluginDemo : IPlugin, IDataPlugin, IWPFSettingsV2
     {
         public DataPluginDemoSettings Settings;
@@ -25,8 +25,27 @@ namespace User.PluginSdkDemo
         /// <summary>
         /// Gets a short plugin title to show in left menu. Return null if you want to use the title as defined in PluginName attribute.
         /// </summary>
-        public string LeftMenuTitle => "Demo plugin";
+        public string LeftMenuTitle => "Belt Tensioner";
 
+        TelemetryMmfWriter writer = new TelemetryMmfWriter();
+
+        public void EnablePlugin()
+        {
+            if (writer == null)
+            {
+                writer = new TelemetryMmfWriter();
+                
+            }
+        }
+
+        public void DisablePlugin()
+        {
+            if (writer != null)
+            {
+                writer.Dispose();
+                writer = null;
+            }
+        }   
         /// <summary>
         /// Called one time per game data update, contains all normalized game data,
         /// raw data are intentionally "hidden" under a generic object type (A plugin SHOULD NOT USE IT)
@@ -38,16 +57,65 @@ namespace User.PluginSdkDemo
         /// <param name="data">Current game data, including current and previous data frame.</param>
         public void DataUpdate(PluginManager pluginManager, ref GameData data)
         {
+
             // Define the value of our property (declared in init)
-            if (data.GameRunning)
+            if (data.RunningGameProcessDetected)
             {
                 if (data.OldData != null && data.NewData != null)
                 {
-                    if (data.OldData.SpeedKmh < Settings.SpeedWarningLevel && data.OldData.SpeedKmh >= Settings.SpeedWarningLevel)
+                    if (data.OldData != data.NewData)
                     {
-                        // Trigger an event
-                        this.TriggerEvent("SpeedWarning");
+                        TelemetrySharedData tsd = new TelemetrySharedData
+                        {
+                            GameName = data.GameName,
+                            CarName = data.NewData.CarModel != null ? data.NewData.CarModel : "Unknown",
+                            SupportBraking = data.NewData.AccelerationSurge != null,
+                            SupportCornering = data.NewData.AccelerationSway != null,
+                            SupportVertical = data.NewData.AccelerationHeave != null,
+                            Braking = data.NewData.AccelerationSurge != null ? (float)data.NewData.AccelerationSurge : 0,
+                            Cornering = data.NewData.AccelerationSway != null ? (float)data.NewData.AccelerationSway : 0,
+                            Vertical = data.NewData.AccelerationHeave != null ? (float)data.NewData.AccelerationHeave : 0,
+                            GameRunning = true,
+                            Paused = data.GameInMenu || data.GamePaused,
+                        };
+                        writer.Write(tsd);
                     }
+                    else
+                    {
+                        TelemetrySharedData tsd = new TelemetrySharedData
+                        {
+                            GameName = data.GameName,
+                            CarName = data.NewData.CarModel != null ? data.NewData.CarModel : "Unknown",
+                            Braking = 0,
+                            Cornering = 0,
+                            Vertical = 0,
+                            SupportBraking = false,
+                            SupportCornering = false,
+                            SupportVertical = false,
+                            GameRunning = true,
+                            Paused = data.GameInMenu || data.GamePaused,
+                        };
+                        writer.Write(tsd);
+                    }
+
+
+                }
+                else
+                {
+                    TelemetrySharedData tsd = new TelemetrySharedData
+                    {
+                        GameName = "None",
+                        CarName = "None",
+                        SupportBraking = false,
+                        SupportCornering = false,
+                        SupportVertical = false,
+                        Braking = 0,
+                        Cornering = 0,
+                        Vertical = 0,
+                        GameRunning = false,
+                        Paused = data.GameInMenu || data.GamePaused,
+                    };
+                    writer.Write(tsd);
                 }
             }
         }
@@ -88,25 +156,6 @@ namespace User.PluginSdkDemo
             // Declare a property available in the property list, this gets evaluated "on demand" (when shown or used in formulas)
             this.AttachDelegate(name: "CurrentDateTime", valueProvider: () => DateTime.Now);
 
-            // Declare an event
-            this.AddEvent(eventName: "SpeedWarning");
-
-            // Declare an action which can be called
-            this.AddAction(
-                actionName: "IncrementSpeedWarning",
-                actionStart: (a, b) =>
-                {
-                    Settings.SpeedWarningLevel++;
-                    SimHub.Logging.Current.Info("Speed warning changed");
-                });
-
-            // Declare an action which can be called, actions are meant to be "triggered" and does not reflect an input status (pressed/released ...)
-            this.AddAction(
-                actionName: "DecrementSpeedWarning",
-                actionStart: (a, b) =>
-                {
-                    Settings.SpeedWarningLevel--;
-                });
 
             // Declare an input which can be mapped, inputs are meant to be keeping state of the source inputs,
             // they won't trigger on inputs not capable of "holding" their state.

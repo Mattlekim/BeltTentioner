@@ -27,7 +27,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Update="NumericUpDownPercentage.cs">
+    <Compile Update="Controls\NumericUpDownPercentage.cs">
       <SubType>Component</SubType>
     </Compile>
     <Compile Update="Properties\Settings.Designer.cs">
@@ -38,6 +38,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="BeltTentioner.zip">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>

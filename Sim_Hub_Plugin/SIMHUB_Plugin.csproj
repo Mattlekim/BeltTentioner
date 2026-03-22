@@ -8,7 +8,7 @@
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>User.PluginSdkDemo</RootNamespace>
-    <AssemblyName>User.PluginSdkDemo</AssemblyName>
+    <AssemblyName>BeltTentioner</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
@@ -119,6 +119,9 @@
     <Compile Include="SettingsControlDemo.xaml.cs">
       <DependentUpon>SettingsControlDemo.xaml</DependentUpon>
     </Compile>
+    <Compile Include="TelemetryMmfReader.cs" />
+    <Compile Include="TelemetryMmfWriter.cs" />
+    <Compile Include="TelemetrySharedData.cs" />
   </ItemGroup>
   <ItemGroup>
     <Page Include="DemoDialogWindow.xaml">
@@ -150,6 +153,9 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <WCFMetadata Include="Connected Services\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>

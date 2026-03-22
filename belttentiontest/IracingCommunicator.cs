@@ -104,9 +104,13 @@ namespace belttentiontest
 
         
         private bool _lastABS_Status = false;
+        public bool Enabled { get; set; } = true;
         public void OnClientTelemetryData()
         {
             if (!SetUpDatums())
+                return;
+
+            if (!Enabled)
                 return;
 
             if (_iracingClient?.Data.SessionInfo != null)
@@ -182,8 +186,8 @@ namespace belttentiontest
 
             
 
-            ScaledValueUpdated?.Invoke(-lmotor, lat_lMotor, ver_g_Force < 0 ? 0 : ver_g_Force, false);
-            ScaledValueUpdated?.Invoke(-rmotor, lat_rMotor, ver_g_Force < 0 ? 0 : ver_g_Force, true);
+            ScaledValueUpdated?.Invoke(-lmotor, lat_lMotor,  ver_g_Force, false);
+            ScaledValueUpdated?.Invoke(-rmotor, lat_rMotor, ver_g_Force, true);
 
             if (_absActive)
                 //if (_iracingClient.Data.GetFloat("BrakeABSCutPct") > .1f)

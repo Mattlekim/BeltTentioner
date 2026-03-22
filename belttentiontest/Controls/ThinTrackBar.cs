@@ -2,7 +2,7 @@
 using System.Drawing;
 using System.Windows.Forms;
 
-namespace belttentiontest
+namespace belttentiontest.Controls
 {
     public class ThinTrackBar : Control
     {
@@ -107,7 +107,7 @@ namespace belttentiontest
             if (Width <= 0) return;
 
             float percent = Math.Max(0f, Math.Min(1f, (float)mouseX / Width));
-            Value = Minimum + (percent * (Maximum - Minimum));
+            Value = Minimum + percent * (Maximum - Minimum);
         }
 
         // 🔁 Binding helper (restored)

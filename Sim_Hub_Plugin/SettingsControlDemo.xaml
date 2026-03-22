@@ -11,7 +11,8 @@
             <styles:SHSection Title="Belt Tensioner" Grid.ColumnSpan="2" ShowSeparator="True">
                 <StackPanel>
 
-                    <styles:SHButtonPrimary x:Name="bnt_Enable" HorizontalAlignment="Left">Enable</styles:SHButtonPrimary>
+                    <Label x:Name="lbl_Status" Content="Status: Running" />
+                    <styles:SHButtonPrimary x:Name="bnt_Enable" HorizontalAlignment="Left" Click="bnt_Enable_Click">Enable</styles:SHButtonPrimary>
                     <styles:SHSectionSeparator />
 
                                    

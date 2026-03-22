@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace belttentiontest
+namespace belttentiontest.Controls
 {
     public class GForceUpDown : NumericUpDown
     {
@@ -12,7 +12,7 @@ namespace belttentiontest
         {
             try
             {
-                this.Text = $"{this.Value} G";
+                Text = $"{Value} G";
             }
             catch { }
 
