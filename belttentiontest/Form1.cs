@@ -1,17 +1,20 @@
 using BeltTentionerLib;
+using belttentiontest.Controls;
 using belttentiontest.Properties;
+using SharedResources;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.IO.MemoryMappedFiles;
 using System.IO.Ports;
+using System.Runtime.ConstrainedExecution;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using YamlDotNet.Core;
-
 namespace belttentiontest
 {
     public partial class Form1 : Form
@@ -31,6 +34,8 @@ namespace belttentiontest
         // Timer for periodic updates
         private System.Windows.Forms.Timer? updateTimer;
 
+        private System.Windows.Forms.Timer? simhub_Tel_Timer;
+
         // Timer for MMF updates
         private System.Windows.Forms.Timer? mmfUpdateTimer;
 
@@ -45,6 +50,7 @@ namespace belttentiontest
 
         private string carSettingsFile => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "car_settings.json");
 
+        private TelemetryMmfReader? telemetryReader;
 
         // Singleton instance for Form1
         private static Form1? _instance;
@@ -73,28 +79,66 @@ namespace belttentiontest
             base.OnClosing(e);
         }
 
-        // Standalone setting for auto-connect on startup
+        // Auto-connect settings persisted to autoconnect.json
+        public class AutoConnectSettings
+        {
+            public bool AutoConnectOnStartup { get; set; } = false;
+            public bool UseSimHub { get; set; } = false;
+            public bool UseIracing { get; set; } = true;
+        }
+
+        public static AutoConnectSettings AutoConnect { get; set; } = new AutoConnectSettings();
+
         private const string AutoConnectSettingsFile = "autoconnect.json";
-        public static bool AutoConnectOnStartup { get; set; } = false;
 
         private static void LoadAutoConnectSetting()
         {
             try
             {
-                if (File.Exists(AutoConnectSettingsFile))
+                if (!File.Exists(AutoConnectSettingsFile))
                 {
-                    var json = File.ReadAllText(AutoConnectSettingsFile);
-                    AutoConnectOnStartup = JsonSerializer.Deserialize<bool>(json);
+                    AutoConnect = new AutoConnectSettings();
+                    return;
+                }
+
+                var json = File.ReadAllText(AutoConnectSettingsFile);
+                if (string.IsNullOrWhiteSpace(json))
+                {
+                    AutoConnect = new AutoConnectSettings();
+                    return;
+                }
+
+                // support legacy single-bool file (true/false)
+                var trimmed = json.TrimStart();
+                if (trimmed.StartsWith('{'))
+                {
+                    AutoConnect = JsonSerializer.Deserialize<AutoConnectSettings>(json) ?? new AutoConnectSettings();
+                }
+                else
+                {
+                    // legacy format
+                    if (bool.TryParse(json.Trim(), out var legacy))
+                    {
+                        AutoConnect = new AutoConnectSettings { AutoConnectOnStartup = legacy };
+                    }
+                    else
+                    {
+                        AutoConnect = new AutoConnectSettings();
+                    }
                 }
             }
-            catch { AutoConnectOnStartup = false; }
+            catch
+            {
+                AutoConnect = new AutoConnectSettings();
+            }
         }
 
         private static void SaveAutoConnectSetting()
         {
             try
             {
-                var json = JsonSerializer.Serialize(AutoConnectOnStartup);
+                var opts = new JsonSerializerOptions { WriteIndented = true };
+                var json = JsonSerializer.Serialize(AutoConnect, opts);
                 File.WriteAllText(AutoConnectSettingsFile, json);
             }
             catch { }
@@ -116,6 +160,8 @@ namespace belttentiontest
             _instance = this;
             InitializeComponent();
 
+
+            
             // Silent update check on startup (fire-and-forget)
             _ = Task.Run(async () =>
             {
@@ -150,7 +196,7 @@ namespace belttentiontest
 
             ThinTrackBar.Bind(_ttb_verStr, nudVertical);
 
-            cb_AutoConnect.Checked = AutoConnectOnStartup;
+            cb_AutoConnect.Checked = AutoConnect.AutoConnectOnStartup;
 
             // custom paint for braking groupbox border
             _gb_Braking.Paint += _gb_Braking_Paint;
@@ -167,10 +213,15 @@ namespace belttentiontest
             mmfUpdateTimer.Tick += (s, e) => WriteSettingsToMemoryMappedFile(""); // Pass actual JSON if needed
             mmfUpdateTimer.Start();
 
+            simhub_Tel_Timer = new System.Windows.Forms.Timer();
+            simhub_Tel_Timer.Interval = 16; // 16 times a second (~60Hz)
+            simhub_Tel_Timer.Tick += (s, e) => GetSimHubData();
+            simhub_Tel_Timer.Start();
+
             buttonConnect.Text = "Connecting...";
             buttonConnect.Enabled = false;
 
-            labelStatus.Text = "Scanning ports...";
+            _of_seatbeltDevice.Text = "Scanning...";
             SetControlsEnabled(false);
             buttonConnect.Enabled = true;
 
@@ -286,10 +337,12 @@ namespace belttentiontest
             updateTimer.Tick += UpdateTimer_Tick;
             updateTimer.Start();
 
+
+
             LoadCarSettings(CarName);
 
             // Auto-connect on startup if enabled
-            if (AutoConnectOnStartup)
+            if (AutoConnect.AutoConnectOnStartup)
             {
                 // Fire and forget, UI will update via events
                 _ = Task.Run(async () =>
@@ -306,18 +359,247 @@ namespace belttentiontest
 
             // Add Help menu with About...
             var menuStrip = new MenuStrip();
-            var helpMenu = new ToolStripMenuItem("Help");
+            var menuSystem = new ToolStripMenuItem("Settings");
+            IracingCommunicator.Instance.Enabled = AutoConnect.UseIracing;
+            var menuUseIracing = new ToolStripMenuItem("Use IRacing Telemetry");
+            menuUseIracing.CheckOnClick = true;
+            menuUseIracing.Checked = AutoConnect.UseIracing;
+            var menuUseSimHub = new ToolStripMenuItem("Use SimHub Telemetry");
+            menuUseIracing.Click += (s, e) =>
+            {
+                AutoConnect.UseIracing = menuUseIracing.Checked;
+                _of_Control.Enabled = AutoConnect.UseIracing;
+                IracingCommunicator.Instance.Enabled = AutoConnect.UseIracing;
+                if (AutoConnect.UseIracing)
+                {
+                    AutoConnect.UseSimHub = false;
+                    menuUseSimHub.Checked = AutoConnect.UseSimHub;
+                    _of_simHub.Enabled = AutoConnect.UseSimHub;
+                    _gb_simhub.Enabled = false;
+                }
+                
+                SaveAutoConnectSetting();
+            };
+
+         
+            menuUseSimHub.CheckOnClick = true;
+            menuUseSimHub.Checked = AutoConnect.UseSimHub;
+            menuUseSimHub.Click += (s, e) =>
+            {
+                AutoConnect.UseSimHub = menuUseSimHub.Checked;
+                _of_simHub.Enabled = AutoConnect.UseSimHub;
+                _gb_simhub.Enabled = true;
+                if (AutoConnect.UseSimHub)
+                {
+                    AutoConnect.UseIracing = false;
+                    menuUseIracing.Checked = AutoConnect.UseIracing;
+                    _of_Control.Enabled = AutoConnect.UseIracing;
+                    IracingCommunicator.Instance.Enabled = AutoConnect.UseIracing;
+                }
+
+                SaveAutoConnectSetting();
+            };
+
+            var installSimHubPlugin = new ToolStripMenuItem("Install SimHub Plugin");
+            installSimHubPlugin.Click += (s, e) =>
+            {
+
+            };
+
             var updateMenuItem = new ToolStripMenuItem("Check for Updates...");
             updateMenuItem.Click += async (s, e) => await Updater.CheckForUpdatesAsync(this);
             var aboutMenuItem = new ToolStripMenuItem("About...");
             aboutMenuItem.Click += (s, e) => ShowAboutBox();
-            helpMenu.DropDownItems.Add(updateMenuItem);
-            helpMenu.DropDownItems.Add(aboutMenuItem);
-            menuStrip.Items.Add(helpMenu);
+            menuSystem.DropDownItems.Add(menuUseIracing);
+            menuSystem.DropDownItems.Add(menuUseSimHub);
+            menuSystem.DropDownItems.Add(updateMenuItem);
+            menuSystem.DropDownItems.Add(aboutMenuItem);
+            menuStrip.Items.Add(menuSystem);
             this.MainMenuStrip = menuStrip;
             this.Controls.Add(menuStrip);
 
+
+            if (!AutoConnect.UseSimHub)
+                _of_simHub.Enabled = false;
+
+            if (!AutoConnect.UseIracing)
+                _of_Control.Enabled = false;
             _isLoading = false;
+        }
+
+        bool _simHubConnected = false;
+
+        TelemetrySharedData _simhub_Telemetry;
+        int _nextSimHubFrameCheck = 60;
+        string lastGameName = "";
+
+        bool _simHub_SupportBraking = false;
+        bool _simHub_SupportCornering = false;
+        bool _simHub_SupportVertical = false;
+        bool _simhub_Paused = false;
+        private void GetSimHubData()
+        {
+            if (!AutoConnect.UseSimHub)
+                return;
+
+            if (telemetryReader == null)
+            {
+                _simHubConnected = false;
+
+                _nextSimHubFrameCheck--;
+                if (_nextSimHubFrameCheck <= 0)
+                {
+                    
+                    telemetryReader = new TelemetryMmfReader();
+                    _nextSimHubFrameCheck = 60;
+                    if (telemetryReader.Connected)
+                    {
+                        BeginInvoke(new Action(() =>
+                        {
+                            Log("Connected to SimHub telemetry MMF");
+
+                            _of_simHub.IsOn = true;
+                            BeginInvoke(new Action(() =>
+                            {
+                                if (!_simhub_Telemetry.GameRunning)
+                                    lb_simhub.Text = $"No Game Detected";
+                                else
+                                    lb_simhub.Text = $"Game: {_simhub_Telemetry.GameName}";
+                                _gb_simhub.Enabled = true;
+                            }));
+
+                            
+                        }));
+                    }
+                }
+                return;
+            }
+            else
+            if (!telemetryReader.Connected)
+                {
+                _of_simHub.IsOn = false;
+                
+                telemetryReader.Dispose();
+                telemetryReader = null;
+
+                BeginInvoke(new Action(() =>
+                {
+                    Log("Disconnected from SimHub telemetry MMF");
+                    lb_simhub.Text = $"Not Connected to SimHub";
+                    _gb_simhub.Enabled = false;
+                }));
+                
+                return;
+                }
+            _simhub_Telemetry = telemetryReader.Read();
+
+            if (_simhub_Telemetry.Paused != _simhub_Paused)
+            {
+                _simhub_Paused = _simhub_Telemetry.Paused;
+                BeginInvoke(new Action(() =>
+                {
+                    if (_simhub_Paused)
+                        _lb_menu.Text = "In Menu";
+                    else
+                        _lb_menu.Text = "In Game";
+                }));
+            }
+            if (_simhub_Telemetry.GameRunning)
+            {
+                _simHubConnected = true;
+
+                if (!AutoConnect.UseIracing)
+                {
+                    if (_simhub_Telemetry.GameName != lastGameName)
+                    {
+                        lastGameName = _simhub_Telemetry.GameName;
+                        BeginInvoke(new Action(() =>
+                        {
+                            if (string.IsNullOrWhiteSpace(_simhub_Telemetry.GameName))
+                                lb_simhub.Text = $"No Game Detected";
+                            else
+                                lb_simhub.Text = $"Game: {_simhub_Telemetry.GameName}";
+                        }));
+
+                        if (_simhub_Telemetry.GameName != string.Empty)
+                            if (CarName != _simhub_Telemetry.CarName)
+                            {
+                                CarName = _simhub_Telemetry.CarName;
+                                LoadCarSettings($"{_simhub_Telemetry.GameName}-{CarName}");
+                                BeginInvoke(new Action(() =>
+                                {
+                                    lb_carName.Text = CarName;
+                                }));
+                            }
+                    }
+
+                    if (!_simhub_Telemetry.Paused)
+                    {
+                        var brake = _simhub_Telemetry.Braking / 9.81f;
+                        var corn = _simhub_Telemetry.Cornering / 9.81f;
+                        var ver = _simhub_Telemetry.Vertical / 9.81f;
+
+                        if (_simHub_SupportBraking != _simhub_Telemetry.SupportBraking)
+                        {
+                            _simHub_SupportBraking = _simhub_Telemetry.SupportBraking;
+                            BeginInvoke(new Action(() =>
+                            {
+                                _on_supportBrake.IsOn = _simHub_SupportBraking;
+                            }));
+                        }
+                        if (_simHub_SupportCornering != _simhub_Telemetry.SupportCornering)
+                        {
+                            _simHub_SupportCornering = _simhub_Telemetry.SupportCornering;
+                            BeginInvoke(new Action(() =>
+                            {
+                                _onSupportCorn.IsOn = _simHub_SupportCornering;
+                            }));
+                        }
+                        if (_simHub_SupportVertical != _simhub_Telemetry.SupportVertical)
+                        {
+                            _simHub_SupportVertical = _simhub_Telemetry.SupportVertical;
+                            BeginInvoke(new Action(() =>
+                            {
+                                _on_supoortVer.IsOn = _simHub_SupportVertical;
+                            }));
+                        }
+
+
+                        float lcorn = 0, rcorn = 0;
+                        if (corn < 0) //turning left
+                        {
+                            lcorn = Math.Abs(corn);
+                            rcorn = 0;
+                        }
+                        else //turning right
+                        {
+                            rcorn = Math.Abs(corn);
+                            lcorn = 0;
+                        }
+
+
+                        OnScaledValueUpdated(brake, rcorn, ver, false);
+                        OnScaledValueUpdated(brake, lcorn, ver, true);
+                    }
+                    else
+                    {
+                        OnScaledValueUpdated(0, 0, 0, false);
+                        OnScaledValueUpdated(0, 0, 0, true);
+                    }
+                }
+            }
+            else
+            {
+                _simHubConnected = false;
+
+                if (lastGameName != _simhub_Telemetry.GameName)
+                {
+                    if (string.IsNullOrWhiteSpace(_simhub_Telemetry.GameName))
+                        lb_simhub.Text = $"No Game Detected";
+                    else
+                        lb_simhub.Text = $"Game: {_simhub_Telemetry.GameName}";
+                }
+            }
         }
 
         // Timer tick event handler
@@ -326,6 +608,9 @@ namespace belttentiontest
             bool lmotor = lb_SelectedMotor.SelectedIndex == 0;
 
             if (!communicator.IsConnected)
+                return;
+
+            if (!AutoConnect.UseIracing)
                 return;
 
             if (checkBoxTest.Checked)
@@ -346,6 +631,9 @@ namespace belttentiontest
 
         private void OnIracingConnected()
         {
+            if (!AutoConnect.UseIracing)
+                return;
+
             maxGForceRecorded = 0f; //reset max G-Force on new connection
             labelMaxGForce.Text = $"Max G-Force: {maxGForceRecorded:F2}";
 
@@ -359,7 +647,7 @@ namespace belttentiontest
 
             BeginInvoke(new Action(() =>
             {
-                textBoxIracingStatus.Text = "connected";
+                _of_Control.IsOn = true;
                 Log("iRacing: Connected");
             }));
         }
@@ -379,14 +667,14 @@ namespace belttentiontest
 
             BeginInvoke(new Action(() =>
             {
-                textBoxIracingStatus.Text = "IRacing Not Connect";
+                _of_Control.IsOn = false;
                 Log("iRacing: Not connected");
             }));
         }
 
         private void UpdateIracingLabel(bool connected)
         {
-            textBoxIracingStatus.Text = connected ? "IRacing Connected" : "IRacing Not Connect";
+            _of_Control.IsOn = connected;
             Log(connected ? "IRacing: Connected" : "IRacing: Not connected");
         }
 
@@ -397,8 +685,8 @@ namespace belttentiontest
 
         private void ShowDisconnectedUI(string reason = "Device disconnected")
         {
-            labelStatus.Text = reason;
-            labelStatus.ForeColor = System.Drawing.Color.Red;
+            _of_seatbeltDevice.Text = reason;
+            _of_seatbeltDevice.IsOn = false;
 
             SetControlsEnabled(false);
             buttonConnect.Enabled = true;
@@ -504,8 +792,9 @@ namespace belttentiontest
             if (!IsHandleCreated) return;
             BeginInvoke(new Action(() =>
             {
-                labelStatus.Text = $"Handshake complete";
-                labelStatus.ForeColor = System.Drawing.Color.Black;
+
+                _of_seatbeltDevice.Text = $"Handshake complete";
+                _of_seatbeltDevice.IsOn = true;
                 Log($"Handshake complete on {communicator.PortName}");
                 SetControlsEnabled(true);
                 buttonConnect.Enabled = false;
@@ -839,13 +1128,13 @@ namespace belttentiontest
 
         public string LabelStatus
         {
-            get { return labelStatus.Text; }
+            get { return _of_seatbeltDevice.Text; }
             set
             {
                 Invoke(new Action(() =>
                 {
-                    labelStatus.Text = value;
-                    labelStatus.ForeColor = Color.Red;
+                    _of_seatbeltDevice.Text = value;
+                    _of_seatbeltDevice.IsOn = false;
                 }
                 ));
             }
@@ -864,8 +1153,8 @@ namespace belttentiontest
         {
             Invoke(new Action(() =>
             {
-                labelStatus.Text = $"Connected to Seatbelt";
-                labelStatus.ForeColor = System.Drawing.Color.Black;
+                _of_seatbeltDevice.Text = $"Connected!";
+                _of_seatbeltDevice.IsOn = true;
                 SetControlsEnabled(true);
                 buttonConnect.Enabled = false;
                 buttonConnect.Text = "Connect";
@@ -883,7 +1172,7 @@ namespace belttentiontest
                 buttonConnect.Text = "Connecting...";
                 buttonConnect.Enabled = false;
 
-                Invoke(new Action(() => labelStatus.Text = "Scanning ports..."));
+                Invoke(new Action(() => _of_seatbeltDevice.Text = "Scanning..."));
 
                 using var manualCts = new CancellationTokenSource();
                 bool ok = await communicator.ConnectAsync(manualCts.Token).ConfigureAwait(false);
@@ -896,8 +1185,8 @@ namespace belttentiontest
 
                 Invoke(new Action(() =>
                 {
-                    labelStatus.Text = "No device responded";
-                    labelStatus.ForeColor = System.Drawing.Color.Red;
+                    _of_seatbeltDevice.Text = "No device responded";
+                    _of_seatbeltDevice.IsOn = false;
                     SetControlsEnabled(false);
                     buttonConnect.Text = "Connect";
                     buttonConnect.Enabled = true;
@@ -907,7 +1196,7 @@ namespace belttentiontest
             catch (Exception ex)
             {
                 MessageBox.Show($"Connection failed: {ex.Message}");
-                labelStatus.ForeColor = System.Drawing.Color.Red;
+                _of_seatbeltDevice.IsOn = false;
                 Log($"Manual connect failed: {ex.Message}");
                 SetControlsEnabled(false);
                 buttonConnect.Text = "Connect";
@@ -987,7 +1276,7 @@ namespace belttentiontest
             {
                 if (ctl != buttonConnect && ctl != cb_AutoConnect)
                 {
-                    if (ctl is not Label)
+                    if (ctl is not Label && ctl is not OnOffStatusControl && ctl.Tag != "de")
                         ctl.Enabled = enabled;
                 }
             }
@@ -1262,7 +1551,7 @@ namespace belttentiontest
 
         private void cb_AutoConnect_CheckedChanged(object sender, EventArgs e)
         {
-            AutoConnectOnStartup = cb_AutoConnect.Checked;
+            AutoConnect.AutoConnectOnStartup = cb_AutoConnect.Checked;
             SaveAutoConnectSetting();
         }
 

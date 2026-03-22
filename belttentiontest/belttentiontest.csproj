@@ -27,7 +27,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Update="NumericUpDownPercentage.cs">
+    <Compile Update="Controls\NumericUpDownPercentage.cs">
       <SubType>Component</SubType>
     </Compile>
     <Compile Update="Properties\Settings.Designer.cs">

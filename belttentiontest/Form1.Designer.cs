@@ -1,4 +1,5 @@
-﻿using System;
+﻿using belttentiontest.Controls;
+using System;
 using System.ComponentModel;
 using System.Windows.Forms;
 
@@ -10,12 +11,8 @@ namespace belttentiontest
         /// Required designer variable.
         /// </summary>
         private IContainer components = null;
-
-        // Controls referenced by code
-        private Label labelStatus;
         private GForceUpDown numericUpDownTarget;
         private Button buttonConnect;
-        private TextBox textBoxIracingStatus;
         private Label labelGForce;
         private CheckBox checkBoxTest;
         private NumericUpDown numericUpDownCurveAmount;
@@ -51,10 +48,8 @@ namespace belttentiontest
         private void InitializeComponent()
         {
             ComponentResourceManager resources = new ComponentResourceManager(typeof(Form1));
-            labelStatus = new Label();
             numericUpDownTarget = new GForceUpDown();
             buttonConnect = new Button();
-            textBoxIracingStatus = new TextBox();
             labelGForce = new Label();
             checkBoxTest = new CheckBox();
             numericUpDownCurveAmount = new NumericUpDown();
@@ -109,6 +104,15 @@ namespace belttentiontest
             nud_ABS = new NumericUpDown();
             label6 = new Label();
             cb_AutoConnect = new CheckBox();
+            _of_Control = new OnOffStatusControl();
+            _of_simHub = new OnOffStatusControl();
+            lb_simhub = new Label();
+            _of_seatbeltDevice = new OnOffStatusControl();
+            _gb_simhub = new GroupBox();
+            _onSupportCorn = new OnOffStatusControl();
+            _on_supoortVer = new OnOffStatusControl();
+            _on_supportBrake = new OnOffStatusControl();
+            _lb_menu = new Label();
             ((ISupportInitialize)numericUpDownTarget).BeginInit();
             ((ISupportInitialize)numericUpDownCurveAmount).BeginInit();
             ((ISupportInitialize)pictureBoxCurveGraph).BeginInit();
@@ -127,19 +131,8 @@ namespace belttentiontest
             ((ISupportInitialize)nud_Motor_Start).BeginInit();
             groupBox2.SuspendLayout();
             ((ISupportInitialize)nud_ABS).BeginInit();
+            _gb_simhub.SuspendLayout();
             SuspendLayout();
-            // 
-            // labelStatus
-            // 
-            labelStatus.AutoSize = true;
-            labelStatus.Font = new Font("Segoe UI", 14F);
-            labelStatus.ForeColor = Color.Red;
-            labelStatus.Location = new Point(11, 26);
-            labelStatus.Name = "labelStatus";
-            labelStatus.Size = new Size(201, 25);
-            labelStatus.TabIndex = 1;
-            labelStatus.Text = "Seatbelt Not Conected";
-            labelStatus.Click += labelStatus_Click;
             // 
             // numericUpDownTarget
             // 
@@ -156,22 +149,13 @@ namespace belttentiontest
             // 
             // buttonConnect
             // 
-            buttonConnect.Location = new Point(225, 28);
+            buttonConnect.Location = new Point(225, 89);
             buttonConnect.Name = "buttonConnect";
             buttonConnect.Size = new Size(75, 23);
             buttonConnect.TabIndex = 3;
             buttonConnect.Text = "Connect";
             buttonConnect.UseVisualStyleBackColor = true;
             buttonConnect.Click += buttonConnect_Click;
-            // 
-            // textBoxIracingStatus
-            // 
-            textBoxIracingStatus.Location = new Point(15, 54);
-            textBoxIracingStatus.Name = "textBoxIracingStatus";
-            textBoxIracingStatus.ReadOnly = true;
-            textBoxIracingStatus.Size = new Size(125, 23);
-            textBoxIracingStatus.TabIndex = 6;
-            textBoxIracingStatus.Text = "Iracing Not Connect";
             // 
             // labelGForce
             // 
@@ -282,7 +266,7 @@ namespace belttentiontest
             gb_Car_Settings.Controls.Add(label1);
             gb_Car_Settings.Controls.Add(labelMaxPower);
             gb_Car_Settings.Controls.Add(numericUpDownMaxPower);
-            gb_Car_Settings.Location = new Point(12, 76);
+            gb_Car_Settings.Location = new Point(12, 137);
             gb_Car_Settings.Name = "gb_Car_Settings";
             gb_Car_Settings.Size = new Size(289, 560);
             gb_Car_Settings.TabIndex = 23;
@@ -612,7 +596,7 @@ namespace belttentiontest
             groupBox1.Controls.Add(label2);
             groupBox1.Controls.Add(lblSettingsSaved);
             groupBox1.Controls.Add(lblChangesNotSaved);
-            groupBox1.Location = new Point(11, 709);
+            groupBox1.Location = new Point(11, 770);
             groupBox1.Name = "groupBox1";
             groupBox1.Size = new Size(287, 196);
             groupBox1.TabIndex = 26;
@@ -722,7 +706,7 @@ namespace belttentiontest
             groupBox2.Controls.Add(cb_ABS_Enabled);
             groupBox2.Controls.Add(nud_ABS);
             groupBox2.Controls.Add(label6);
-            groupBox2.Location = new Point(11, 642);
+            groupBox2.Location = new Point(11, 703);
             groupBox2.Name = "groupBox2";
             groupBox2.Size = new Size(286, 63);
             groupBox2.TabIndex = 27;
@@ -784,26 +768,158 @@ namespace belttentiontest
             // cb_AutoConnect
             // 
             cb_AutoConnect.AutoSize = true;
-            cb_AutoConnect.Location = new Point(164, 57);
+            cb_AutoConnect.Location = new Point(15, 115);
             cb_AutoConnect.Name = "cb_AutoConnect";
-            cb_AutoConnect.Size = new Size(131, 19);
+            cb_AutoConnect.Size = new Size(185, 19);
             cb_AutoConnect.TabIndex = 28;
-            cb_AutoConnect.Text = "Connect On Startup";
+            cb_AutoConnect.Text = "Connect To Device On Startup";
             cb_AutoConnect.UseVisualStyleBackColor = true;
             cb_AutoConnect.CheckedChanged += cb_AutoConnect_CheckedChanged;
+            // 
+            // _of_Control
+            // 
+            _of_Control.BackColor = SystemColors.Control;
+            _of_Control.Font = new Font("Segoe UI", 9F);
+            _of_Control.ForeColor = SystemColors.ControlText;
+            _of_Control.IsOn = false;
+            _of_Control.Location = new Point(143, 2);
+            _of_Control.Name = "_of_Control";
+            _of_Control.OffColor = Color.Red;
+            _of_Control.OnColor = Color.LimeGreen;
+            _of_Control.Size = new Size(77, 24);
+            _of_Control.StatusText = "Iracing:";
+            _of_Control.TabIndex = 30;
+            _of_Control.Text = "Iracing:";
+            _of_Control.TextColor = SystemColors.ControlText;
+            // 
+            // _of_simHub
+            // 
+            _of_simHub.BackColor = SystemColors.Control;
+            _of_simHub.Font = new Font("Segoe UI", 9F);
+            _of_simHub.ForeColor = SystemColors.ControlText;
+            _of_simHub.IsOn = false;
+            _of_simHub.Location = new Point(226, 2);
+            _of_simHub.Name = "_of_simHub";
+            _of_simHub.OffColor = Color.Red;
+            _of_simHub.OnColor = Color.LimeGreen;
+            _of_simHub.Size = new Size(87, 24);
+            _of_simHub.StatusText = "SIMHUB:";
+            _of_simHub.TabIndex = 31;
+            _of_simHub.Text = "SIMHUB:";
+            _of_simHub.TextColor = SystemColors.ControlText;
+            // 
+            // lb_simhub
+            // 
+            lb_simhub.AutoSize = true;
+            lb_simhub.Location = new Point(9, 19);
+            lb_simhub.Name = "lb_simhub";
+            lb_simhub.Size = new Size(41, 15);
+            lb_simhub.TabIndex = 32;
+            lb_simhub.Text = "Game:";
+            // 
+            // _of_seatbeltDevice
+            // 
+            _of_seatbeltDevice.BackColor = SystemColors.Control;
+            _of_seatbeltDevice.Font = new Font("Segoe UI", 14F, FontStyle.Bold);
+            _of_seatbeltDevice.ForeColor = SystemColors.ControlText;
+            _of_seatbeltDevice.IsOn = false;
+            _of_seatbeltDevice.Location = new Point(11, 88);
+            _of_seatbeltDevice.Name = "_of_seatbeltDevice";
+            _of_seatbeltDevice.OffColor = Color.Red;
+            _of_seatbeltDevice.OnColor = Color.LimeGreen;
+            _of_seatbeltDevice.Size = new Size(185, 24);
+            _of_seatbeltDevice.StatusText = "Seatbelt Device:";
+            _of_seatbeltDevice.TabIndex = 33;
+            _of_seatbeltDevice.Text = "Seatbelt Device:";
+            _of_seatbeltDevice.TextColor = SystemColors.ControlText;
+            // 
+            // _gb_simhub
+            // 
+            _gb_simhub.Controls.Add(_lb_menu);
+            _gb_simhub.Controls.Add(_onSupportCorn);
+            _gb_simhub.Controls.Add(_on_supoortVer);
+            _gb_simhub.Controls.Add(_on_supportBrake);
+            _gb_simhub.Controls.Add(lb_simhub);
+            _gb_simhub.Enabled = false;
+            _gb_simhub.Location = new Point(6, 23);
+            _gb_simhub.Name = "_gb_simhub";
+            _gb_simhub.Size = new Size(298, 59);
+            _gb_simhub.TabIndex = 34;
+            _gb_simhub.TabStop = false;
+            _gb_simhub.Tag = "de";
+            _gb_simhub.Text = "SIMHUB";
+            // 
+            // _onSupportCorn
+            // 
+            _onSupportCorn.BackColor = SystemColors.Control;
+            _onSupportCorn.Font = new Font("Segoe UI", 9F);
+            _onSupportCorn.ForeColor = SystemColors.ControlText;
+            _onSupportCorn.IsOn = false;
+            _onSupportCorn.Location = new Point(202, 35);
+            _onSupportCorn.Name = "_onSupportCorn";
+            _onSupportCorn.OffColor = Color.Red;
+            _onSupportCorn.OnColor = Color.LimeGreen;
+            _onSupportCorn.Size = new Size(89, 24);
+            _onSupportCorn.StatusText = "Cornering";
+            _onSupportCorn.TabIndex = 35;
+            _onSupportCorn.Text = "Cornering";
+            _onSupportCorn.TextColor = SystemColors.ControlText;
+            // 
+            // _on_supoortVer
+            // 
+            _on_supoortVer.BackColor = SystemColors.Control;
+            _on_supoortVer.Font = new Font("Segoe UI", 9F);
+            _on_supoortVer.ForeColor = SystemColors.ControlText;
+            _on_supoortVer.IsOn = false;
+            _on_supoortVer.Location = new Point(5, 35);
+            _on_supoortVer.Name = "_on_supoortVer";
+            _on_supoortVer.OffColor = Color.Red;
+            _on_supoortVer.OnColor = Color.LimeGreen;
+            _on_supoortVer.Size = new Size(77, 24);
+            _on_supoortVer.StatusText = "Vertical";
+            _on_supoortVer.TabIndex = 34;
+            _on_supoortVer.Text = "Vertical";
+            _on_supoortVer.TextColor = SystemColors.ControlText;
+            // 
+            // _on_supportBrake
+            // 
+            _on_supportBrake.BackColor = SystemColors.Control;
+            _on_supportBrake.Font = new Font("Segoe UI", 9F);
+            _on_supportBrake.ForeColor = SystemColors.ControlText;
+            _on_supportBrake.IsOn = false;
+            _on_supportBrake.Location = new Point(108, 35);
+            _on_supportBrake.Name = "_on_supportBrake";
+            _on_supportBrake.OffColor = Color.Red;
+            _on_supportBrake.OnColor = Color.LimeGreen;
+            _on_supportBrake.Size = new Size(76, 24);
+            _on_supportBrake.StatusText = "Braking";
+            _on_supportBrake.TabIndex = 33;
+            _on_supportBrake.Text = "Braking";
+            _on_supportBrake.TextColor = SystemColors.ControlText;
+            // 
+            // _lb_menu
+            // 
+            _lb_menu.AutoSize = true;
+            _lb_menu.Location = new Point(187, 17);
+            _lb_menu.Name = "_lb_menu";
+            _lb_menu.Size = new Size(41, 15);
+            _lb_menu.TabIndex = 36;
+            _lb_menu.Text = "Game:";
             // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(316, 916);
+            ClientSize = new Size(316, 974);
+            Controls.Add(_gb_simhub);
+            Controls.Add(_of_seatbeltDevice);
+            Controls.Add(_of_simHub);
+            Controls.Add(_of_Control);
             Controls.Add(cb_AutoConnect);
             Controls.Add(groupBox2);
             Controls.Add(groupBox1);
             Controls.Add(gb_Car_Settings);
-            Controls.Add(textBoxIracingStatus);
             Controls.Add(buttonConnect);
-            Controls.Add(labelStatus);
             Icon = (Icon)resources.GetObject("$this.Icon");
             Name = "Form1";
             Text = "Belt Tensioner";
@@ -832,6 +948,8 @@ namespace belttentiontest
             groupBox2.ResumeLayout(false);
             groupBox2.PerformLayout();
             ((ISupportInitialize)nud_ABS).EndInit();
+            _gb_simhub.ResumeLayout(false);
+            _gb_simhub.PerformLayout();
             ResumeLayout(false);
             PerformLayout();
         }
@@ -880,5 +998,14 @@ namespace belttentiontest
         private CheckBox _cb_showVer;
         private CheckBox _cb_showCorn;
         private NumericUpDown nud_coneringStrengh;
+        private OnOffStatusControl _of_Control;
+        private OnOffStatusControl _of_simHub;
+        private Label lb_simhub;
+        private OnOffStatusControl _of_seatbeltDevice;
+        private GroupBox _gb_simhub;
+        private OnOffStatusControl _onSupportCorn;
+        private OnOffStatusControl _on_supoortVer;
+        private OnOffStatusControl _on_supportBrake;
+        private Label _lb_menu;
     }
 }

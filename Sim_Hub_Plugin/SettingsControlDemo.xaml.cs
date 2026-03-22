@@ -14,11 +14,13 @@ namespace User.PluginSdkDemo
         public SettingsControlDemo()
         {
             InitializeComponent();
+      
         }
 
         public SettingsControlDemo(DataPluginDemo plugin) : this()
         {
             this.Plugin = plugin;
+            UpdateText();
         }
 
         private async void StyledMessageBox_Click(object sender, System.Windows.RoutedEventArgs e)
@@ -42,6 +44,31 @@ namespace User.PluginSdkDemo
             var res = await dialogWindow.ShowDialogWindowAsync(this);
 
             await SHMessageBox.Show(res.ToString());
+        }
+
+
+
+        private void UpdateText()
+        {
+            if (Plugin.Settings.Enabled)
+            {
+                lbl_Status.Content = "Plugin is Enabled";
+                bnt_Enable.Content = "Disable";
+                Plugin.EnablePlugin();
+            }
+            else
+            {
+                lbl_Status.Content = "Plugin is Disabled";
+                bnt_Enable.Content = "Enable";
+                Plugin.DisablePlugin();
+            }
+        }
+
+        private void bnt_Enable_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            Plugin.Settings.Enabled = !Plugin.Settings.Enabled;
+
+            UpdateText();
         }
     }
 }
