@@ -76,12 +76,12 @@ namespace belttentiontest
             label5 = new Label();
             cb_livePrieview = new CheckBox();
             _gb_cornering = new GroupBox();
+            nud_coneringStrengh = new NumericUpDown();
             _ttb_corneringStr = new ThinTrackBar();
             _ttb_corneringCurve = new ThinTrackBar();
             label8 = new Label();
             cb_invert_conering = new CheckBox();
             label9 = new Label();
-            nud_coneringStrengh = new NumericUpDown();
             nud_ConeringCurveAmount = new NumericUpDown();
             percentageUpDownRestingPoint = new PercentageUpDown();
             _gb_Braking = new GroupBox();
@@ -412,12 +412,12 @@ namespace belttentiontest
             // 
             // _gb_cornering
             // 
+            _gb_cornering.Controls.Add(nud_coneringStrengh);
             _gb_cornering.Controls.Add(_ttb_corneringStr);
             _gb_cornering.Controls.Add(_ttb_corneringCurve);
             _gb_cornering.Controls.Add(label8);
             _gb_cornering.Controls.Add(cb_invert_conering);
             _gb_cornering.Controls.Add(label9);
-            _gb_cornering.Controls.Add(nud_coneringStrengh);
             _gb_cornering.Controls.Add(nud_ConeringCurveAmount);
             _gb_cornering.Location = new Point(6, 185);
             _gb_cornering.Name = "_gb_cornering";
@@ -425,6 +425,14 @@ namespace belttentiontest
             _gb_cornering.TabIndex = 107;
             _gb_cornering.TabStop = false;
             _gb_cornering.Text = "Cornering (Sway)";
+            // 
+            // nud_coneringStrengh
+            // 
+            nud_coneringStrengh.Location = new Point(210, 53);
+            nud_coneringStrengh.Name = "nud_coneringStrengh";
+            nud_coneringStrengh.Size = new Size(60, 23);
+            nud_coneringStrengh.TabIndex = 115;
+            nud_coneringStrengh.ValueChanged += nud_coneringStrengh_ValueChanged;
             // 
             // _ttb_corneringStr
             // 
@@ -480,18 +488,6 @@ namespace belttentiontest
             label9.Size = new Size(52, 15);
             label9.TabIndex = 18;
             label9.Text = "Strength";
-            // 
-            // nud_coneringStrengh
-            // 
-            nud_coneringStrengh.Increment = new decimal(new int[] { 1, 0, 0, 65536 });
-            nud_coneringStrengh.Location = new Point(210, 53);
-            nud_coneringStrengh.Maximum = new decimal(new int[] { 200, 0, 0, 0 });
-            nud_coneringStrengh.Minimum = new decimal(new int[] { 5, 0, 0, 65536 });
-            nud_coneringStrengh.Name = "nud_coneringStrengh";
-            nud_coneringStrengh.Size = new Size(60, 23);
-            nud_coneringStrengh.TabIndex = 36;
-            nud_coneringStrengh.Value = new decimal(new int[] { 50, 0, 0, 0 });
-            nud_coneringStrengh.ValueChanged += nud_coneringStrengh_ValueChanged_1;
             // 
             // nud_ConeringCurveAmount
             // 
@@ -853,7 +849,6 @@ namespace belttentiontest
         private ListBox lb_SelectedMotor;
         private CheckBox cb_duelMotors;
         private CheckBox ck_Inverted;
-        private NumericUpDown nud_coneringStrengh;
         private NumericUpDown nudVertical;
         private Label label5;
         private GroupBox groupBox2;
@@ -884,5 +879,6 @@ namespace belttentiontest
         private Label label1;
         private CheckBox _cb_showVer;
         private CheckBox _cb_showCorn;
+        private NumericUpDown nud_coneringStrengh;
     }
 }

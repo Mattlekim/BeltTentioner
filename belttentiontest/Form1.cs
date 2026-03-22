@@ -115,6 +115,30 @@ namespace belttentiontest
             LoadAutoConnectSetting();
             _instance = this;
             InitializeComponent();
+
+            // Silent update check on startup (fire-and-forget)
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var info = await Updater.GetUpdateInfoAsync().ConfigureAwait(false);
+                    if (info != null && info.IsUpdateAvailable)
+                    {
+                        // show notify icon on UI thread
+                        try
+                        {
+                            BeginInvoke(new Action(() => ShowUpdateAvailableNotification(info)));
+                        }
+                        catch
+                        {
+                            // ignore UI errors
+                        }
+                    }
+                }
+                catch { }
+            });
+
+            this.Text = $"Belt Tensioner V{AboutBox.Version}";
             ThinTrackBar.Bind(_ttb_maxOutput, numericUpDownMaxPower);
             ThinTrackBar.Bind(_ttb_restingPoint, percentageUpDownRestingPoint);
 
@@ -196,7 +220,7 @@ namespace belttentiontest
             // Auto-detection on startup disabled. Manual connect via button only.
 
             // Ensure cancellation when form closes
-            this.FormClosed += (_, __) => autoConnectCts?.Cancel();
+            this.FormClosed += (_, __) => autoConnectCts?.Cancel(); 
 
             // Ensure communicator stopped and disposed when form closes
             this.FormClosing += async (s, e) =>
@@ -944,6 +968,7 @@ namespace belttentiontest
             mmfUpdateTimer?.Dispose(); // Dispose MMF update timer
             _mmfWriter?.Dispose();
             base.OnFormClosing(e);
+            try { if (updateNotifyIcon != null) { updateNotifyIcon.Visible = false; updateNotifyIcon.Dispose(); updateNotifyIcon = null; } } catch { }
         }
 
         private void numericUpDownTarget_ValueChanged(object sender, EventArgs e)
@@ -1180,30 +1205,15 @@ namespace belttentiontest
             UpdateWindows();
         }
 
+     
+
         private void nud_coneringStrengh_ValueChanged(object sender, EventArgs e)
-        {
-
-            SaveSoon();
-        }
-
-        private void nud_coneringStrengh_ValueChanged_1(object sender, EventArgs e)
         {
 
             SaveSoon();
             DrawCurveGraph();
         }
 
-
-
-        private void cb_testGFroce_CheckedChanged(object sender, EventArgs e)
-        {
-
-        }
-
-        private void sl_horGforce_Scroll(object sender, EventArgs e)
-        {
-
-        }
 
         private void nudVertical_ValueChanged(object sender, EventArgs e)
         {
@@ -1463,6 +1473,49 @@ namespace belttentiontest
         private void _cb_showVer_CheckedChanged(object sender, EventArgs e)
         {
             DrawCurveGraph();
+        }
+
+        private NotifyIcon? updateNotifyIcon;
+
+        private void ShowUpdateAvailableNotification(Updater.UpdateInfo info)
+        {
+            try
+            {
+                if (updateNotifyIcon == null)
+                {
+                    updateNotifyIcon = new NotifyIcon();
+                    updateNotifyIcon.Icon = this.Icon ?? System.Drawing.SystemIcons.Application;
+                    updateNotifyIcon.Visible = true;
+                    updateNotifyIcon.Text = "Update available";
+                    updateNotifyIcon.BalloonTipTitle = "Update available";
+                }
+
+                updateNotifyIcon.BalloonTipText = info.RemoteTag != null ? $"Version {info.RemoteTag} is available. Click to download." : "An update is available. Click to download.";
+                updateNotifyIcon.Tag = info; // store info for click handler
+                updateNotifyIcon.Click -= UpdateNotifyIcon_Click;
+                updateNotifyIcon.Click += UpdateNotifyIcon_Click;
+                updateNotifyIcon.ShowBalloonTip(5000);
+
+                // also set a small visible indicator on the taskbar by changing the form's title suffix
+                this.Text = this.Text + " - Update available";
+            }
+            catch { }
+        }
+
+        private async void UpdateNotifyIcon_Click(object? sender, EventArgs e)
+        {
+            try
+            {
+                if (sender is NotifyIcon ni && ni.Tag is Updater.UpdateInfo)
+                {
+                    // Hide the balloon and start the interactive updater
+                    ni.Visible = false;
+                }
+
+                // Launch the full updater flow (this will re-query and show changelog/download UI)
+                await Updater.CheckForUpdatesAsync(this).ConfigureAwait(false);
+            }
+            catch { }
         }
     }
 }
