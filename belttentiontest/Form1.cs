@@ -15,6 +15,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using YamlDotNet.Core;
+
+using BeltAPI;
 namespace belttentiontest
 {
     public partial class Form1 : Form
@@ -888,17 +890,17 @@ namespace belttentiontest
                 MotorSettings settings = new MotorSettings
                 {
                     MaxPower = _maxPower,
-                    GForceMult = _gForceMult,
+                    SurgeStrength = _gForceMult,
                     CurveAmount = (float)_curveAmount,
                     ConeringCurveAmount = (float)_coneringCurveAmount,
-                    ConeringStrengh = (float)nud_coneringStrengh.Value,
-                    VerticalStrengh = (float)nudVertical.Value,
-                    Min = 0,
-                    Max = 90,
-                    Invert = false
+                    SwayStrength = (float)nud_coneringStrengh.Value,
+                    HeaveStrength = (float)nudVertical.Value,
+                    LeftMinimumAngle = 0,
+                    LeftMaximumAngle = 90,
+                    LeftInverted = false
                 };
-                float min = settings.Min;
-                float max = settings.Max;
+                float min = settings.LeftMinimumAngle;
+                float max = settings.LeftMaximumAngle;
                 if (min > max) (min, max) = (max, min);
                 float motorRange = max - min;
                 if (motorRange == 0) motorRange = 1;
@@ -920,7 +922,7 @@ namespace belttentiontest
                     for (int x = -47; x < graphWidth; x++)
                     {
                         float inputValue = (float)(x / (float)graphWidth) * 10;
-                        if (inputValue > MotorSettings.LongGForceScale)
+                        if (inputValue > MotorSettings.SurgeGForceScale)
                             break;
                         MotorOutputValues output = settings.Setup(inputValue, 0, 0, (int)percentageUpDownRestingPoint.Value);
                         float yValue = output.CalcluateMotorSignalOutput(settings);
@@ -939,7 +941,7 @@ namespace belttentiontest
                     {
                         float inputValue = (float)(x / (float)graphWidth) * 10;
 
-                        if (inputValue > MotorSettings.ConeringGForceScale)
+                        if (inputValue > MotorSettings.SwayGForceScale)
                             break;
                         MotorOutputValues output = settings.Setup(0, inputValue, 0, (int)percentageUpDownRestingPoint.Value);
                         float yValue = output.CalcluateMotorSignalOutput(settings);
@@ -960,7 +962,7 @@ namespace belttentiontest
                         MotorOutputValues output = settings.Setup(0, 0, inputValue, (int)percentageUpDownRestingPoint.Value);
 
                         float yValue = output.CalcluateMotorSignalOutput(settings);
-                        if (inputValue > MotorSettings.VerticalGForceScale)
+                        if (inputValue > MotorSettings.HeaveGForceScale)
                             break;
                         int drawX = 47 + xPadding + x;
                         int y = MapY(yValue);
@@ -976,7 +978,7 @@ namespace belttentiontest
                     if (_cb_showBraking.Checked)
                     {
                         // Longitudinal force marker
-                        int longX = xPadding + (int)(_lastLongForceInput / MotorSettings.LongGForceScale * (graphWidth - 1));
+                        int longX = xPadding + (int)(_lastLongForceInput / MotorSettings.SurgeGForceScale * (graphWidth - 1));
                         MotorOutputValues longOutput = settings.Setup(_lastLongForceInput, 0, 0, (int)percentageUpDownRestingPoint.Value);
                         int longY = MapY(longOutput.CalcluateMotorSignalOutput(settings));
                         g.FillEllipse(System.Drawing.Brushes.Blue, longX - 5 + 47, longY - 5, 10, 10);
@@ -985,7 +987,7 @@ namespace belttentiontest
                     // Lateral force marker
                     if (_cb_showCorn.Checked)
                     {
-                        int latX = xPadding + (int)(_lastLatForceInput / MotorSettings.LongGForceScale * (graphWidth - 1));
+                        int latX = xPadding + (int)(_lastLatForceInput / MotorSettings.SurgeGForceScale * (graphWidth - 1));
                         MotorOutputValues latOutput = settings.Setup(0, _lastLatForceInput, 0, (int)percentageUpDownRestingPoint.Value);
                         int latY = MapY(latOutput.CalcluateMotorSignalOutput(settings));
                         g.FillEllipse(System.Drawing.Brushes.Green, latX - 5 + 47, latY - 5, 10, 10);
@@ -994,7 +996,7 @@ namespace belttentiontest
                     // Vertical force marker
                     if (_cb_showVer.Checked)
                     {
-                        int verX = xPadding + (int)(_lastVertForceInput / MotorSettings.LongGForceScale * (graphWidth - 1));
+                        int verX = xPadding + (int)(_lastVertForceInput / MotorSettings.SurgeGForceScale * (graphWidth - 1));
                         MotorOutputValues verOutput = settings.Setup(0, 0, _lastVertForceInput, (int)percentageUpDownRestingPoint.Value);
                         int verY = MapY(verOutput.CalcluateMotorSignalOutput(settings));
                         g.FillEllipse(System.Drawing.Brushes.Orange, verX - 5 + 47, verY - 5, 10, 10);
@@ -1056,6 +1058,8 @@ namespace belttentiontest
 
         private MotorOutputValues _lastMotorOutputValues;
 
+
+        
         private void OnScaledValueUpdated(float simBrakingValue, float SimConeringValue, float SimVeriticalValue, bool lMotor)
         {
             if (!_motorSettingsLoaded)
@@ -1072,14 +1076,14 @@ namespace belttentiontest
             MotorSettings lmotorSettings = new MotorSettings
             {
                 MaxPower = _maxPower,
-                GForceMult = _gForceMult,
+                SurgeStrength = _gForceMult,
                 CurveAmount = (float)_curveAmount,
                 ConeringCurveAmount = (float)_coneringCurveAmount,
-                ConeringStrengh = (float)nud_coneringStrengh.Value,
-                VerticalStrengh = (float)nudVertical.Value,
-                Min = lMotor ? L_MIN : R_MIN,
-                Max = lMotor ? L_MAX : R_MAX,
-                Invert = lMotor ? L_INVERT : R_INVERT,
+                SwayStrength = (float)nud_coneringStrengh.Value,
+                HeaveStrength = (float)nudVertical.Value,
+                LeftMinimumAngle = lMotor ? L_MIN : R_MIN,
+                LeftMaximumAngle = lMotor ? L_MAX : R_MAX,
+                LeftInverted = lMotor ? L_INVERT : R_INVERT,
             };
 
 

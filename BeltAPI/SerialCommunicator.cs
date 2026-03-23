@@ -6,10 +6,13 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace belttentiontest
+namespace BeltAPI
 {
     public class SerialCommunicator : IDisposable
     {
+
+        public int MAXPOSIBLEMOTORANGLE = 180;
+
         private SerialPort? serialPort;
         private readonly HashSet<string> triedPorts = new();
 
@@ -303,12 +306,14 @@ namespace belttentiontest
                 {
                     while (!token.IsCancellationRequested)
                     {
-                        
+
                         int target = 0;
                         try { target = getTarget(); } catch { target = 0; }
                         if (target == 0)
+                        {
                             Thread.Sleep(period);
                             continue;
+                        }
                         try
                         {
                             var sp = serialPort;
@@ -437,7 +442,7 @@ namespace belttentiontest
                 var sp = serialPort;
                 if (sp != null && sp.IsOpen)
                 {
-                    value = Math.Clamp(value, 0, (int)Form1.MAXPOSIBLEMOTORVALUE);
+                    value = Math.Clamp(value, 0, MAXPOSIBLEMOTORANGLE);
                     var line = string.Empty;
                     if (leftMotor)
                         line = $"L:{value}{sp.NewLine}";
@@ -472,7 +477,7 @@ namespace belttentiontest
 
             Task.Run(async () =>
             {
-                Form1.Instance.LabelStatus = "Disconnected. Reconnecting";
+             //   Form1.Instance.LabelStatus = "Disconnected. Reconnecting";
                 int tries = 0;
                 for (int i = 0; i < 5; i++)
                 {
@@ -481,7 +486,7 @@ namespace belttentiontest
 
                     if (isConnected)
                     {
-                        Form1.Instance.UpdateConnectionStatusConnected();
+                    //    Form1.Instance.UpdateConnectionStatusConnected();
                         return;
                     }
                     tries++;
