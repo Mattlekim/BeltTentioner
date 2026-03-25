@@ -1061,6 +1061,38 @@ namespace belttentiontest
         private BeltMotorData _lastMotorOutputValues;
 
 
+        private float simSurge = 0, simSway = 0, simHeave = 0;
+
+        private void UpdateTelemetoryData(float surge, float sway, float heave)
+        {
+            simSurge = surge;
+            simSway = sway;
+            simHeave = heave;
+        }
+
+
+        private MotorSettings _motorSettings;
+
+        private void BeltSettingsChanged()
+        {
+            _motorSettings = new MotorSettings
+            {
+                MaxPower = _maxPower,
+                SurgeStrength = _gForceMult,
+                CurveAmount = (float)_curveAmount,
+                ConeringCurveAmount = (float)_coneringCurveAmount,
+                SwayStrength = (float)nud_coneringStrengh.Value,
+                HeaveStrength = (float)nudVertical.Value,
+                LeftMinimumAngle = L_MIN,
+                LeftMaximumAngle = L_MAX,
+                LeftInverted = L_INVERT,
+                RightMinimumAngle = R_MIN,
+                RightMaximumAngle = R_MAX,
+                RightInverted = R_INVERT
+            };
+            DrawCurveGraph();
+            SaveSoon();
+        }
 
         private void OnScaledValueUpdated(float simSurge, float simSway, float simHeave)
         {
@@ -1283,7 +1315,8 @@ namespace belttentiontest
 
         private void LoadCarSettings(string carName)
         {
-            CarSettings settings = CarSettingsDatabase.Instance.LoadCarSettingsFromFile(carName);
+            CarSettingsDatabase.Instance.LoadCarSettingsFromFile(carName);
+            var settings = CarSettingsDatabase.Instance.CurrentSettings;
             // Apply settings to UI
             _gForceMult = settings.MaxGForceMult;
             _maxPower = settings.MaxPower;
@@ -1353,25 +1386,24 @@ namespace belttentiontest
         private void SaveCarSettings()
         {
             if (_isLoading) return; // Don't save while we're still loading settings    
-            var settings = new CarSettings
-            {
-                MaxGForceMult = (float)numericUpDownGForceToBelt.Value,
-                MaxPower = (int)numericUpDownMaxPower.Value,
-                CurveAmount = (double)numericUpDownCurveAmount.Value,
-                CorneringStrength = (float)nud_coneringStrengh.Value,
-                VerticalStrength = (float)nudVertical.Value, // NEW
-                AbsStrength = (float)nud_ABS.Value, // NEW
-                AbsEnabled = cb_ABS_Enabled.Checked, // NEW
-                InvertSway = cb_invert_sway.Checked, // NEW
-                ConeringCurveAmount = (double)nud_ConeringCurveAmount.Value, // NEW
-                RestingPoint = (int)percentageUpDownRestingPoint.Value // NEW
+          
 
-            };
-            CarSettingsDatabase.Instance.Settings[CarName] = settings;
+            var settings = CarSettingsDatabase.Instance.CurrentSettings;
+            settings.MaxGForceMult = (float)numericUpDownGForceToBelt.Value;
+            settings.MaxPower = (int)numericUpDownMaxPower.Value;
+            settings.CurveAmount = (double)numericUpDownCurveAmount.Value;
+            settings.CorneringStrength = (float)nud_coneringStrengh.Value;
+            settings.VerticalStrength = (float)nudVertical.Value; // NEW
+            settings.AbsStrength = (float)nud_ABS.Value; // NEW
+            settings.AbsEnabled = cb_ABS_Enabled.Checked; // NEW
+            settings.InvertSway = cb_invert_sway.Checked; // NEW
+            settings.ConeringCurveAmount = (double)nud_ConeringCurveAmount.Value; // NEW
+            settings.RestingPoint = (int)percentageUpDownRestingPoint.Value; // NEW
+
+           
             try
             {
-                var json = JsonSerializer.Serialize(CarSettingsDatabase.Instance, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(carSettingsFile, json);
+                CarSettingsDatabase.Instance.SaveCurrentCarSettings(CarName);
 
             }
             catch { }

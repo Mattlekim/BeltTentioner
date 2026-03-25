@@ -42,8 +42,9 @@ namespace belttentiontest
             } catch { }
         }
 
-        public CarSettings LoadCarSettingsInToCurrent(string carName)
+        public void LoadCarSettingsInToCurrent(string carName)
         {
+           
             // If no settings for carName, try to copy from NA
             if (!Settings.TryGetValue(carName, out var settings)) //if car name not found in settings, try to copy from NA
             {
@@ -57,17 +58,18 @@ namespace belttentiontest
                     settings = new CarSettings();
                 }
                 Settings[carName] = settings;
+                
                 // Save immediately so the new car gets its own settings file entry
                 SaveCurrentCarSettings(null);
+
                 
             }
-            if (settings == null)
-                settings = new CarSettings();
-            return settings;
+
+            CurrentSettings = Settings[carName];
         }
 
         private bool _isLoading = false;
-        public CarSettings LoadCarSettingsFromFile(string carName)
+        public void LoadCarSettingsFromFile(string carName)
         {
             _isLoading = true;
             if (File.Exists(carSettingsFile))
@@ -75,14 +77,15 @@ namespace belttentiontest
                 try
                 {
                     var json = File.ReadAllText(carSettingsFile);
-                    CarSettingsDatabase.Instance = JsonSerializer.Deserialize<CarSettingsDatabase>(json) ?? new CarSettingsDatabase();
-                    return LoadCarSettingsInToCurrent(carName);
-                    
+                    var data = JsonSerializer.Deserialize<CarSettingsDatabase>(json) ?? new CarSettingsDatabase();
+                    this.Settings = data.Settings;
+                    LoadCarSettingsInToCurrent(carName);
+                    return;
                 }
                 catch {  }
             }
             _isLoading = false;
-            return new CarSettings();
+           
         }
     }
 
