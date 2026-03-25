@@ -88,7 +88,17 @@ namespace BeltAPI
         {
             (lSurgeOutput, rSurgeOutput) = CalculateSurgeForces(settings);
             (lSwayOutput, rSwayOutput) = CalculateSwayForces(settings);
-            (lHeaveOutput, rHeaveOutput) = CalculateHeaveForces(settings);
+
+            if (carSettings.InvertHeave)
+            {
+                VerticalForceInput += 1;
+            }
+            else
+            {
+                VerticalForceInput -= 1;
+                
+            }
+                (lHeaveOutput, rHeaveOutput) = CalculateHeaveForces(settings);
 
             if (carSettings.InvertSurge)
             {
@@ -117,6 +127,7 @@ namespace BeltAPI
 
             if (carSettings.InvertHeave)
             {
+                
                 lHeaveOutput = -lHeaveOutput;
                 rHeaveOutput = -rHeaveOutput;
             }

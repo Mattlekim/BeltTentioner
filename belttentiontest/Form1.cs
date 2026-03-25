@@ -1,3 +1,4 @@
+using BeltAPI;
 using BeltTentionerLib;
 using belttentiontest.Controls;
 using belttentiontest.Properties;
@@ -15,8 +16,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using YamlDotNet.Core;
-
-using BeltAPI;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 namespace belttentiontest
 {
     public partial class Form1 : Form
@@ -33,9 +33,7 @@ namespace belttentiontest
         private IracingCommunicator? irCommunicator;
         private bool? pendingIracingState = null;
 
-        // Timer for periodic updates
-        private System.Windows.Forms.Timer? updateTimer;
-
+  
         private System.Windows.Forms.Timer? simhub_Tel_Timer;
 
         // Timer for MMF updates
@@ -214,7 +212,7 @@ namespace belttentiontest
 
             // MMF update timer: call WriteSettingsToMemoryMappedFile 30 times/sec
             mmfUpdateTimer = new System.Windows.Forms.Timer();
-            mmfUpdateTimer.Interval = 33; // ~30 times per second
+            mmfUpdateTimer.Interval = 32; // ~30 times per second
             mmfUpdateTimer.Tick += (s, e) => WriteSettingsToMemoryMappedFile(""); // Pass actual JSON if needed
             mmfUpdateTimer.Start();
 
@@ -224,7 +222,7 @@ namespace belttentiontest
             simhub_Tel_Timer.Start();
 
             belttentionerUpdate = new System.Windows.Forms.Timer();
-            belttentionerUpdate.Interval = (int)(1000f / 60f); // ~60 times per second
+            belttentionerUpdate.Interval = 16; // ~30 times per second
             belttentionerUpdate.Tick += (s, e) => UpdateBeltTentionFeedback();
             belttentionerUpdate.Start();
             
@@ -298,8 +296,7 @@ namespace belttentiontest
                     try { irCommunicator?.Dispose(); } catch { }
 
                     // Stop and dispose timer
-                    updateTimer?.Stop();
-                    updateTimer?.Dispose();
+                   
                     mmfUpdateTimer?.Stop(); // Stop MMF update timer
                     mmfUpdateTimer?.Dispose(); // Dispose MMF update timer
                 }
@@ -343,11 +340,7 @@ namespace belttentiontest
                 }
             };
 
-            // Initialize and start update timer
-            updateTimer = new System.Windows.Forms.Timer();
-            updateTimer.Interval = 100; // 100ms
-            updateTimer.Tick += UpdateTimer_Tick;
-            updateTimer.Start();
+          
 
 
 
@@ -577,21 +570,11 @@ namespace belttentiontest
                         }
 
 
-                        float lcorn = 0, rcorn = 0;
-                        if (corn < 0) //turning left
-                        {
-                            lcorn = Math.Abs(corn);
-                            rcorn = 0;
-                        }
-                        else //turning right
-                        {
-                            rcorn = Math.Abs(corn);
-                            lcorn = 0;
-                        }
+                    
 
 
                         //OnScaledValueUpdated(brake, rcorn, ver, false);
-                        UpdateBeltTensionerForces(brake, lcorn, ver);
+                        UpdateBeltTensionerForces(brake, corn, ver);
                     }
                     else
                     {
@@ -614,32 +597,7 @@ namespace belttentiontest
             }
         }
 
-        // Timer tick event handler
-        private void UpdateTimer_Tick(object? sender, EventArgs e)
-        {
-
-
-            if (!communicator.IsConnected)
-                return;
-
-            if (!applicatoinSettings.UseIracing)
-                return;
-
-            if (checkBoxTest.Checked)
-                OnScaledValueUpdated((int)numericUpDownTarget.Value, 0, 0);
-            else
-            if (IracingCommunicator.Instance != null)
-                if (!IracingCommunicator.Instance.IsConnected)
-                {
-
-                    OnScaledValueUpdated(0.1f, 0, 1); //keep communications alive     with small value when not connected to iRacing
-                }
-
-            if (_testABS)
-            {
-                OnABSValueUpdated();
-            }
-        }
+      
 
         private void OnIracingConnected()
         {
@@ -1104,79 +1062,60 @@ namespace belttentiontest
                 SaveSoon();
         }
 
+        private bool haveData = false;
         private void UpdateBeltTensionerForces(float surge, float sway, float heave)
         {
             simSurge = surge;
             simSway = sway;
-            simHeave = heave;
-        
+            simHeave = (float)Math.Round(heave, 1);
+
+          //  simHeave -= 1;
+
+            //haveData = true;
         }
 
         private void UpdateBeltTentionFeedback()
         {
-            if (checkBoxTest.Checked)
+
+            if (!irCommunicator.Isconnected && !_simHubConnected)
             {
-                simSurge = (float)numericUpDownTarget.Value;
-                simHeave = 0;
                 simSway = 0;
+                simHeave = 0;
+                simSurge = 0;
             }
-            else
-            {
-                simHeave -= 1f; //remove gravity
-                if (simHeave < -2) //clamp it to -2G to avoid extreme values from jumps etc throwing off the belt tensioner
-                    simHeave = -2;
-            }
-
-            BeltMotorData value = _motorSettings.Setup(simSurge, simSway, simHeave, (int)percentageUpDownRestingPoint.Value);
-
-            float yValue = value.SendDataToSerial(_motorSettings, communicator, CarSettingsDatabase.Instance.CurrentSettings);
-
-
-            float tmp = _lastMotorOutputValues.SurgeOutput;
-            _lastMotorOutputValues = value;
-
-
-            _displaySurgeForce = value.SurgeOutput;
-            _displaySwayForce = value.SwayOutput;
-            _displayHeaveForce = value.HeaveOutput;
-
-            if (cb_livePrieview != null && cb_livePrieview.Checked)
-            {
-
-                // Store latest force inputs for live preview
-                _lastLongForceInput = _lastLongForceInput * .9f + simSurge * .1f;
-                _lastLatForceInput = _lastLatForceInput * .9f + simSway * .1f;
-                _lastVertForceInput = _lastVertForceInput * .9f + simHeave * .1f;
-                DrawCurveGraph();
-            }
-        }
-
-        private void OnScaledValueUpdated(float simSurge, float simSway, float simHeave)
-        {
-
 
             if (!_motorSettingsLoaded)
                 return; //if we have not loaded in the correct motor settings return false
 
+            if (!communicator.IsConnected)
+                return;
+
+            //   if (!haveData)
+            //    return;
+
+            if (_testABS)
+            {
+                communicator.SendABS((int)nud_ABS.Value);
+                return;
+            }
+
             if (checkBoxTest.Checked)
             {
                 simSurge = (float)numericUpDownTarget.Value;
                 simHeave = 0;
                 simSway = 0;
             }
-            else
-            {
-                simHeave -= 1f; //remove gravity
-                if (simHeave < -2) //clamp it to -2G to avoid extreme values from jumps etc throwing off the belt tensioner
-                    simHeave = -2;
-            }
-                      
+          
 
+           
             BeltMotorData value = _motorSettings.Setup(simSurge, simSway, simHeave, (int)percentageUpDownRestingPoint.Value);
 
+            
             float yValue = value.SendDataToSerial(_motorSettings, communicator, CarSettingsDatabase.Instance.CurrentSettings);
 
-     
+
+            
+
             float tmp = _lastMotorOutputValues.SurgeOutput;
             _lastMotorOutputValues = value;
 
@@ -1185,6 +1124,13 @@ namespace belttentiontest
             _displaySwayForce = value.SwayOutput;
             _displayHeaveForce = value.HeaveOutput;
 
+
+         //   haveData = false;
+         //   simHeave = 0;
+          //  simSurge = 0;
+          //  simSway = 0;
+
+        
             if (cb_livePrieview != null && cb_livePrieview.Checked)
             {
 
@@ -1194,9 +1140,9 @@ namespace belttentiontest
                 _lastVertForceInput = _lastVertForceInput * .9f + simHeave * .1f;
                 DrawCurveGraph();
             }
-
-
         }
+
+       
 
         public string LabelStatus
         {
@@ -1322,8 +1268,7 @@ namespace belttentiontest
 
             SaveCarSettings();
             Settings.Default.Save();
-            updateTimer?.Stop();
-            updateTimer?.Dispose();
+       
             mmfUpdateTimer?.Stop(); // Stop MMF update timer
             mmfUpdateTimer?.Dispose(); // Dispose MMF update timer
             _mmfWriter?.Dispose();
