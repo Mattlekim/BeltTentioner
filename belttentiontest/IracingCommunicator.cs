@@ -29,7 +29,7 @@ namespace belttentiontest
         public event Action<float>? GForceUpdated;
 
         // Event to notify when scaledValue is updated
-        public event Action<float, float, float, bool>? ScaledValueUpdated;
+        public event Action<float, float, float>? ScaledValueUpdated;
 
         public event Action? ABSValueUpdated;
 
@@ -146,53 +146,30 @@ namespace belttentiontest
             bool isReplay = _iracingClient.Data.GetBool(Datum_IsReplayPlaying);
             if (isReplay)
             {
-                ScaledValueUpdated?.Invoke(0, 0, 0, false);
-                ScaledValueUpdated?.Invoke(0, 0, 0, true);
+             
+                ScaledValueUpdated?.Invoke(0, 0, 0);
                 GForceUpdated?.Invoke(0);
                 return;
             }
 
             float longitude = _iracingClient.Data.GetFloat(Datum_LongAccel);
-            float g_Force = longitude / 9.81f;
+            float surgeForce = longitude / 9.81f;
 
-            float lmotor = g_Force, rmotor = g_Force;
-
-            if (lmotor > MAX_NEG_GFORCE_ACC)
-                lmotor = MAX_NEG_GFORCE_ACC;
-
-            if (rmotor > MAX_NEG_GFORCE_ACC)
-                rmotor = MAX_NEG_GFORCE_ACC;
+            float lmotor = surgeForce;
 
             float lat = _iracingClient.Data.GetFloat(Datum_LatAccel);
-            float lat_g_Force = lat / 9.81f;
+            float swayForce = lat / 9.81f;
 
             float ver = _iracingClient.Data.GetFloat(Datum_VertAccel);
-            float ver_g_Force = ver / 9.81f;
+            float heaveForce = ver / 9.81f;
             // Notify subscribers with the new g_Force value
-
-            float lat_lMotor = 0, lat_rMotor = 0;
-
-
-            if (lat_g_Force > 0) //turning left
-            {
-                lat_lMotor = Math.Abs(lat_g_Force);
-                lat_rMotor = 0;
-            }
-            else //turning right
-            {
-                lat_rMotor = Math.Abs(lat_g_Force);
-                lat_lMotor = 0;
-            }
-
-            
-
-            ScaledValueUpdated?.Invoke(-lmotor, lat_lMotor,  ver_g_Force, false);
-            ScaledValueUpdated?.Invoke(-rmotor, lat_rMotor, ver_g_Force, true);
+        
+            ScaledValueUpdated?.Invoke(-surgeForce, swayForce, heaveForce);
 
             if (_absActive)
-                //if (_iracingClient.Data.GetFloat("BrakeABSCutPct") > .1f)
                 ABSValueUpdated?.Invoke();
-            GForceUpdated?.Invoke(-Math.Clamp(g_Force, -1000, 0));
+
+            GForceUpdated?.Invoke(-Math.Clamp(surgeForce, -1000, 0));
             return;
         }
    
@@ -231,7 +208,7 @@ namespace belttentiontest
             }
         }
 
-        public float ABSStrength = 1f;
+     
      
         /// <summary>
         /// Stop monitoring and shutdown the IRacing SDK client without blocking indefinitely.
@@ -276,6 +253,6 @@ namespace belttentiontest
             try { StopMonitoring(); } catch { }
         }
 
-        public bool InvertCornering { get; set; } = false;
+   
     }
 }

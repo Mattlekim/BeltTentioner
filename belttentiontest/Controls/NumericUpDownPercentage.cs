@@ -10,7 +10,9 @@ namespace belttentiontest.Controls
     {
         protected override void UpdateEditText()
         {
-            Text = (Value / 100M).ToString("P0");
+         
+                Text = (Value / 100M).ToString("P0");
+         
         }
     }
 

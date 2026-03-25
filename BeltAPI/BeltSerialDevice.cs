@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace BeltAPI
 {
-    public class SerialCommunicator : IDisposable
+    public class BeltSerialDevice : IDisposable
     {
 
         public int MAXPOSIBLEMOTORANGLE = 180;
@@ -463,6 +463,38 @@ namespace BeltAPI
                 Disconnect();
             }
          }
+
+        public void SendValue(float lvalue, float rvalue)
+        {
+            if (!isConnected)
+                return;
+            try
+            {
+                var sp = serialPort;
+                if (sp != null && sp.IsOpen)
+                {
+                    lvalue = Math.Clamp(lvalue, 0, MAXPOSIBLEMOTORANGLE);
+                    rvalue = Math.Clamp(rvalue, 0, MAXPOSIBLEMOTORANGLE);
+                    var line = string.Empty;
+                  
+                    line = $"L:{lvalue}{sp.NewLine}";
+                    sp.Write(line);
+                    line = $"R:{rvalue}{sp.NewLine}";
+                    sp.Write(line);
+                }
+                else
+                {
+                    MessageReceived?.Invoke("DEVICE_UNPLUGGED");
+                    Disconnect();
+                }
+            }
+            catch (Exception ex)
+            {
+                // Device may have been unplugged or port closed
+                MessageReceived?.Invoke("DEVICE_UNPLUGGED");
+                Disconnect();
+            }
+        }
 
         bool isConnected = false;
         public void Disconnect()

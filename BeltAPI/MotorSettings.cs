@@ -60,14 +60,24 @@ namespace BeltAPI
 
         }
 
-        internal float ClampToMaxMotorPower(float value)
+        internal (float, float) ClampToMaxMotorPower(float lValue, float rValue)
         {
+
             float sFactor = (MaxPower / 100f);
 
-            float mRange = Math.Abs(LeftMaximumAngle - LeftMinimumAngle);
-            if (value > mRange * sFactor)
-                value = mRange * sFactor;
-            return value;
+            float lRange = Math.Abs(LeftMaximumAngle - LeftMinimumAngle); //get range
+
+            lValue = lValue * lRange * sFactor; //scale to range
+
+            float rRange = Math.Abs(RightMaximumAngle - RightMinimumAngle); //get range
+
+            rValue = rValue * rRange * sFactor; //scale to range 
+
+            //clamp values to make sure they are within the motor limits
+            lValue = Math.Clamp(lValue, LeftMinimumAngle, LeftMaximumAngle);
+            rValue = Math.Clamp(rValue, RightMinimumAngle, RightMaximumAngle);
+
+            return (lValue, rValue);
         }
 
         private float ScaleToMotorRange(float value)
@@ -77,15 +87,15 @@ namespace BeltAPI
             return scaledValue;
         }
 
-        public MotorOutputValues Setup(float SimLongValue, float SimLateralValue, float SimVerValue, int restingPoint)
+        public BeltMotorData Setup(float SimLongValue, float SimLateralValue, float SimVerValue, int restingPoint)
         {
-            SimLongValue = Math.Clamp(SimLongValue, -4, SurgeGForceScale);
-            SimLateralValue = Math.Clamp(SimLateralValue, 0, SwayGForceScale);
-            SimVerValue = Math.Clamp(SimVerValue, -2, HeaveGForceScale);
+            SimLongValue = Math.Clamp(SimLongValue, -SwayGForceScale, SurgeGForceScale);
+            SimLateralValue = Math.Clamp(SimLateralValue, -SwayGForceScale, SwayGForceScale);
+            SimVerValue = Math.Clamp(SimVerValue, -HeaveGForceScale, HeaveGForceScale);
 
-            MotorOutputValues motorOutput = MotorOutputValues.Zero;
+            BeltMotorData motorOutput = BeltMotorData.Zero;
 
-            motorOutput.LongForceInput = SimLongValue;
+            motorOutput.SurgeForceInput = SimLongValue;
 
             motorOutput.ConeringForceInput = SimLateralValue;
 
