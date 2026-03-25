@@ -281,7 +281,7 @@ namespace belttentiontest
                 try
                 {
                     autoConnectCts?.Cancel();
-                    await communicator.StopSendLoopAsync().ConfigureAwait(false);
+                   
                     communicator.Dispose();
 
                     // stop iracing monitoring
@@ -801,7 +801,7 @@ namespace belttentiontest
                 SetControlsEnabled(true);
                 buttonConnect.Enabled = false;
                 // start periodic sending using numericUpDownTarget's value getter
-                communicator.StartSendLoop(() => checkBoxTest.Checked ? (int)numericUpDownTarget.Value : 0);
+              
             }));
         }
 
@@ -1077,6 +1077,8 @@ namespace belttentiontest
             simHeave -= 1f; //remove gravity
             if (simHeave < -2) //clamp it to -2G to avoid extreme values from jumps etc throwing off the belt tensioner
                 simHeave = -2;
+
+
             MotorSettings lmotorSettings = new MotorSettings
             {
                 MaxPower = _maxPower,
@@ -1093,11 +1095,7 @@ namespace belttentiontest
                 RightInverted = R_INVERT
             };
 
-
-
             BeltMotorData value = lmotorSettings.Setup(simSurge, simSway, simHeave, (int)percentageUpDownRestingPoint.Value);
-
-
 
             float yValue = value.SendDataToSerial(lmotorSettings, communicator, CarSettingsDatabase.Instance.CurrentSettings);
 
@@ -1159,7 +1157,7 @@ namespace belttentiontest
                 SetControlsEnabled(true);
                 buttonConnect.Enabled = false;
                 buttonConnect.Text = "Connect";
-                communicator.StartSendLoop(() => checkBoxTest.Checked ? (int)numericUpDownTarget.Value : 0);
+                
             }));
             Log($"Manual connect: Connected to {communicator.PortName}");
         }

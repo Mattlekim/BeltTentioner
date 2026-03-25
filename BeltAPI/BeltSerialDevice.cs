@@ -28,7 +28,7 @@ namespace BeltAPI
         private bool _getSettings = false;
         public void Dispose()
         {
-            try { StopSendLoopAsync().GetAwaiter().GetResult(); } catch { }
+           
             try { ClosePort(); } catch { }
         }
 
@@ -294,64 +294,8 @@ namespace BeltAPI
             }
         }
 
-        public void StartSendLoop(Func<int> getTarget)
-        {
-            if (sendLoopCts != null && !sendLoopCts.IsCancellationRequested) return;
-            sendLoopCts = new CancellationTokenSource();
-            var token = sendLoopCts.Token;
-            sendLoopTask = Task.Run(async () =>
-            {
-                var period = TimeSpan.FromSeconds(1.0 / 60.0);
-                try
-                {
-                    while (!token.IsCancellationRequested)
-                    {
+      
 
-                        int target = 0;
-                        try { target = getTarget(); } catch { target = 0; }
-                        if (target == 0)
-                        {
-                            Thread.Sleep(period);
-                            continue;
-                        }
-                        try
-                        {
-                            var sp = serialPort;
-                            if (sp != null && sp.IsOpen)
-                            {
-                                await SendTargetAsync(sp, target, token).ConfigureAwait(false);
-                            }
-                        }
-                        catch { }
-
-                        try { await Task.Delay(period, token).ConfigureAwait(false); } catch (OperationCanceledException) { break; }
-                    }
-                }
-                catch { }
-            }, token);
-        }
-
-        public async Task StopSendLoopAsync()
-        {
-            try
-            {
-                if (sendLoopCts != null && !sendLoopCts.IsCancellationRequested)
-                {
-                    sendLoopCts.Cancel();
-                    if (sendLoopTask != null)
-                    {
-                        await Task.WhenAny(sendLoopTask, Task.Delay(1000)).ConfigureAwait(false);
-                    }
-                }
-            }
-            catch { }
-            finally
-            {
-                try { sendLoopCts?.Dispose(); } catch { }
-                sendLoopCts = null;
-                sendLoopTask = null;
-            }
-        }
 
         public void SendRequestSettings()
         {
@@ -499,11 +443,7 @@ namespace BeltAPI
         bool isConnected = false;
         public void Disconnect()
         {
-            try
-            {
-                StopSendLoopAsync().GetAwaiter().GetResult();
-            }
-            catch { }
+           
             try { ClosePort(); } catch { }
             isConnected = false;
 

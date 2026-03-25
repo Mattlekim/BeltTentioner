@@ -7,7 +7,7 @@ namespace belttentiontest
     public partial class AboutBox : Form
     {
 
-        public static string Version = "1.0.30";
+        public static string Version = "1.0.32";
 
         public AboutBox()
         {
