@@ -82,14 +82,14 @@ namespace belttentiontest
         }
 
         // Auto-connect settings persisted to autoconnect.json
-        public class AutoConnectSettings
+        public class AppSettings
         {
             public bool AutoConnectOnStartup { get; set; } = false;
             public bool UseSimHub { get; set; } = false;
             public bool UseIracing { get; set; } = true;
         }
 
-        public static AutoConnectSettings AutoConnect { get; set; } = new AutoConnectSettings();
+        public static AppSettings applicatoinSettings { get; set; } = new AppSettings();
 
         private const string AutoConnectSettingsFile = "autoconnect.json";
 
@@ -99,14 +99,14 @@ namespace belttentiontest
             {
                 if (!File.Exists(AutoConnectSettingsFile))
                 {
-                    AutoConnect = new AutoConnectSettings();
+                    applicatoinSettings = new AppSettings();
                     return;
                 }
 
                 var json = File.ReadAllText(AutoConnectSettingsFile);
                 if (string.IsNullOrWhiteSpace(json))
                 {
-                    AutoConnect = new AutoConnectSettings();
+                    applicatoinSettings = new AppSettings();
                     return;
                 }
 
@@ -114,24 +114,24 @@ namespace belttentiontest
                 var trimmed = json.TrimStart();
                 if (trimmed.StartsWith('{'))
                 {
-                    AutoConnect = JsonSerializer.Deserialize<AutoConnectSettings>(json) ?? new AutoConnectSettings();
+                    applicatoinSettings = JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
                 }
                 else
                 {
                     // legacy format
                     if (bool.TryParse(json.Trim(), out var legacy))
                     {
-                        AutoConnect = new AutoConnectSettings { AutoConnectOnStartup = legacy };
+                        applicatoinSettings = new AppSettings { AutoConnectOnStartup = legacy };
                     }
                     else
                     {
-                        AutoConnect = new AutoConnectSettings();
+                        applicatoinSettings = new AppSettings();
                     }
                 }
             }
             catch
             {
-                AutoConnect = new AutoConnectSettings();
+                applicatoinSettings = new AppSettings();
             }
         }
 
@@ -140,7 +140,7 @@ namespace belttentiontest
             try
             {
                 var opts = new JsonSerializerOptions { WriteIndented = true };
-                var json = JsonSerializer.Serialize(AutoConnect, opts);
+                var json = JsonSerializer.Serialize(applicatoinSettings, opts);
                 File.WriteAllText(AutoConnectSettingsFile, json);
             }
             catch { }
@@ -155,6 +155,9 @@ namespace belttentiontest
             Instance?.mmfUpdateTimer?.Stop();
         }
         bool _isLoading = false;
+
+        System.Windows.Forms.Timer belttentionerUpdate;
+
         public Form1()
         {
             _isLoading = true;
@@ -198,7 +201,7 @@ namespace belttentiontest
 
             ThinTrackBar.Bind(_ttb_verStr, nudVertical);
 
-            cb_AutoConnect.Checked = AutoConnect.AutoConnectOnStartup;
+            cb_AutoConnect.Checked = applicatoinSettings.AutoConnectOnStartup;
 
             // custom paint for braking groupbox border
             _gb_Braking.Paint += _gb_Braking_Paint;
@@ -219,6 +222,13 @@ namespace belttentiontest
             simhub_Tel_Timer.Interval = 16; // 16 times a second (~60Hz)
             simhub_Tel_Timer.Tick += (s, e) => GetSimHubData();
             simhub_Tel_Timer.Start();
+
+            belttentionerUpdate = new System.Windows.Forms.Timer();
+            belttentionerUpdate.Interval = (int)(1000f / 60f); // ~60 times per second
+            belttentionerUpdate.Tick += (s, e) => UpdateBeltTentionFeedback();
+            belttentionerUpdate.Start();
+            
+            
 
             buttonConnect.Text = "Connecting...";
             buttonConnect.Enabled = false;
@@ -302,7 +312,7 @@ namespace belttentiontest
             irCommunicator.Connected += OnIracingConnected;
             irCommunicator.Disconnected += OnIracingDisconnected;
             irCommunicator.GForceUpdated += OnGForceUpdated;
-            irCommunicator.ScaledValueUpdated += OnScaledValueUpdated;
+            irCommunicator.ScaledValueUpdated += UpdateBeltTensionerForces;
             irCommunicator.ABSValueUpdated += OnABSValueUpdated;
 
             irCommunicator.CarNameChanged += (carName) =>
@@ -344,7 +354,7 @@ namespace belttentiontest
             LoadCarSettings(CarName);
 
             // Auto-connect on startup if enabled
-            if (AutoConnect.AutoConnectOnStartup)
+            if (applicatoinSettings.AutoConnectOnStartup)
             {
                 // Fire and forget, UI will update via events
                 _ = Task.Run(async () =>
@@ -362,21 +372,21 @@ namespace belttentiontest
             // Add Help menu with About...
             var menuStrip = new MenuStrip();
             var menuSystem = new ToolStripMenuItem("Settings");
-            IracingCommunicator.Instance.Enabled = AutoConnect.UseIracing;
+            IracingCommunicator.Instance.Enabled = applicatoinSettings.UseIracing;
             var menuUseIracing = new ToolStripMenuItem("Use IRacing Telemetry");
             menuUseIracing.CheckOnClick = true;
-            menuUseIracing.Checked = AutoConnect.UseIracing;
+            menuUseIracing.Checked = applicatoinSettings.UseIracing;
             var menuUseSimHub = new ToolStripMenuItem("Use SimHub Telemetry");
             menuUseIracing.Click += (s, e) =>
             {
-                AutoConnect.UseIracing = menuUseIracing.Checked;
-                _of_Control.Enabled = AutoConnect.UseIracing;
-                IracingCommunicator.Instance.Enabled = AutoConnect.UseIracing;
-                if (AutoConnect.UseIracing)
+                applicatoinSettings.UseIracing = menuUseIracing.Checked;
+                _of_Control.Enabled = applicatoinSettings.UseIracing;
+                IracingCommunicator.Instance.Enabled = applicatoinSettings.UseIracing;
+                if (applicatoinSettings.UseIracing)
                 {
-                    AutoConnect.UseSimHub = false;
-                    menuUseSimHub.Checked = AutoConnect.UseSimHub;
-                    _of_simHub.Enabled = AutoConnect.UseSimHub;
+                    applicatoinSettings.UseSimHub = false;
+                    menuUseSimHub.Checked = applicatoinSettings.UseSimHub;
+                    _of_simHub.Enabled = applicatoinSettings.UseSimHub;
                     _gb_simhub.Enabled = false;
                 }
 
@@ -385,18 +395,18 @@ namespace belttentiontest
 
 
             menuUseSimHub.CheckOnClick = true;
-            menuUseSimHub.Checked = AutoConnect.UseSimHub;
+            menuUseSimHub.Checked = applicatoinSettings.UseSimHub;
             menuUseSimHub.Click += (s, e) =>
             {
-                AutoConnect.UseSimHub = menuUseSimHub.Checked;
-                _of_simHub.Enabled = AutoConnect.UseSimHub;
+                applicatoinSettings.UseSimHub = menuUseSimHub.Checked;
+                _of_simHub.Enabled = applicatoinSettings.UseSimHub;
                 _gb_simhub.Enabled = true;
-                if (AutoConnect.UseSimHub)
+                if (applicatoinSettings.UseSimHub)
                 {
-                    AutoConnect.UseIracing = false;
-                    menuUseIracing.Checked = AutoConnect.UseIracing;
-                    _of_Control.Enabled = AutoConnect.UseIracing;
-                    IracingCommunicator.Instance.Enabled = AutoConnect.UseIracing;
+                    applicatoinSettings.UseIracing = false;
+                    menuUseIracing.Checked = applicatoinSettings.UseIracing;
+                    _of_Control.Enabled = applicatoinSettings.UseIracing;
+                    IracingCommunicator.Instance.Enabled = applicatoinSettings.UseIracing;
                 }
 
                 SaveAutoConnectSetting();
@@ -421,10 +431,10 @@ namespace belttentiontest
             this.Controls.Add(menuStrip);
 
 
-            if (!AutoConnect.UseSimHub)
+            if (!applicatoinSettings.UseSimHub)
                 _of_simHub.Enabled = false;
 
-            if (!AutoConnect.UseIracing)
+            if (!applicatoinSettings.UseIracing)
                 _of_Control.Enabled = false;
             _isLoading = false;
         }
@@ -441,7 +451,7 @@ namespace belttentiontest
         bool _simhub_Paused = false;
         private void GetSimHubData()
         {
-            if (!AutoConnect.UseSimHub)
+            if (!applicatoinSettings.UseSimHub)
                 return;
 
             if (telemetryReader == null)
@@ -510,7 +520,7 @@ namespace belttentiontest
             {
                 _simHubConnected = true;
 
-                if (!AutoConnect.UseIracing)
+                if (!applicatoinSettings.UseIracing)
                 {
                     if (_simhub_Telemetry.GameName != lastGameName)
                     {
@@ -581,12 +591,12 @@ namespace belttentiontest
 
 
                         //OnScaledValueUpdated(brake, rcorn, ver, false);
-                        OnScaledValueUpdated(brake, lcorn, ver);
+                        UpdateBeltTensionerForces(brake, lcorn, ver);
                     }
                     else
                     {
                         //   OnScaledValueUpdated(0, 0, 0, false);
-                        OnScaledValueUpdated(0, 0, 0);
+                        UpdateBeltTensionerForces(0, 0, 0);
                     }
                 }
             }
@@ -612,7 +622,7 @@ namespace belttentiontest
             if (!communicator.IsConnected)
                 return;
 
-            if (!AutoConnect.UseIracing)
+            if (!applicatoinSettings.UseIracing)
                 return;
 
             if (checkBoxTest.Checked)
@@ -633,7 +643,7 @@ namespace belttentiontest
 
         private void OnIracingConnected()
         {
-            if (!AutoConnect.UseIracing)
+            if (!applicatoinSettings.UseIracing)
                 return;
 
             maxGForceRecorded = 0f; //reset max G-Force on new connection
@@ -1037,15 +1047,13 @@ namespace belttentiontest
         private void numericUpDownMaxPower_ValueChanged(object sender, EventArgs e)
         {
             _maxPower = (int)numericUpDownMaxPower.Value;
-            SaveSoon();
-            DrawCurveGraph();
+            BeltSettingsChanged();
         }
 
         private void numericUpDownCurveAmount_ValueChanged(object sender, EventArgs e)
         {
             _curveAmount = (double)numericUpDownCurveAmount.Value;
-            SaveSoon();
-            DrawCurveGraph();
+            BeltSettingsChanged();
         }
 
 
@@ -1073,7 +1081,7 @@ namespace belttentiontest
 
         private MotorSettings _motorSettings;
 
-        private void BeltSettingsChanged()
+        private void BeltSettingsChanged(bool save = true)
         {
             _motorSettings = new MotorSettings
             {
@@ -1091,47 +1099,37 @@ namespace belttentiontest
                 RightInverted = R_INVERT
             };
             DrawCurveGraph();
-            SaveSoon();
+
+            if (save)
+                SaveSoon();
         }
 
-        private void OnScaledValueUpdated(float simSurge, float simSway, float simHeave)
+        private void UpdateBeltTensionerForces(float surge, float sway, float heave)
         {
+            simSurge = surge;
+            simSway = sway;
+            simHeave = heave;
+        
+        }
 
-
-            if (!_motorSettingsLoaded)
-                return; //if we have not loaded in the correct motor settings return false
-
+        private void UpdateBeltTentionFeedback()
+        {
             if (checkBoxTest.Checked)
-                simSurge = (float)numericUpDownTarget.Value;
-
-
-
-            simHeave -= 1f; //remove gravity
-            if (simHeave < -2) //clamp it to -2G to avoid extreme values from jumps etc throwing off the belt tensioner
-                simHeave = -2;
-
-
-            MotorSettings lmotorSettings = new MotorSettings
             {
-                MaxPower = _maxPower,
-                SurgeStrength = _gForceMult,
-                CurveAmount = (float)_curveAmount,
-                ConeringCurveAmount = (float)_coneringCurveAmount,
-                SwayStrength = (float)nud_coneringStrengh.Value,
-                HeaveStrength = (float)nudVertical.Value,
-                LeftMinimumAngle = L_MIN,
-                LeftMaximumAngle = L_MAX,
-                LeftInverted = L_INVERT,
-                RightMinimumAngle = R_MIN,
-                RightMaximumAngle = R_MAX,
-                RightInverted = R_INVERT
-            };
+                simSurge = (float)numericUpDownTarget.Value;
+                simHeave = 0;
+                simSway = 0;
+            }
+            else
+            {
+                simHeave -= 1f; //remove gravity
+                if (simHeave < -2) //clamp it to -2G to avoid extreme values from jumps etc throwing off the belt tensioner
+                    simHeave = -2;
+            }
 
-            BeltMotorData value = lmotorSettings.Setup(simSurge, simSway, simHeave, (int)percentageUpDownRestingPoint.Value);
+            BeltMotorData value = _motorSettings.Setup(simSurge, simSway, simHeave, (int)percentageUpDownRestingPoint.Value);
 
-            float yValue = value.SendDataToSerial(lmotorSettings, communicator, CarSettingsDatabase.Instance.CurrentSettings);
-
-            //   throw new Exception("needs refactoring");
+            float yValue = value.SendDataToSerial(_motorSettings, communicator, CarSettingsDatabase.Instance.CurrentSettings);
 
 
             float tmp = _lastMotorOutputValues.SurgeOutput;
@@ -1151,9 +1149,52 @@ namespace belttentiontest
                 _lastVertForceInput = _lastVertForceInput * .9f + simHeave * .1f;
                 DrawCurveGraph();
             }
+        }
+
+        private void OnScaledValueUpdated(float simSurge, float simSway, float simHeave)
+        {
 
 
-            // communicator.SendValue(yValue, lMotor);
+            if (!_motorSettingsLoaded)
+                return; //if we have not loaded in the correct motor settings return false
+
+            if (checkBoxTest.Checked)
+            {
+                simSurge = (float)numericUpDownTarget.Value;
+                simHeave = 0;
+                simSway = 0;
+            }
+            else
+            {
+                simHeave -= 1f; //remove gravity
+                if (simHeave < -2) //clamp it to -2G to avoid extreme values from jumps etc throwing off the belt tensioner
+                    simHeave = -2;
+            }
+                      
+
+            BeltMotorData value = _motorSettings.Setup(simSurge, simSway, simHeave, (int)percentageUpDownRestingPoint.Value);
+
+            float yValue = value.SendDataToSerial(_motorSettings, communicator, CarSettingsDatabase.Instance.CurrentSettings);
+
+     
+            float tmp = _lastMotorOutputValues.SurgeOutput;
+            _lastMotorOutputValues = value;
+
+
+            _displaySurgeForce = value.SurgeOutput;
+            _displaySwayForce = value.SwayOutput;
+            _displayHeaveForce = value.HeaveOutput;
+
+            if (cb_livePrieview != null && cb_livePrieview.Checked)
+            {
+
+                // Store latest force inputs for live preview
+                _lastLongForceInput = _lastLongForceInput * .9f + simSurge * .1f;
+                _lastLatForceInput = _lastLatForceInput * .9f + simSway * .1f;
+                _lastVertForceInput = _lastVertForceInput * .9f + simHeave * .1f;
+                DrawCurveGraph();
+            }
+
 
         }
 
@@ -1247,20 +1288,19 @@ namespace belttentiontest
         public void SetGForceMult(float value)
         {
             _gForceMult = value;
-            DrawCurveGraph();
+            BeltSettingsChanged();
         }
 
         private void numericUpDownGForceToBelt_ValueChanged(object sender, EventArgs e)
         {
             SetGForceMult((float)numericUpDownGForceToBelt.Value);
-            SaveSoon();
+            BeltSettingsChanged();
         }
 
         private void numericUpDownGForceToBelt_ValueChanged_1(object sender, EventArgs e)
         {
             _gForceMult = (float)numericUpDownGForceToBelt.Value;
-            SaveSoon();
-            DrawCurveGraph(); // Update graph when belt strength changes
+            BeltSettingsChanged();
         }
 
         protected override void OnLoad(EventArgs e)
@@ -1479,6 +1519,7 @@ namespace belttentiontest
         private void ShowChangesNotSaved()
         {
             lblChangesNotSaved.Visible = true;
+            BeltSettingsChanged(false);
         }
 
         private async void bnt_Apply_Click(object sender, EventArgs e)
@@ -1501,8 +1542,7 @@ namespace belttentiontest
         private void nud_coneringStrengh_ValueChanged(object sender, EventArgs e)
         {
 
-            SaveSoon();
-            DrawCurveGraph();
+            BeltSettingsChanged();
         }
 
 
@@ -1511,8 +1551,7 @@ namespace belttentiontest
             if (!CarSettingsDatabase.Instance.Settings.TryGetValue(CarName, out var settings))
                 return;
             settings.VerticalStrength = (float)nudVertical.Value;
-            SaveSoon();
-            DrawCurveGraph();
+            BeltSettingsChanged();
         }
 
         private void nud_ABS_ValueChanged(object sender, EventArgs e)
@@ -1520,7 +1559,7 @@ namespace belttentiontest
             if (!CarSettingsDatabase.Instance.Settings.TryGetValue(CarName, out var settings))
                 return;
             settings.AbsStrength = (float)nud_ABS.Value;
-            SaveSoon();
+            BeltSettingsChanged();
         }
 
         private void cb_ABS_Enabled_CheckedChanged(object sender, EventArgs e)
@@ -1528,7 +1567,7 @@ namespace belttentiontest
             if (!CarSettingsDatabase.Instance.Settings.TryGetValue(CarName, out var settings))
                 return;
             settings.AbsEnabled = cb_ABS_Enabled.Checked;
-            SaveSoon();
+            BeltSettingsChanged();
         }
 
 
@@ -1552,15 +1591,14 @@ namespace belttentiontest
 
         private void cb_AutoConnect_CheckedChanged(object sender, EventArgs e)
         {
-            AutoConnect.AutoConnectOnStartup = cb_AutoConnect.Checked;
+            applicatoinSettings.AutoConnectOnStartup = cb_AutoConnect.Checked;
             SaveAutoConnectSetting();
         }
 
         private void nud_ConeringCurveAmount_ValueChanged(object sender, EventArgs e)
         {
             _coneringCurveAmount = (double)nud_ConeringCurveAmount.Value;
-            SaveSoon();
-            DrawCurveGraph();
+            BeltSettingsChanged();
         }
 
         private void ShowAboutBox()
@@ -1739,8 +1777,7 @@ namespace belttentiontest
         }
         private void percentageUpDownRestingPoint_ValueChanged(object sender, EventArgs e)
         {
-            SaveSoon();
-            DrawCurveGraph();
+            BeltSettingsChanged();
         }
 
 
