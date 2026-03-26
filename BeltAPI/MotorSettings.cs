@@ -60,7 +60,7 @@ namespace BeltAPI
 
         }
 
-        internal (float, float) ClampToMaxMotorPower(float lValue, float rValue)
+        public (float, float) ClampToMaxMotorPower(float lValue, float rValue)
         {
 
             float sFactor = (MaxPower / 100f);
@@ -97,9 +97,9 @@ namespace BeltAPI
 
             motorOutput.SurgeForceInput = SimLongValue;
 
-            motorOutput.ConeringForceInput = SimLateralValue;
+            motorOutput.SwayForceInput = SimLateralValue;
 
-            motorOutput.VerticalForceInput = SimVerValue;
+            motorOutput.HeaveForceInput = SimVerValue;
 
             motorOutput.RestingPoint = restingPoint;
 

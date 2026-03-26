@@ -905,7 +905,10 @@ namespace belttentiontest
                 if (_cb_showBraking.Checked)
                     for (int x = -47; x < graphWidth; x++)
                     {
+                        if (x == 100)
+                        {
 
+                        }
 
                         float inputValue = (float)(x / (float)graphWidth) * 10;
                         if (inputValue > MotorSettings.SurgeGForceScale)
@@ -925,12 +928,19 @@ namespace belttentiontest
                 if (_cb_showCorn.Checked)
                     for (int x = 0; x < graphWidth; x++)
                     {
+                        if (x == 100)
+                        {
+
+                        }
+
                         float inputValue = (float)(x / (float)graphWidth) * 10;
 
                         if (inputValue > MotorSettings.SwayGForceScale)
                             break;
                         BeltMotorData output = settings.Setup(0, inputValue, 0, (int)percentageUpDownRestingPoint.Value);
-                        float yValue = output.CalculateDataToSerail(settings, CarSettingsDatabase.Instance.CurrentSettings);
+                        output.CalculateDataToSerail(settings, CarSettingsDatabase.Instance.CurrentSettings);
+                        float yValue = 0;
+                    //    (yValue, _) = settings.ClampToMaxMotorPower(Math.Abs(output.LeftSwayOutput + output.RightSwayOutput) + output.RestingPoint, 0); // for lateral we care about total heave response not direction
                         int drawX = 47 + xPadding + x;
                         int y = MapY(yValue);
                         if (prevY.HasValue)
@@ -1132,13 +1142,13 @@ namespace belttentiontest
 
             
 
-            float tmp = _lastMotorOutputValues.SurgeOutput;
+            float tmp = _lastMotorOutputValues.LeftSurgeOutput;
             _lastMotorOutputValues = value;
 
 
-            _displaySurgeForce = value.SurgeOutput;
-            _displaySwayForce = value.SwayOutput;
-            _displayHeaveForce = value.HeaveOutput;
+            _displaySurgeForce = value.LeftSurgeOutput;
+            _displaySwayForce = value.LeftSwayOutput;
+            _displayHeaveForce = value.LeftHeaveOutput;
 
 
          //   haveData = false;
@@ -1316,6 +1326,7 @@ namespace belttentiontest
 
         private void LoadCarSettings(string carName)
         {
+            _isLoading = true;
             CarSettingsDatabase.Instance.LoadCarSettingsFromFile(carName);
             var settings = CarSettingsDatabase.Instance.CurrentSettings;
             // Apply settings to UI
@@ -1351,6 +1362,7 @@ namespace belttentiontest
             cb_invertHeave.Checked = settings.InvertHeave; // NEW
             cb_invertSurge.Checked = settings.InvertSurge; // NEW
             DrawCurveGraph();
+            _isLoading = false;
         }
 
 
@@ -1436,9 +1448,9 @@ namespace belttentiontest
                 ConnectedToSim = irCommunicator != null ? irCommunicator.IsConnected : false,
                 ConnectedToBelt = communicator.IsConnected,
                 MotorRange = Math.Abs(L_MAX - L_MIN),
-                MotorSwayValue = _lastMotorOutputValues.SwayOutput,
-                MotorSurgeValue = _lastMotorOutputValues.SurgeOutput,
-                MotorHeaveValue = _lastMotorOutputValues.HeaveOutput
+                MotorSwayValue = _lastMotorOutputValues.LeftSwayOutput,
+                MotorSurgeValue = _lastMotorOutputValues.LeftSurgeOutput,
+                MotorHeaveValue = _lastMotorOutputValues.LeftHeaveOutput
 
             };
             _mmfWriter?.WriteSettings(structSettings);

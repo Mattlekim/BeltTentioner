@@ -9,12 +9,12 @@ namespace BeltAPI
 {
     public struct BeltMotorData
     {
-        public float ConeringWeight;
-        public float VerticalWeight;
-        public float BreakingWeight;
+        public float SwayWeight;
+        public float HeaveWeight;
+        public float SurgeWeight;
 
-        public float ConeringForceInput;
-        public float VerticalForceInput;
+        public float SwayForceInput;
+        public float HeaveForceInput;
         public float SurgeForceInput;
 
    
@@ -38,19 +38,19 @@ namespace BeltAPI
         /// </summary>
         public void EnableAll()
         {
-            ConeringWeight = 1;
-            VerticalWeight = 1;
-            BreakingWeight = 1;
+            SwayWeight = 1;
+            HeaveWeight = 1;
+            SurgeWeight = 1;
         }
 
         public static BeltMotorData Zero => new BeltMotorData
         {
-            ConeringForceInput = 0,
-            VerticalForceInput = 0,
+            SwayForceInput = 0,
+            HeaveForceInput = 0,
             SurgeForceInput = 0,
-            ConeringWeight = 0,
-            VerticalWeight = 0,
-            BreakingWeight = 0,
+            SwayWeight = 0,
+            HeaveWeight = 0,
+            SurgeWeight = 0,
             RestingPoint = 0
         };
 
@@ -59,9 +59,15 @@ namespace BeltAPI
         float rSurgeOutput, rSwayOutput, rHeaveOutput;
 
         //use just left values to output to any graph you want
-        public float SurgeOutput => lSurgeOutput;
-        public float SwayOutput => lSwayOutput;
-        public float HeaveOutput => lHeaveOutput;
+        public float LeftSurgeOutput => lSurgeOutput;
+        public float LeftSwayOutput => lSwayOutput;
+        public float LeftHeaveOutput => lHeaveOutput;
+
+
+        //use just left values to output to any graph you want
+        public float RightSurgeOutput => rSurgeOutput;
+        public float RightSwayOutput => rSwayOutput;
+        public float RightHeaveOutput => rHeaveOutput;
         private (float, float) CalculateSurgeForces(MotorSettings settings)
         {
             float curved = settings.CalculateCurve(SurgeForceInput, settings.CurveAmount, Axis.Surge);
@@ -71,14 +77,14 @@ namespace BeltAPI
 
         private (float, float) CalculateSwayForces(MotorSettings settings)
         {
-            float curved = settings.CalculateCurve(ConeringForceInput, settings.ConeringCurveAmount, Axis.Sway);
+            float curved = settings.CalculateCurve(SwayForceInput, settings.ConeringCurveAmount, Axis.Sway);
             float output = curved * settings.SwayStrength * .01f;
             return (output, output);
         }
 
         private (float, float) CalculateHeaveForces(MotorSettings settings)
         {
-            float curved = settings.CalculateCurve(VerticalForceInput, 1, Axis.Heave);
+            float curved = settings.CalculateCurve(HeaveForceInput, 1, Axis.Heave);
             float output = curved * settings.HeaveStrength * .01f;
             return (output, output);
         }
@@ -91,11 +97,11 @@ namespace BeltAPI
 
             if (carSettings.InvertHeave)
             {
-                VerticalForceInput += 1;
+                HeaveForceInput += 1;
             }
             else
             {
-                VerticalForceInput -= 1;
+                HeaveForceInput -= 1;
                 
             }
                 (lHeaveOutput, rHeaveOutput) = CalculateHeaveForces(settings);
@@ -133,11 +139,18 @@ namespace BeltAPI
             }
         }
 
+        public float CalculateDataForGraph(MotorSettings settings, CarSettings carSettings)
+        {
+            CalculateForces(settings, carSettings);
+            float signalLeft = (lSurgeOutput * SurgeWeight) + (lSwayOutput * SwayWeight) + (lHeaveOutput * HeaveWeight); //add all forces
+            return signalLeft;
+        }
+
         public float CalculateDataToSerail(MotorSettings settings, CarSettings carSettings)
         {
             CalculateForces(settings, carSettings);
 
-            float signalLeft = (lSurgeOutput * BreakingWeight) + (lSwayOutput * ConeringWeight) + (lHeaveOutput * VerticalWeight); //add all forces
+            float signalLeft = (lSurgeOutput * SurgeWeight) + (lSwayOutput * SwayWeight) + (lHeaveOutput * HeaveWeight); //add all forces
 
             float restingPointValue = (RestingPoint / 100f) ;
 
@@ -155,8 +168,8 @@ namespace BeltAPI
         {
             CalculateForces(settings, carSettings);
 
-            float signalLeft = (lSurgeOutput * BreakingWeight) + (lSwayOutput * ConeringWeight) + (lHeaveOutput * VerticalWeight); //add all forces
-            float signalRight = (rSurgeOutput * BreakingWeight) + (rSwayOutput * ConeringWeight) + (rHeaveOutput * VerticalWeight); //add all forces
+            float signalLeft = (lSurgeOutput * SurgeWeight) + (lSwayOutput * SwayWeight) + (lHeaveOutput * HeaveWeight); //add all forces
+            float signalRight = (rSurgeOutput * SurgeWeight) + (rSwayOutput * SwayWeight) + (rHeaveOutput * HeaveWeight); //add all forces
 
             float restingPointValue = (RestingPoint / 100f);
 
