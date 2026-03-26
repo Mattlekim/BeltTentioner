@@ -228,7 +228,7 @@ namespace belttentiontest
             
             
 
-            buttonConnect.Text = "Connecting...";
+            
             buttonConnect.Enabled = false;
 
             _of_seatbeltDevice.Text = "Scanning...";
@@ -316,6 +316,9 @@ namespace belttentiontest
             {
                 BeginInvoke(new Action(() =>
                 {
+                    if (!applicatoinSettings.UseIracing)
+                        return;
+
                     lb_carName.Text = $"Car: {carName}";
                     CarName = carName;
                     LoadCarSettings(carName);
@@ -349,10 +352,17 @@ namespace belttentiontest
             // Auto-connect on startup if enabled
             if (applicatoinSettings.AutoConnectOnStartup)
             {
+
+               
+                    _of_seatbeltDevice.Text = $"Connecting...";
+             
                 // Fire and forget, UI will update via events
                 _ = Task.Run(async () =>
                 {
                     using var cts = new CancellationTokenSource();
+
+                   
+
                     bool ok = await communicator.ConnectAsync(cts.Token).ConfigureAwait(false);
                     if (ok)
                     {
@@ -624,6 +634,9 @@ namespace belttentiontest
 
         private void OnIracingDisconnected()
         {
+            if (!applicatoinSettings.UseIracing)
+                return;
+
             SaveSoon();
             CarName = "NA";
             LoadCarSettings(CarName);
@@ -775,6 +788,9 @@ namespace belttentiontest
 
         private void OnIracingConnectionChanged(bool connected)
         {
+            if (!applicatoinSettings.UseIracing)
+                return;
+
             // If the form handle isn't created yet, store the state so we can update when shown
             if (!IsHandleCreated)
             {
@@ -1175,7 +1191,7 @@ namespace belttentiontest
                 _of_seatbeltDevice.IsOn = true;
                 SetControlsEnabled(true);
                 buttonConnect.Enabled = false;
-                buttonConnect.Text = "Connect";
+                
                 
             }));
             Log($"Manual connect: Connected to {communicator.PortName}");
@@ -1187,7 +1203,7 @@ namespace belttentiontest
             {
                 autoConnectCts?.Cancel();
 
-                buttonConnect.Text = "Connecting...";
+                
                 buttonConnect.Enabled = false;
 
                 Invoke(new Action(() => _of_seatbeltDevice.Text = "Scanning..."));
@@ -1206,7 +1222,7 @@ namespace belttentiontest
                     _of_seatbeltDevice.Text = "No device responded";
                     _of_seatbeltDevice.IsOn = false;
                     SetControlsEnabled(false);
-                    buttonConnect.Text = "Connect";
+                    
                     buttonConnect.Enabled = true;
                 }));
                 Log("Manual connect: No device responded");
@@ -1217,7 +1233,7 @@ namespace belttentiontest
                 _of_seatbeltDevice.IsOn = false;
                 Log($"Manual connect failed: {ex.Message}");
                 SetControlsEnabled(false);
-                buttonConnect.Text = "Connect";
+                
                 buttonConnect.Enabled = true;
             }
         }
