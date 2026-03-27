@@ -84,6 +84,7 @@ namespace BeltAPI
 
         private (float, float) CalculateHeaveForces(BeltSerialDevice device, CarSettings carSettings)
         {
+         
             float curved = device.DeviceMotorSettings.CalculateCurve(HeaveForceInput, 1, Axis.Heave);
             float output = curved * carSettings.HeaveStrength * .01f;
             return (output, output);
@@ -92,11 +93,13 @@ namespace BeltAPI
 
         private void CalculateForces(BeltSerialDevice device, CarSettings carSettings)
         {
+          //  carSettings.HeaveStrength = 1;
             (lSurgeOutput, rSurgeOutput) = CalculateSurgeForces(device, carSettings);
             (lSwayOutput, rSwayOutput) = CalculateSwayForces(device, carSettings);
 
             if (carSettings.InvertHeave)
             {
+                HeaveForceInput = -HeaveForceInput;
                 HeaveForceInput += 1;
             }
             else

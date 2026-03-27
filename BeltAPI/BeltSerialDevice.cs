@@ -373,6 +373,18 @@ namespace BeltAPI
             if (!isConnected)
                 return;
 
+            _motorSettings = new MotorSettings
+            {
+                LeftMinimumAngle = Math.Clamp(lmin, 0, MAXPOSIBLEMOTORANGLE),
+                LeftMaximumAngle = Math.Clamp(lmax, 0, MAXPOSIBLEMOTORANGLE),
+                LeftInverted = linvert,
+                RightMinimumAngle = Math.Clamp(rmin, 0, MAXPOSIBLEMOTORANGLE),
+                RightMaximumAngle = Math.Clamp(rmax, 0, MAXPOSIBLEMOTORANGLE),
+                RightInverted = rinvert
+            };
+
+            DuelMotors = both;
+
             string msg = $"SN:{lmin}-{lmax}-{rmin}-{rmax}-{(linvert ? 1 : 0)}-{(rinvert ? 1 : 0)}-{(both ? 1 : 0)}";
             try
             {

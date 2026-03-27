@@ -707,7 +707,7 @@ namespace belttentiontest
         private void OnMotorSettingsRecived()
         {
             R_MIN = (int)BeltTentionerDevice.DeviceMotorSettings.RightMinimumAngle;
-            R_MIN = (int)BeltTentionerDevice.DeviceMotorSettings.RightMaximumAngle;
+            R_MAX = (int)BeltTentionerDevice.DeviceMotorSettings.RightMaximumAngle;
 
             L_MIN = (int)BeltTentionerDevice.DeviceMotorSettings.LeftMinimumAngle;
             L_MAX = (int)BeltTentionerDevice.DeviceMotorSettings.LeftMaximumAngle;  
@@ -888,6 +888,8 @@ namespace belttentiontest
                 // Main curve (longitudinal G)
                 int? prevY = null, prevX = null;
 
+                CarSettings _carSettings = CarSettingsDatabase.Instance.CurrentSettings; 
+
                 if (_cb_showBraking.Checked)
                     for (int x = -47; x < graphWidth; x++)
                     {
@@ -899,9 +901,16 @@ namespace belttentiontest
                         float inputValue = (float)(x / (float)graphWidth) * 10;
                         if (inputValue > CarSettings.SurgeGForceScale)
                             break;
-                        BeltMotorData output = BeltTentionerDevice.SetupMotorsForData(inputValue, 0, 0, CarSettingsDatabase.Instance.CurrentSettings);
+
+                        bool inverted = _carSettings.InvertSurge;
+
+                        _carSettings.InvertSurge = false;
+                        BeltMotorData output = BeltTentionerDevice.SetupMotorsForData(inputValue, 0, 1, CarSettingsDatabase.Instance.CurrentSettings);
                         float yValue = output.CalculateDataToSerail(BeltTentionerDevice, CarSettingsDatabase.Instance.CurrentSettings);
-                        int y = MapY(yValue);
+
+                        _carSettings.InvertSurge = inverted;
+                        
+                        int y = MapY(yValue) ;
                         int drawX = xPadding + x + 47;
                         if (prevY.HasValue)
                             g.DrawLine(penMain, prevX.Value, prevY.Value, drawX, y);
@@ -923,12 +932,20 @@ namespace belttentiontest
 
                         if (inputValue > CarSettings.SwayGForceScale)
                             break;
-                        BeltMotorData output = BeltTentionerDevice.DeviceMotorSettings.Setup(0, inputValue, 0, (int)percentageUpDownRestingPoint.Value);
-                        output.CalculateDataToSerail(BeltTentionerDevice, CarSettingsDatabase.Instance.CurrentSettings);
-                        float yValue = 0;
-                    //    (yValue, _) = settings.ClampToMaxMotorPower(Math.Abs(output.LeftSwayOutput + output.RightSwayOutput) + output.RestingPoint, 0); // for lateral we care about total heave response not direction
-                        int drawX = 47 + xPadding + x;
+
+                        bool inverted = _carSettings.InvertSway;
+
+                        _carSettings.InvertSway = false;
+
+                        BeltMotorData output = BeltTentionerDevice.SetupMotorsForData(0, inputValue, 1, CarSettingsDatabase.Instance.CurrentSettings);
+                        float yValue = output.CalculateDataToSerail(BeltTentionerDevice, CarSettingsDatabase.Instance.CurrentSettings);
+                        (yValue, _) = BeltTentionerDevice.DeviceMotorSettings.ClampToMaxMotorPower( output.LeftSwayOutput + output.RightSwayOutput, 0, _carSettings);
+                        _carSettings.InvertSway = inverted;
+
                         int y = MapY(yValue);
+                        
+                        int drawX = 47 + xPadding + x;
+                        
                         if (prevY.HasValue)
                             g.DrawLine(penLat, prevX.Value, prevY.Value, drawX, y);
                         prevY = y;
@@ -1053,7 +1070,7 @@ namespace belttentiontest
 
         private void BeltSettingsChanged(bool save = true)
         {
-        
+            UpdateCarsSettings();
             DrawCurveGraph();
 
             if (save)
@@ -1366,11 +1383,8 @@ namespace belttentiontest
             }
         }
 
-        private void SaveCarSettings()
+        private void UpdateCarsSettings()
         {
-            if (_isLoading) return; // Don't save while we're still loading settings    
-          
-
             var settings = CarSettingsDatabase.Instance.CurrentSettings;
             settings.SurgeStrenght = (float)numericUpDownGForceToBelt.Value;
             settings.MaxPower = (int)numericUpDownMaxPower.Value;
@@ -1382,6 +1396,14 @@ namespace belttentiontest
             settings.InvertSway = cb_invert_sway.Checked; // NEW
             settings.SwayCurveAmount = (float)nud_ConeringCurveAmount.Value; // NEW
             settings.RestingPoint = (int)percentageUpDownRestingPoint.Value; // NEW
+        }
+
+        private void SaveCarSettings()
+        {
+            if (_isLoading) return; // Don't save while we're still loading settings    
+          
+
+           
 
            
             try
@@ -1468,9 +1490,12 @@ namespace belttentiontest
         private async void bnt_Apply_Click(object sender, EventArgs e)
         {
             BeltTentionerDevice.SendUpdatedSettings(L_MIN, L_MAX, R_MIN, R_MAX, L_INVERT, R_INVERT, DuelMotors);
+
+      
+
             lblSettingsSaved.Visible = true;
             lblChangesNotSaved.Visible = false;
-            await Task.Delay(1500);
+         //   await Task.Delay(1500);
             lblSettingsSaved.Visible = false;
             _motorSettingsLoaded = true;
         }
