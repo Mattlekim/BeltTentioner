@@ -1753,6 +1753,9 @@ namespace belttentiontest
                 updateNotifyIcon.Tag = info; // store info for click handler
                 updateNotifyIcon.Click -= UpdateNotifyIcon_Click;
                 updateNotifyIcon.Click += UpdateNotifyIcon_Click;
+                // Also handle clicks on the balloon tip itself
+                updateNotifyIcon.BalloonTipClicked -= UpdateNotifyIcon_Click;
+                updateNotifyIcon.BalloonTipClicked += UpdateNotifyIcon_Click;
                 updateNotifyIcon.ShowBalloonTip(5000);
 
                 // also set a small visible indicator on the taskbar by changing the form's title suffix
