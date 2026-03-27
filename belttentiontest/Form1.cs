@@ -11,6 +11,7 @@ using System.IO;
 using System.IO.MemoryMappedFiles;
 using System.IO.Ports;
 using System.Runtime.ConstrainedExecution;
+using System.Runtime.Versioning;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,6 +20,7 @@ using YamlDotNet.Core;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 namespace belttentiontest
 {
+    [SupportedOSPlatform("windows")]
     public partial class Form1 : Form
     {
         public bool ClosingForm { get; private set; } = false;
@@ -704,7 +706,16 @@ namespace belttentiontest
 
         private void OnMotorSettingsRecived()
         {
-          
+            R_MIN = (int)BeltTentionerDevice.DeviceMotorSettings.RightMinimumAngle;
+            R_MIN = (int)BeltTentionerDevice.DeviceMotorSettings.RightMaximumAngle;
+
+            L_MIN = (int)BeltTentionerDevice.DeviceMotorSettings.LeftMinimumAngle;
+            L_MAX = (int)BeltTentionerDevice.DeviceMotorSettings.LeftMaximumAngle;  
+
+            L_INVERT = BeltTentionerDevice.DeviceMotorSettings.LeftInverted;
+            R_INVERT = BeltTentionerDevice.DeviceMotorSettings.RightInverted;
+            DuelMotors = BeltTentionerDevice.DuelMotors;
+
 
             _motorSettingsLoaded = true;
             UpdateWindows();
