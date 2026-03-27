@@ -8,17 +8,8 @@ namespace BeltAPI
 {
     public struct MotorSettings
     {
-        public const float SurgeGForceScale = 7.0f; // 7g max for long
-        public const float SwayGForceScale = 5.0f; // 5g max for lateral and vertical
-        public const float HeaveGForceScale = 3.0f;
 
 
-        public float MaxPower;
-        public float SurgeStrength;
-        public float CurveAmount;
-        public float ConeringCurveAmount;
-        public float SwayStrength;
-        public float HeaveStrength;
 
         public bool LeftInverted;
         public float LeftMinimumAngle;
@@ -40,9 +31,9 @@ namespace BeltAPI
 
             float scale = axis switch
             {
-                Axis.Surge => SurgeGForceScale,
-                Axis.Sway => SwayGForceScale,
-                Axis.Heave => HeaveGForceScale,
+                Axis.Surge => CarSettings.SurgeGForceScale,
+                Axis.Sway => CarSettings.SwayGForceScale,
+                Axis.Heave => CarSettings.HeaveGForceScale,
                 _ => 1f,
             };
             
@@ -60,10 +51,10 @@ namespace BeltAPI
 
         }
 
-        public (float, float) ClampToMaxMotorPower(float lValue, float rValue)
+        public (float, float) ClampToMaxMotorPower(float lValue, float rValue, CarSettings settings)
         {
 
-            float sFactor = (MaxPower / 100f);
+            float sFactor = (settings.MaxPower / 100f);
 
             float lRange = Math.Abs(LeftMaximumAngle - LeftMinimumAngle); //get range
 
@@ -87,21 +78,22 @@ namespace BeltAPI
             return scaledValue;
         }
 
-        public BeltMotorData Setup(float SimLongValue, float SimLateralValue, float SimVerValue, int restingPoint)
+        public BeltMotorData Setup(float SimSurgeValue, float SimSwayValue, float SimHeaveValue, int restingPoint)
         {
-            SimLongValue = Math.Clamp(SimLongValue, -SwayGForceScale, SurgeGForceScale);
-            SimLateralValue = Math.Clamp(SimLateralValue, -SwayGForceScale, SwayGForceScale);
-            SimVerValue = Math.Clamp(SimVerValue, -HeaveGForceScale, HeaveGForceScale);
+            SimSurgeValue = Math.Clamp(SimSurgeValue, -CarSettings.SurgeGForceScale, CarSettings.SurgeGForceScale);
+            SimSwayValue = Math.Clamp(SimSwayValue, -CarSettings.SwayGForceScale, CarSettings.SwayGForceScale);
+            SimHeaveValue = Math.Clamp(SimHeaveValue, -CarSettings.HeaveGForceScale, CarSettings.HeaveGForceScale);
 
             BeltMotorData motorOutput = BeltMotorData.Zero;
 
-            motorOutput.SurgeForceInput = SimLongValue;
+            motorOutput.SurgeForceInput = SimSurgeValue;
 
-            motorOutput.SwayForceInput = SimLateralValue;
+            motorOutput.SwayForceInput = SimSwayValue;
 
-            motorOutput.HeaveForceInput = SimVerValue;
+            motorOutput.HeaveForceInput = SimHeaveValue;
 
             motorOutput.RestingPoint = restingPoint;
+
 
             motorOutput.EnableAll();
             return motorOutput;

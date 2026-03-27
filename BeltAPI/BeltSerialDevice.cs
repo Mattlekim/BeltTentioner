@@ -10,7 +10,7 @@ namespace BeltAPI
 {
     public class BeltSerialDevice : IDisposable
     {
-
+   
         public int MAXPOSIBLEMOTORANGLE = 180;
 
         private SerialPort? serialPort;
@@ -26,6 +26,20 @@ namespace BeltAPI
         public string? PortName => serialPort?.PortName;
 
         private bool _getSettings = false;
+
+        private MotorSettings _motorSettings;
+
+        /// <summary>
+        /// motor settings for both motors
+        /// </summary>
+        public MotorSettings DeviceMotorSettings => _motorSettings;
+
+        private MotorSettings _rightMotorSettings;
+
+        public Action OnMotorSettingsRecived;
+
+        public bool DuelMotors { get; private set; } = false;
+
         public void Dispose()
         {
            
@@ -67,6 +81,31 @@ namespace BeltAPI
             Disconnect();
         }
 
+        private void DecodeSettings(string message)
+        {
+
+            var parsedSettings = ParseSerialLineSettings(message.Substring(1));
+
+            if (parsedSettings.HasValue)
+            {
+
+                _motorSettings.LeftMaximumAngle = Math.Clamp(parsedSettings.Value.lmin, 0, MAXPOSIBLEMOTORANGLE);
+                _motorSettings.LeftMaximumAngle = Math.Clamp(parsedSettings.Value.lmax, 0, MAXPOSIBLEMOTORANGLE);
+                _motorSettings.LeftInverted = parsedSettings.Value.linvert;
+
+                _motorSettings.RightMaximumAngle = Math.Clamp(parsedSettings.Value.rmin, 0, MAXPOSIBLEMOTORANGLE);
+                _motorSettings.RightMaximumAngle = Math.Clamp(parsedSettings.Value.rmax, 0, MAXPOSIBLEMOTORANGLE);
+                _motorSettings.RightInverted = parsedSettings.Value.rinvert;
+
+                DuelMotors = parsedSettings.Value.both;
+
+                if (OnMotorSettingsRecived != null)
+                {
+                    OnMotorSettingsRecived?.Invoke();
+                }
+            }
+
+        }
         // Read any available data and raise MessageReceived and HandshakeComplete when appropriate
         private void ReadAllSerialData(SerialPort sp)
         {
@@ -92,6 +131,10 @@ namespace BeltAPI
                 {
                     var line = raw.Trim();
                     if (line.Length == 0) continue;
+                    if (line[0] == 'S') //if recive settings
+                    {
+                        DecodeSettings(line);
+                    }
                     MessageReceived?.Invoke(line);
                     if (string.Equals(line, "READY", StringComparison.OrdinalIgnoreCase))
                     {
@@ -200,6 +243,9 @@ namespace BeltAPI
             return false;
         }
 
+        
+        
+
         private async Task<bool> InitialDetectAsync(CancellationToken ct)
         {
             string[] ports = SerialPort.GetPortNames();
@@ -217,6 +263,8 @@ namespace BeltAPI
             }
             return false;
         }
+
+
 
         private async Task AutoConnectLoopAsync(CancellationToken ct)
         {
@@ -600,6 +648,11 @@ namespace BeltAPI
                 SendRequestSettings();
             }
             return ok;
+        }
+
+        public BeltMotorData SetupMotorsForData(float surge, float sway, float heave, CarSettings settings)
+        {
+            return DeviceMotorSettings.Setup(surge, sway, heave, settings.RestingPoint);
         }
     }
 }

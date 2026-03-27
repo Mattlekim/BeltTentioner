@@ -68,32 +68,32 @@ namespace BeltAPI
         public float RightSurgeOutput => rSurgeOutput;
         public float RightSwayOutput => rSwayOutput;
         public float RightHeaveOutput => rHeaveOutput;
-        private (float, float) CalculateSurgeForces(MotorSettings settings)
+        private (float, float) CalculateSurgeForces(BeltSerialDevice device, CarSettings carSettings)
         {
-            float curved = settings.CalculateCurve(SurgeForceInput, settings.CurveAmount, Axis.Surge);
-            float output = curved * settings.SurgeStrength * .01f;
+            float curved = device.DeviceMotorSettings.CalculateCurve(SurgeForceInput, carSettings.SurgeCurveAmount, Axis.Surge);
+            float output = curved * carSettings.SurgeStrenght * .01f;
             return (output, output);
         }
 
-        private (float, float) CalculateSwayForces(MotorSettings settings)
+        private (float, float) CalculateSwayForces(BeltSerialDevice device, CarSettings carSettings)
         {
-            float curved = settings.CalculateCurve(SwayForceInput, settings.ConeringCurveAmount, Axis.Sway);
-            float output = curved * settings.SwayStrength * .01f;
+            float curved = device.DeviceMotorSettings.CalculateCurve(SwayForceInput, carSettings.SwayCurveAmount, Axis.Sway);
+            float output = curved * carSettings.SwayStrength * .01f;
             return (output, output);
         }
 
-        private (float, float) CalculateHeaveForces(MotorSettings settings)
+        private (float, float) CalculateHeaveForces(BeltSerialDevice device, CarSettings carSettings)
         {
-            float curved = settings.CalculateCurve(HeaveForceInput, 1, Axis.Heave);
-            float output = curved * settings.HeaveStrength * .01f;
+            float curved = device.DeviceMotorSettings.CalculateCurve(HeaveForceInput, 1, Axis.Heave);
+            float output = curved * carSettings.HeaveStrength * .01f;
             return (output, output);
         }
 
 
-        private void CalculateForces(MotorSettings settings, CarSettings carSettings)
+        private void CalculateForces(BeltSerialDevice device, CarSettings carSettings)
         {
-            (lSurgeOutput, rSurgeOutput) = CalculateSurgeForces(settings);
-            (lSwayOutput, rSwayOutput) = CalculateSwayForces(settings);
+            (lSurgeOutput, rSurgeOutput) = CalculateSurgeForces(device, carSettings);
+            (lSwayOutput, rSwayOutput) = CalculateSwayForces(device, carSettings);
 
             if (carSettings.InvertHeave)
             {
@@ -102,9 +102,9 @@ namespace BeltAPI
             else
             {
                 HeaveForceInput -= 1;
-                
+
             }
-                (lHeaveOutput, rHeaveOutput) = CalculateHeaveForces(settings);
+            (lHeaveOutput, rHeaveOutput) = CalculateHeaveForces(device, carSettings);
 
             if (carSettings.InvertSurge)
             {
@@ -126,61 +126,60 @@ namespace BeltAPI
                 rSwayOutput = Math.Abs(lSwayOutput);
                 lSwayOutput = 0;
             }
-            
-           
-            
-
 
             if (carSettings.InvertHeave)
             {
-                
                 lHeaveOutput = -lHeaveOutput;
                 rHeaveOutput = -rHeaveOutput;
             }
         }
 
-        public float CalculateDataForGraph(MotorSettings settings, CarSettings carSettings)
+        public float CalculateDataForGraph(BeltSerialDevice device, CarSettings carSettings)
         {
-            CalculateForces(settings, carSettings);
+            CalculateForces(device, carSettings);
             float signalLeft = (lSurgeOutput * SurgeWeight) + (lSwayOutput * SwayWeight) + (lHeaveOutput * HeaveWeight); //add all forces
             return signalLeft;
         }
 
-        public float CalculateDataToSerail(MotorSettings settings, CarSettings carSettings)
+        public float CalculateDataToSerail(BeltSerialDevice device, CarSettings carSettings)
         {
-            CalculateForces(settings, carSettings);
+            CalculateForces(device, carSettings);
 
             float signalLeft = (lSurgeOutput * SurgeWeight) + (lSwayOutput * SwayWeight) + (lHeaveOutput * HeaveWeight); //add all forces
 
             float restingPointValue = (RestingPoint / 100f) ;
 
-            (signalLeft, _) = settings.ClampToMaxMotorPower(signalLeft + restingPointValue, 0); //make sure its within range of motor
+            (signalLeft, _) = device.DeviceMotorSettings.ClampToMaxMotorPower(signalLeft + restingPointValue, 0, carSettings); //make sure its within range of motor
    
             return signalLeft;
         }
+
+     
+
         /// <summary>
         /// Call this to calculate all forces that we will send to the belt
         /// this ussing the given motor settings and returns the motor forces
         /// </summary>
         /// <param name="settings"></param>
         /// <returns></returns>
-        public float SendDataToSerial(MotorSettings settings, BeltSerialDevice _serial, CarSettings carSettings)
+        public float SendDataToSerial(BeltSerialDevice device, CarSettings carSettings)
         {
-            CalculateForces(settings, carSettings);
+            
+            CalculateForces(device, carSettings);
 
             float signalLeft = (lSurgeOutput * SurgeWeight) + (lSwayOutput * SwayWeight) + (lHeaveOutput * HeaveWeight); //add all forces
             float signalRight = (rSurgeOutput * SurgeWeight) + (rSwayOutput * SwayWeight) + (rHeaveOutput * HeaveWeight); //add all forces
 
             float restingPointValue = (RestingPoint / 100f);
 
-            (signalLeft, signalRight) = settings.ClampToMaxMotorPower(signalLeft+ restingPointValue, signalRight+ restingPointValue); //make sure its within range of motor
+            (signalLeft, signalRight) = device.DeviceMotorSettings.ClampToMaxMotorPower(signalLeft+ restingPointValue, signalRight+ restingPointValue, carSettings); //make sure its within range of motor
 
-            if (settings.LeftInverted)
-                signalLeft = settings.LeftMaximumAngle - signalLeft;
-            if (settings.RightInverted)
-                signalRight = settings.RightMaximumAngle - signalRight;
+            if (device.DeviceMotorSettings.LeftInverted)
+                signalLeft = device.DeviceMotorSettings.LeftMaximumAngle - signalLeft;
+            if (device.DeviceMotorSettings.RightInverted)
+                signalRight = device.DeviceMotorSettings.RightMaximumAngle - signalRight;
 
-            _serial.SendValue(signalLeft, signalRight);
+            device.SendValue(signalLeft, signalRight);
             return signalLeft;
         }
 
