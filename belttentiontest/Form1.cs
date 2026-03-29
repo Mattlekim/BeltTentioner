@@ -35,7 +35,7 @@ namespace belttentiontest
         private IracingCommunicator? irCommunicator;
         private bool? pendingIracingState = null;
 
-  
+
         private System.Windows.Forms.Timer? simhub_Tel_Timer;
 
         // Timer for MMF updates
@@ -227,10 +227,10 @@ namespace belttentiontest
             belttentionerUpdate.Interval = 16; // ~30 times per second
             belttentionerUpdate.Tick += (s, e) => UpdateBeltTentionFeedback();
             belttentionerUpdate.Start();
-            
-            
 
-            
+
+
+
             buttonConnect.Enabled = false;
 
             _of_seatbeltDevice.Text = "Scanning...";
@@ -292,14 +292,14 @@ namespace belttentiontest
                 try
                 {
                     autoConnectCts?.Cancel();
-                   
+
                     BeltTentionerDevice.Dispose();
 
                     // stop iracing monitoring
                     try { irCommunicator?.Dispose(); } catch { }
 
                     // Stop and dispose timer
-                   
+
                     mmfUpdateTimer?.Stop(); // Stop MMF update timer
                     mmfUpdateTimer?.Dispose(); // Dispose MMF update timer
                 }
@@ -346,7 +346,7 @@ namespace belttentiontest
                 }
             };
 
-          
+
 
 
 
@@ -356,15 +356,15 @@ namespace belttentiontest
             if (applicatoinSettings.AutoConnectOnStartup)
             {
 
-               
-                    _of_seatbeltDevice.Text = $"Connecting...";
-             
+
+                _of_seatbeltDevice.Text = $"Connecting...";
+
                 // Fire and forget, UI will update via events
                 _ = Task.Run(async () =>
                 {
                     using var cts = new CancellationTokenSource();
 
-                   
+
 
                     bool ok = await BeltTentionerDevice.ConnectAsync(cts.Token).ConfigureAwait(false);
                     if (ok)
@@ -583,7 +583,7 @@ namespace belttentiontest
                         }
 
 
-                    
+
 
 
                         //OnScaledValueUpdated(brake, rcorn, ver, false);
@@ -610,7 +610,7 @@ namespace belttentiontest
             }
         }
 
-      
+
 
         private void OnIracingConnected()
         {
@@ -710,7 +710,7 @@ namespace belttentiontest
             R_MAX = (int)BeltTentionerDevice.DeviceMotorSettings.RightMaximumAngle;
 
             L_MIN = (int)BeltTentionerDevice.DeviceMotorSettings.LeftMinimumAngle;
-            L_MAX = (int)BeltTentionerDevice.DeviceMotorSettings.LeftMaximumAngle;  
+            L_MAX = (int)BeltTentionerDevice.DeviceMotorSettings.LeftMaximumAngle;
 
             L_INVERT = BeltTentionerDevice.DeviceMotorSettings.LeftInverted;
             R_INVERT = BeltTentionerDevice.DeviceMotorSettings.RightInverted;
@@ -728,7 +728,7 @@ namespace belttentiontest
             {
                 switch (message[0])
                 {
-                   
+
 
                     case 'N':
                         BeltTentionerDevice.Disconnect();
@@ -780,7 +780,7 @@ namespace belttentiontest
                 SetControlsEnabled(true);
                 buttonConnect.Enabled = false;
                 // start periodic sending using numericUpDownTarget's value getter
-              
+
             }));
         }
 
@@ -868,7 +868,7 @@ namespace belttentiontest
                     g.DrawString(tickLabel, font, brush, tickX - tickLabelSize.Width / 2, tickY - tickLabelSize.Height + 12);
                 }
 
-              
+
                 float min = BeltTentionerDevice.DeviceMotorSettings.LeftMinimumAngle;
                 float max = BeltTentionerDevice.DeviceMotorSettings.LeftMaximumAngle;
                 if (min > max) (min, max) = (max, min);
@@ -888,16 +888,11 @@ namespace belttentiontest
                 // Main curve (longitudinal G)
                 int? prevY = null, prevX = null;
 
-                CarSettings _carSettings = CarSettingsDatabase.Instance.CurrentSettings; 
+                CarSettings _carSettings = CarSettingsDatabase.Instance.CurrentSettings;
 
                 if (_cb_showBraking.Checked)
                     for (int x = -47; x < graphWidth; x++)
                     {
-                        if (x == 100)
-                        {
-
-                        }
-
                         float inputValue = (float)(x / (float)graphWidth) * 10;
                         if (inputValue > CarSettings.SurgeGForceScale)
                             break;
@@ -905,12 +900,12 @@ namespace belttentiontest
                         bool inverted = _carSettings.InvertSurge;
 
                         _carSettings.InvertSurge = false;
-                        BeltMotorData output = BeltTentionerDevice.SetupMotorsForData(inputValue, 0, 1, CarSettingsDatabase.Instance.CurrentSettings);
-                        float yValue = output.CalculateDataToSerail(BeltTentionerDevice, CarSettingsDatabase.Instance.CurrentSettings);
+                        BeltMotorData output = BeltTentionerDevice.SetupMotorsForData(inputValue, 0, 1, _carSettings);
+                        float yValue = output.CalculateDataToSerail(BeltTentionerDevice, _carSettings);
 
                         _carSettings.InvertSurge = inverted;
-                        
-                        int y = MapY(yValue) ;
+
+                        int y = MapY(yValue);
                         int drawX = xPadding + x + 47;
                         if (prevY.HasValue)
                             g.DrawLine(penMain, prevX.Value, prevY.Value, drawX, y);
@@ -923,10 +918,6 @@ namespace belttentiontest
                 if (_cb_showCorn.Checked)
                     for (int x = 0; x < graphWidth; x++)
                     {
-                        if (x == 100)
-                        {
-
-                        }
 
                         float inputValue = (float)(x / (float)graphWidth) * 10;
 
@@ -937,15 +928,15 @@ namespace belttentiontest
 
                         _carSettings.InvertSway = false;
 
-                        BeltMotorData output = BeltTentionerDevice.SetupMotorsForData(0, inputValue, 1, CarSettingsDatabase.Instance.CurrentSettings);
-                        float yValue = output.CalculateDataToSerail(BeltTentionerDevice, CarSettingsDatabase.Instance.CurrentSettings);
-                        (yValue, _) = BeltTentionerDevice.DeviceMotorSettings.ClampToMaxMotorPower( output.LeftSwayOutput + output.RightSwayOutput, 0, _carSettings);
+                        BeltMotorData output = BeltTentionerDevice.SetupMotorsForData(0, inputValue, 1, _carSettings);
+                        float yValue = output.CalculateDataToSerail(BeltTentionerDevice, _carSettings);
+                        (yValue, _) = BeltTentionerDevice.DeviceMotorSettings.ClampToMaxMotorPower(output.LeftSwayOutput + output.RightSwayOutput + _carSettings.RestingPoint / 100f, 0, _carSettings);
                         _carSettings.InvertSway = inverted;
 
                         int y = MapY(yValue);
-                        
+
                         int drawX = 47 + xPadding + x;
-                        
+
                         if (prevY.HasValue)
                             g.DrawLine(penLat, prevX.Value, prevY.Value, drawX, y);
                         prevY = y;
@@ -958,11 +949,19 @@ namespace belttentiontest
                     for (int x = -47; x < graphWidth; x++)
                     {
                         float inputValue = (float)(x / (float)graphWidth) * 10;
-                        BeltMotorData output = BeltTentionerDevice.DeviceMotorSettings.Setup(0, 0, inputValue, (int)percentageUpDownRestingPoint.Value);
 
-                        float yValue = output.CalculateDataToSerail(BeltTentionerDevice, CarSettingsDatabase.Instance.CurrentSettings);
                         if (inputValue > CarSettings.HeaveGForceScale)
                             break;
+
+                        bool inverted = _carSettings.InvertHeave;
+
+                        _carSettings.InvertHeave = false;
+
+                        BeltMotorData output = BeltTentionerDevice.DeviceMotorSettings.Setup(0, 0, inputValue, (int)percentageUpDownRestingPoint.Value);
+                        float yValue = output.CalculateDataToSerail(BeltTentionerDevice, _carSettings);
+
+                        _carSettings.InvertHeave = inverted;
+
                         int drawX = 47 + xPadding + x;
                         int y = MapY(yValue);
                         if (prevY.HasValue)
@@ -978,27 +977,69 @@ namespace belttentiontest
                     {
                         // Longitudinal force marker
                         int longX = xPadding + (int)(_lastLongForceInput / CarSettings.SurgeGForceScale * (graphWidth - 1));
-                        BeltMotorData longOutput = BeltTentionerDevice.DeviceMotorSettings.Setup(_lastLongForceInput, 0, 0, (int)percentageUpDownRestingPoint.Value);
-                        int longY = MapY(longOutput.CalculateDataToSerail(BeltTentionerDevice, CarSettingsDatabase.Instance.CurrentSettings));
-                        g.FillEllipse(System.Drawing.Brushes.Blue, longX - 5 + 47, longY - 5, 10, 10);
+
+                        float inputValue = (float)(longX / (float)graphWidth) * 10;
+                        if (inputValue > CarSettings.SurgeGForceScale)
+                            inputValue = CarSettings.SurgeGForceScale;
+
+                        bool inverted = _carSettings.InvertSurge;
+
+                        _carSettings.InvertSurge = false;
+                        BeltMotorData output = BeltTentionerDevice.SetupMotorsForData(inputValue, 0, 1, CarSettingsDatabase.Instance.CurrentSettings);
+                        float yValue = output.CalculateDataToSerail(BeltTentionerDevice, CarSettingsDatabase.Instance.CurrentSettings);
+
+                        _carSettings.InvertSurge = inverted;
+
+                        int y = MapY(yValue);
+                        int drawX = xPadding + longX + 47;
+
+                        g.FillEllipse(System.Drawing.Brushes.Blue, drawX - 5, y - 5, 10, 10);
                     }
 
                     // Lateral force marker
                     if (_cb_showCorn.Checked)
                     {
-                        int latX = xPadding + (int)(_lastLatForceInput / CarSettings.SurgeGForceScale * (graphWidth - 1));
-                        BeltMotorData latOutput = BeltTentionerDevice.DeviceMotorSettings.Setup(0, _lastLatForceInput, 0, (int)percentageUpDownRestingPoint.Value);
-                        int latY = MapY(latOutput.CalculateDataToSerail(BeltTentionerDevice, CarSettingsDatabase.Instance.CurrentSettings));
-                        g.FillEllipse(System.Drawing.Brushes.Green, latX - 5 + 47, latY - 5, 10, 10);
+                        int longX = xPadding + (int)(_lastLatForceInput / CarSettings.SwayGForceScale * (graphWidth - 1));
+
+                        float inputValue = (float)(longX / (float)graphWidth) * 10;
+                        if (inputValue > CarSettings.SwayGForceScale)
+                            inputValue = CarSettings.SwayGForceScale;
+
+                        bool inverted = _carSettings.InvertSway;
+
+                        _carSettings.InvertSway = false;
+
+                        BeltMotorData output = BeltTentionerDevice.SetupMotorsForData(0, inputValue, 1, _carSettings);
+                        float yValue = output.CalculateDataToSerail(BeltTentionerDevice, _carSettings);
+                        (yValue, _) = BeltTentionerDevice.DeviceMotorSettings.ClampToMaxMotorPower(output.LeftSwayOutput + output.RightSwayOutput + _carSettings.RestingPoint / 100f, 0, _carSettings);
+                        _carSettings.InvertSway = inverted;
+
+
+
+                        int y = MapY(yValue);
+                        int drawX = xPadding + longX + 47;
+                        g.FillEllipse(System.Drawing.Brushes.Green, drawX - 5, y - 5, 10, 10);
                     }
 
                     // Vertical force marker
                     if (_cb_showVer.Checked)
                     {
-                        int verX = xPadding + (int)(_lastVertForceInput / CarSettings.SurgeGForceScale * (graphWidth - 1));
-                        BeltMotorData verOutput = BeltTentionerDevice.DeviceMotorSettings.Setup(0, 0, _lastVertForceInput, (int)percentageUpDownRestingPoint.Value);
-                        int verY = MapY(verOutput.CalculateDataToSerail(BeltTentionerDevice, CarSettingsDatabase.Instance.CurrentSettings));
-                        g.FillEllipse(System.Drawing.Brushes.Orange, verX - 5 + 47, verY - 5, 10, 10);
+                        int longX = xPadding + (int)((_lastVertForceInput - 1) / CarSettings.HeaveGForceScale * (graphWidth - 1));
+
+                        float inputValue = (float)(longX / (float)graphWidth) * 10;
+                        //  if (inputValue > CarSettings.HeaveGForceScale)
+                        //     inputValue = CarSettings.HeaveGForceScale;  
+                        bool inverted = _carSettings.InvertHeave;
+
+                        _carSettings.InvertHeave = false;
+                        BeltMotorData output = BeltTentionerDevice.SetupMotorsForData(0, 0, inputValue, _carSettings);
+                        float yValue = output.CalculateDataToSerail(BeltTentionerDevice, _carSettings);
+
+                        _carSettings.InvertHeave = inverted;
+
+                        int y = MapY(yValue);
+                        int drawX = xPadding + longX + 47;
+                        g.FillEllipse(Brushes.Orange, drawX - 5, y - 5, 10, 10);
                     }
                     // Combined bar (long + lat + vertical)
                     float combinedLong = _lastLongForceInput;
@@ -1070,6 +1111,7 @@ namespace belttentiontest
 
         private void BeltSettingsChanged(bool save = true)
         {
+            
             UpdateCarsSettings();
             DrawCurveGraph();
 
@@ -1084,7 +1126,7 @@ namespace belttentiontest
             simSway = sway;
             simHeave = (float)Math.Round(heave, 1);
 
-          //  simHeave -= 1;
+            //  simHeave -= 1;
 
             //haveData = true;
         }
@@ -1120,12 +1162,12 @@ namespace belttentiontest
                 simHeave = 0;
                 simSway = 0;
             }
-          
 
-           
+
+
             BeltMotorData value = BeltTentionerDevice.DeviceMotorSettings.Setup(simSurge, simSway, simHeave, (int)percentageUpDownRestingPoint.Value);
 
-            
+
             float yValue = value.SendDataToSerial(BeltTentionerDevice, CarSettingsDatabase.Instance.CurrentSettings);
 
 
@@ -1138,12 +1180,12 @@ namespace belttentiontest
             _displayHeaveForce = value.LeftHeaveOutput;
 
 
-         //   haveData = false;
-         //   simHeave = 0;
-          //  simSurge = 0;
-          //  simSway = 0;
+            //   haveData = false;
+            //   simHeave = 0;
+            //  simSurge = 0;
+            //  simSway = 0;
 
-        
+
             if (cb_livePrieview != null && cb_livePrieview.Checked)
             {
 
@@ -1155,7 +1197,7 @@ namespace belttentiontest
             }
         }
 
-       
+
 
         public string LabelStatus
         {
@@ -1188,8 +1230,8 @@ namespace belttentiontest
                 _of_seatbeltDevice.IsOn = true;
                 SetControlsEnabled(true);
                 buttonConnect.Enabled = false;
-                
-                
+
+
             }));
             Log($"Manual connect: Connected to {BeltTentionerDevice.PortName}");
         }
@@ -1200,7 +1242,7 @@ namespace belttentiontest
             {
                 autoConnectCts?.Cancel();
 
-                
+
                 buttonConnect.Enabled = false;
 
                 Invoke(new Action(() => _of_seatbeltDevice.Text = "Scanning..."));
@@ -1219,7 +1261,7 @@ namespace belttentiontest
                     _of_seatbeltDevice.Text = "No device responded";
                     _of_seatbeltDevice.IsOn = false;
                     SetControlsEnabled(false);
-                    
+
                     buttonConnect.Enabled = true;
                 }));
                 Log("Manual connect: No device responded");
@@ -1230,7 +1272,7 @@ namespace belttentiontest
                 _of_seatbeltDevice.IsOn = false;
                 Log($"Manual connect failed: {ex.Message}");
                 SetControlsEnabled(false);
-                
+
                 buttonConnect.Enabled = true;
             }
         }
@@ -1258,7 +1300,7 @@ namespace belttentiontest
 
         private void numericUpDownGForceToBelt_ValueChanged_1(object sender, EventArgs e)
         {
-            _gForceMult = (float)numericUpDownGForceToBelt.Value;
+         //   _gForceMult = (float)numericUpDownGForceToBelt.Value;
             BeltSettingsChanged();
         }
 
@@ -1281,7 +1323,7 @@ namespace belttentiontest
 
             SaveCarSettings();
             Settings.Default.Save();
-       
+
             mmfUpdateTimer?.Stop(); // Stop MMF update timer
             mmfUpdateTimer?.Dispose(); // Dispose MMF update timer
             _mmfWriter?.Dispose();
@@ -1321,6 +1363,8 @@ namespace belttentiontest
             _maxPower = settings.MaxPower;
             _curveAmount = settings.SurgeCurveAmount;
 
+
+
             try
             {
                 numericUpDownGForceToBelt.Value = (decimal)settings.SurgeStrenght;
@@ -1329,6 +1373,7 @@ namespace belttentiontest
             {
                 numericUpDownGForceToBelt.Value = numericUpDownGForceToBelt.Minimum;
             }
+
             numericUpDownMaxPower.Value = settings.MaxPower;
             numericUpDownCurveAmount.Value = (decimal)settings.SurgeCurveAmount;
             nud_coneringStrengh.Value = (decimal)settings.SwayStrength;
@@ -1364,7 +1409,7 @@ namespace belttentiontest
 
             if (_timer == null)
             {
-                _timer = new System.Timers.Timer(3000);
+                _timer = new System.Timers.Timer(2000);
                 _timer.Elapsed += (s, e) =>
                 {
 
@@ -1385,6 +1430,8 @@ namespace belttentiontest
 
         private void UpdateCarsSettings()
         {
+            if (_isLoading)
+                return;
             var settings = CarSettingsDatabase.Instance.CurrentSettings;
             settings.SurgeStrenght = (float)numericUpDownGForceToBelt.Value;
             settings.MaxPower = (int)numericUpDownMaxPower.Value;
@@ -1401,11 +1448,11 @@ namespace belttentiontest
         private void SaveCarSettings()
         {
             if (_isLoading) return; // Don't save while we're still loading settings    
-          
 
-           
 
-           
+
+
+
             try
             {
                 CarSettingsDatabase.Instance.SaveCurrentCarSettings(CarName);
@@ -1491,11 +1538,11 @@ namespace belttentiontest
         {
             BeltTentionerDevice.SendUpdatedSettings(L_MIN, L_MAX, R_MIN, R_MAX, L_INVERT, R_INVERT, DuelMotors);
 
-      
+
 
             lblSettingsSaved.Visible = true;
             lblChangesNotSaved.Visible = false;
-         //   await Task.Delay(1500);
+            //   await Task.Delay(1500);
             lblSettingsSaved.Visible = false;
             _motorSettingsLoaded = true;
         }
@@ -1826,6 +1873,11 @@ namespace belttentiontest
         {
             CarSettingsDatabase.Instance.CurrentSettings.InvertSurge = cb_invertSurge.Checked;
             CarSettingsDatabase.Instance.SaveCurrentCarSettings(CarName);
+        }
+
+        private void _ttb_corneringStr_Click(object sender, EventArgs e)
+        {
+
         }
     }
 }

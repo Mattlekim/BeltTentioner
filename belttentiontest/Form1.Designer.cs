@@ -446,6 +446,7 @@ namespace belttentiontest
             _ttb_corneringStr.ThumbColor = Color.White;
             _ttb_corneringStr.TrackColor = Color.Gray;
             _ttb_corneringStr.Value = 1F;
+            _ttb_corneringStr.Click += _ttb_corneringStr_Click;
             // 
             // _ttb_corneringCurve
             // 

@@ -79,7 +79,7 @@ namespace belttentiontest
                     var json = File.ReadAllText(carSettingsFile);
                     var data = JsonSerializer.Deserialize<CarSettingsDatabase>(json) ?? new CarSettingsDatabase();
                     this.Settings = data.Settings;
-                    LoadCarSettingsInToCurrent(carName);
+                     LoadCarSettingsInToCurrent(carName);
                     _isLoading = false;
                     return;
                 }
