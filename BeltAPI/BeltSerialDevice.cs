@@ -664,7 +664,8 @@ namespace BeltAPI
 
         public BeltMotorData SetupMotorsForData(float surge, float sway, float heave, CarSettings settings)
         {
-            return DeviceMotorSettings.Setup(surge, sway, heave, settings.RestingPoint);
+            
+            return DeviceMotorSettings.Setup(surge, sway, heave, settings);
         }
     }
 }

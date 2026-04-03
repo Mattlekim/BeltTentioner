@@ -115,6 +115,8 @@ namespace belttentiontest
             _onSupportCorn = new OnOffStatusControl();
             _on_supoortVer = new OnOffStatusControl();
             _on_supportBrake = new OnOffStatusControl();
+            _bntNegativeSway = new CheckBox();
+            label4 = new Label();
             ((ISupportInitialize)numericUpDownTarget).BeginInit();
             ((ISupportInitialize)numericUpDownCurveAmount).BeginInit();
             ((ISupportInitialize)pictureBoxCurveGraph).BeginInit();
@@ -162,7 +164,7 @@ namespace belttentiontest
             // labelGForce
             // 
             labelGForce.AutoSize = true;
-            labelGForce.Location = new Point(0, 571);
+            labelGForce.Location = new Point(0, 562);
             labelGForce.Name = "labelGForce";
             labelGForce.Size = new Size(76, 15);
             labelGForce.TabIndex = 7;
@@ -194,7 +196,7 @@ namespace belttentiontest
             // 
             // pictureBoxCurveGraph
             // 
-            pictureBoxCurveGraph.Location = new Point(6, 433);
+            pictureBoxCurveGraph.Location = new Point(6, 427);
             pictureBoxCurveGraph.Name = "pictureBoxCurveGraph";
             pictureBoxCurveGraph.Size = new Size(276, 132);
             pictureBoxCurveGraph.TabIndex = 13;
@@ -242,7 +244,7 @@ namespace belttentiontest
             // labelMaxGForce
             // 
             labelMaxGForce.AutoSize = true;
-            labelMaxGForce.Location = new Point(181, 571);
+            labelMaxGForce.Location = new Point(181, 563);
             labelMaxGForce.Name = "labelMaxGForce";
             labelMaxGForce.Size = new Size(101, 15);
             labelMaxGForce.TabIndex = 22;
@@ -280,7 +282,7 @@ namespace belttentiontest
             _cb_showVer.AutoSize = true;
             _cb_showVer.Checked = true;
             _cb_showVer.CheckState = CheckState.Checked;
-            _cb_showVer.Location = new Point(212, 589);
+            _cb_showVer.Location = new Point(212, 580);
             _cb_showVer.Name = "_cb_showVer";
             _cb_showVer.Size = new Size(64, 19);
             _cb_showVer.TabIndex = 113;
@@ -293,7 +295,7 @@ namespace belttentiontest
             _cb_showCorn.AutoSize = true;
             _cb_showCorn.Checked = true;
             _cb_showCorn.CheckState = CheckState.Checked;
-            _cb_showCorn.Location = new Point(102, 589);
+            _cb_showCorn.Location = new Point(102, 580);
             _cb_showCorn.Name = "_cb_showCorn";
             _cb_showCorn.Size = new Size(79, 19);
             _cb_showCorn.TabIndex = 112;
@@ -306,7 +308,7 @@ namespace belttentiontest
             _cb_showBraking.AutoSize = true;
             _cb_showBraking.Checked = true;
             _cb_showBraking.CheckState = CheckState.Checked;
-            _cb_showBraking.Location = new Point(5, 589);
+            _cb_showBraking.Location = new Point(5, 580);
             _cb_showBraking.Name = "_cb_showBraking";
             _cb_showBraking.Size = new Size(66, 19);
             _cb_showBraking.TabIndex = 111;
@@ -401,7 +403,7 @@ namespace belttentiontest
             // cb_livePrieview
             // 
             cb_livePrieview.AutoSize = true;
-            cb_livePrieview.Location = new Point(102, 410);
+            cb_livePrieview.Location = new Point(102, 406);
             cb_livePrieview.Name = "cb_livePrieview";
             cb_livePrieview.Size = new Size(91, 19);
             cb_livePrieview.TabIndex = 102;
@@ -596,7 +598,7 @@ namespace belttentiontest
             // label1
             // 
             label1.AutoSize = true;
-            label1.Location = new Point(105, 567);
+            label1.Location = new Point(105, 562);
             label1.Name = "label1";
             label1.Size = new Size(49, 15);
             label1.TabIndex = 17;
@@ -625,7 +627,7 @@ namespace belttentiontest
             groupBox1.Controls.Add(label2);
             groupBox1.Controls.Add(lblSettingsSaved);
             groupBox1.Controls.Add(lblChangesNotSaved);
-            groupBox1.Location = new Point(11, 817);
+            groupBox1.Location = new Point(11, 852);
             groupBox1.Name = "groupBox1";
             groupBox1.Size = new Size(287, 196);
             groupBox1.TabIndex = 26;
@@ -730,6 +732,8 @@ namespace belttentiontest
             // 
             // groupBox2
             // 
+            groupBox2.Controls.Add(label4);
+            groupBox2.Controls.Add(_bntNegativeSway);
             groupBox2.Controls.Add(lb_ABS_Status);
             groupBox2.Controls.Add(bnt_testABS);
             groupBox2.Controls.Add(cb_ABS_Enabled);
@@ -737,16 +741,16 @@ namespace belttentiontest
             groupBox2.Controls.Add(label6);
             groupBox2.Location = new Point(11, 750);
             groupBox2.Name = "groupBox2";
-            groupBox2.Size = new Size(286, 63);
+            groupBox2.Size = new Size(286, 96);
             groupBox2.TabIndex = 27;
             groupBox2.TabStop = false;
-            groupBox2.Text = "ABS (EXPERIMENTAL)";
+            groupBox2.Text = "EXPERIMENTAL";
             groupBox2.Enter += groupBox2_Enter;
             // 
             // lb_ABS_Status
             // 
             lb_ABS_Status.AutoSize = true;
-            lb_ABS_Status.Location = new Point(13, 45);
+            lb_ABS_Status.Location = new Point(13, 74);
             lb_ABS_Status.Name = "lb_ABS_Status";
             lb_ABS_Status.Size = new Size(51, 15);
             lb_ABS_Status.TabIndex = 57;
@@ -754,7 +758,7 @@ namespace belttentiontest
             // 
             // bnt_testABS
             // 
-            bnt_testABS.Location = new Point(238, 20);
+            bnt_testABS.Location = new Point(238, 49);
             bnt_testABS.Name = "bnt_testABS";
             bnt_testABS.Size = new Size(42, 23);
             bnt_testABS.TabIndex = 56;
@@ -765,7 +769,7 @@ namespace belttentiontest
             // cb_ABS_Enabled
             // 
             cb_ABS_Enabled.AutoSize = true;
-            cb_ABS_Enabled.Location = new Point(161, 24);
+            cb_ABS_Enabled.Location = new Point(161, 53);
             cb_ABS_Enabled.Name = "cb_ABS_Enabled";
             cb_ABS_Enabled.Size = new Size(68, 19);
             cb_ABS_Enabled.TabIndex = 35;
@@ -776,7 +780,7 @@ namespace belttentiontest
             // nud_ABS
             // 
             nud_ABS.DecimalPlaces = 2;
-            nud_ABS.Location = new Point(95, 22);
+            nud_ABS.Location = new Point(95, 51);
             nud_ABS.Maximum = new decimal(new int[] { 30, 0, 0, 0 });
             nud_ABS.Minimum = new decimal(new int[] { 3, 0, 0, 0 });
             nud_ABS.Name = "nud_ABS";
@@ -788,7 +792,7 @@ namespace belttentiontest
             // label6
             // 
             label6.AutoSize = true;
-            label6.Location = new Point(13, 26);
+            label6.Location = new Point(13, 55);
             label6.Name = "label6";
             label6.Size = new Size(76, 15);
             label6.TabIndex = 36;
@@ -935,11 +939,31 @@ namespace belttentiontest
             _on_supportBrake.Text = "Braking";
             _on_supportBrake.TextColor = SystemColors.ControlText;
             // 
+            // _bntNegativeSway
+            // 
+            _bntNegativeSway.AutoSize = true;
+            _bntNegativeSway.Location = new Point(161, 22);
+            _bntNegativeSway.Name = "_bntNegativeSway";
+            _bntNegativeSway.Size = new Size(68, 19);
+            _bntNegativeSway.TabIndex = 58;
+            _bntNegativeSway.Text = "Enabled";
+            _bntNegativeSway.UseVisualStyleBackColor = true;
+            _bntNegativeSway.CheckedChanged += _bntNegativeSway_CheckedChanged;
+            // 
+            // label4
+            // 
+            label4.AutoSize = true;
+            label4.Location = new Point(15, 26);
+            label4.Name = "label4";
+            label4.Size = new Size(84, 15);
+            label4.TabIndex = 59;
+            label4.Text = "Negative Sway";
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(316, 1015);
+            ClientSize = new Size(316, 1056);
             Controls.Add(_gb_simhub);
             Controls.Add(_of_seatbeltDevice);
             Controls.Add(_of_simHub);
@@ -1038,5 +1062,7 @@ namespace belttentiontest
         private Label _lb_menu;
         private CheckBox cb_invertHeave;
         private CheckBox cb_invertSurge;
+        private Label label4;
+        private CheckBox _bntNegativeSway;
     }
 }

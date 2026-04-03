@@ -17,7 +17,7 @@ namespace BeltAPI
         public float HeaveForceInput;
         public float SurgeForceInput;
 
-   
+        public bool ExperimentalSway; // this is for testing out new sway code, 
 
         /// <summary>
         /// this is the point where the motors are in the ideal position, 
@@ -122,12 +122,18 @@ namespace BeltAPI
             if (lSwayOutput < 0)
             {
                 lSwayOutput = Math.Abs(lSwayOutput);
-                rSwayOutput = 0;
+                if (ExperimentalSway)
+                    rSwayOutput = -lSwayOutput;
+                else
+                    rSwayOutput = 0;
             }
             else
             {
                 rSwayOutput = Math.Abs(lSwayOutput);
-                lSwayOutput = 0;
+                if (ExperimentalSway)
+                    lSwayOutput = -rSwayOutput;
+                else
+                    lSwayOutput = 0;
             }
 
             if (carSettings.InvertHeave)

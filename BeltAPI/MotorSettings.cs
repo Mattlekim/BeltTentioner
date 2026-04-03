@@ -78,7 +78,7 @@ namespace BeltAPI
             return scaledValue;
         }
 
-        public BeltMotorData Setup(float SimSurgeValue, float SimSwayValue, float SimHeaveValue, int restingPoint)
+        public BeltMotorData Setup(float SimSurgeValue, float SimSwayValue, float SimHeaveValue, CarSettings settings)
         {
             SimSurgeValue = Math.Clamp(SimSurgeValue, -CarSettings.SurgeGForceScale, CarSettings.SurgeGForceScale);
             SimSwayValue = Math.Clamp(SimSwayValue, -CarSettings.SwayGForceScale, CarSettings.SwayGForceScale);
@@ -86,13 +86,15 @@ namespace BeltAPI
 
             BeltMotorData motorOutput = BeltMotorData.Zero;
 
+            motorOutput.ExperimentalSway = settings.NegativeSway;
+
             motorOutput.SurgeForceInput = SimSurgeValue;
 
             motorOutput.SwayForceInput = SimSwayValue;
 
             motorOutput.HeaveForceInput = SimHeaveValue;
 
-            motorOutput.RestingPoint = restingPoint;
+            motorOutput.RestingPoint = settings.RestingPoint;
 
 
             motorOutput.EnableAll();

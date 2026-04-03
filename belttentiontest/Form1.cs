@@ -1111,7 +1111,7 @@ namespace belttentiontest
 
         private void BeltSettingsChanged(bool save = true)
         {
-            
+
             UpdateCarsSettings();
             DrawCurveGraph();
 
@@ -1300,7 +1300,7 @@ namespace belttentiontest
 
         private void numericUpDownGForceToBelt_ValueChanged_1(object sender, EventArgs e)
         {
-         //   _gForceMult = (float)numericUpDownGForceToBelt.Value;
+            //   _gForceMult = (float)numericUpDownGForceToBelt.Value;
             BeltSettingsChanged();
         }
 
@@ -1393,6 +1393,8 @@ namespace belttentiontest
 
             cb_invertHeave.Checked = settings.InvertHeave; // NEW
             cb_invertSurge.Checked = settings.InvertSurge; // NEW
+
+            _bntNegativeSway.Checked = settings.NegativeSway;
             DrawCurveGraph();
             _isLoading = false;
         }
@@ -1866,18 +1868,24 @@ namespace belttentiontest
         private void cb_invertHeave_CheckedChanged(object sender, EventArgs e)
         {
             CarSettingsDatabase.Instance.CurrentSettings.InvertHeave = cb_invertHeave.Checked;
-            CarSettingsDatabase.Instance.SaveCurrentCarSettings(CarName);
+            SaveSoon();
         }
 
         private void cb_invertSurge_CheckedChanged(object sender, EventArgs e)
         {
             CarSettingsDatabase.Instance.CurrentSettings.InvertSurge = cb_invertSurge.Checked;
-            CarSettingsDatabase.Instance.SaveCurrentCarSettings(CarName);
+            SaveSoon();
         }
 
         private void _ttb_corneringStr_Click(object sender, EventArgs e)
         {
 
+        }
+
+        private void _bntNegativeSway_CheckedChanged(object sender, EventArgs e)
+        {
+            CarSettingsDatabase.Instance.CurrentSettings.NegativeSway = _bntNegativeSway.Checked;
+            SaveSoon();
         }
     }
 }

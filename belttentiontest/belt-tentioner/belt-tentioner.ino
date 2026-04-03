@@ -4,9 +4,6 @@
 #define LEFT_MOTOR 3
 #define RIGHT_MOTOR 9
 
-#define MAX_OUTPUT 255
-
-
 float L_TARGET = 0;
 float R_TARGET = 0;
 bool handshakeComplete = false;
@@ -19,6 +16,12 @@ bool L_INVERT = false, R_INVERT = false, DUAL_MOTORS = false;
 
 // Track last time a data was received
 unsigned long lastDataTime = 0;
+
+//SLOW is going to be for powering up or powering down
+//this will stop fast motor changes
+//it is implmented in a way so that it wont break if 
+//the old firmware is run
+bool slow = false;
 
 int ABS_STRENGTH = 20;
 bool ABS_ACTIVATED = true;
@@ -216,35 +219,28 @@ void ProcessSerial() {
           R_TARGET = value;
           lastDataTime = millis();
         }
+
+        if (key == "S")
+          slow = true; //slow motors down
+
+        if (key == "F")
+          slow = false; //set motors to normal speed
       }
     }
   }
 }
 
-
+int lastLPos, lastRPos;
 void loop() {
   unsigned long now = millis();  // current time in ms
                                  // time since last update
   unsigned long elapsed = now - lastUpdate;
   lastUpdate = now;
   TotalElapsed += elapsed;
-  //analogWrite(UNWIDE_PIN, 200);
-  //analogWrite(WIND_PIN, 200);
-  //return;
 
   ProcessSerial();
 
-  // if (TotalElapsed > 1000) {
-  //  Serial.print("NC--");
-  // Serial.println(L_TARGET);
-  //   TotalElapsed = 0;
-  // }
-
-
   if (!handshakeComplete) return;
-
-
-
 
   if (millis() - lastDataTime > 5000) {
     ResetMotors();
@@ -289,20 +285,33 @@ void loop() {
   if (R_ABS < R_MIN)
     R_ABS = R_MIN;
 
-
-
   // Map 0–180 range to 1000–2000 µs pulse width
   int pulseL = map((int)L_ABS, 0, 180, 500, 2500);
   int pulseR = map((int)R_ABS, 0, 180, 500, 2500);
+
+
+  //save last positions
+  lastLPos = pulseL;
+  lastRPos = pulseR;
+
+
+  if (slow) //slow down motors moving to new position. do this for when powering up or powering down
+  {
+
+    if (abs(pulseL - lastLPos) < 2 && abs(pulseR - lastRPos) < 3)
+    {
+      slow = false;
+    }
+
+    pulseL = (float)pulseL * .01f + (float)lastLPos * .99f;
+    pulseR = (float)pulseR * .01f + (float)lastRPos * .99f;
+
+  }
 
   ServoLeft.writeMicroseconds(pulseL);
 
   if (DUAL_MOTORS)
     ServoRight.writeMicroseconds(pulseR);
-  // ServoLeft.write(L_TARGET);
-
-
-
-
+ 
   delay(4);
 }

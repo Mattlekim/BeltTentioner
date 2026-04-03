@@ -20,8 +20,8 @@ _carSettings.SurgeCurveAmount = 1;
 _carSettings.SwayCurveAmount = 1;
 _carSettings.MaxPower = 100;
 _carSettings.RestingPoint = 0;
-
-
+_carSettings.NegativeSway = false;
+_carSettings.RestingPoint = 20;
 float testValue = 0;
 
 
@@ -47,7 +47,7 @@ serialSendDataTimer.Elapsed += (s, e) =>
     switch (testState)
     {
         case BeltTentionerExample.TestState.Idle:
-            bmd = _motorSettings.Setup(0, 0, 1, _carSettings.RestingPoint);
+            bmd = _motorSettings.Setup(0, 0, 1, _carSettings);
             bmd.SendDataToSerial(bsd, _carSettings);
             break;
         case BeltTentionerExample.TestState.TestSurge:

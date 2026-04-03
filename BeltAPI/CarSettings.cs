@@ -31,5 +31,7 @@ namespace BeltAPI
 
        
         public int RestingPoint { get; set; } = 0; // NEW: Resting point for the motor
+
+        public bool NegativeSway { get; set; } = false;
     }
 }
