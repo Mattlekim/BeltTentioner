@@ -19,9 +19,9 @@ unsigned long lastDataTime = 0;
 
 //SLOW is going to be for powering up or powering down
 //this will stop fast motor changes
-//it is implmented in a way so that it wont break if 
+//it is implmented in a way so that it wont break if
 //the old firmware is run
-bool slow = false;
+bool slow = true;
 
 int ABS_STRENGTH = 20;
 bool ABS_ACTIVATED = true;
@@ -30,6 +30,10 @@ float abs_frame = 0;
 float L_ABS, R_ABS;
 
 byte ABS_RUNNING_FRAME = 0;
+
+
+#define LENGHTOFSLOWTIMEOUT 3000
+long slowTimeout = 0;
 // Save settings to EEPROM
 void saveSettings() {
   int addr = 0;
@@ -112,6 +116,7 @@ void SetUPServos() {
 
 
 void ResetMotors() {
+  slow = true;
   ABS_ACTIVATED = false;
   if (L_INVERT)
     L_TARGET = L_MAX;
@@ -144,6 +149,8 @@ void ProcessSerial() {
         handshakeComplete = true;
         SetUPServos();
         Serial.println("READY");
+        slow = true;
+        slowTimeout = LENGHTOFSLOWTIMEOUT * 2;
       }
 
     } else if (input.equalsIgnoreCase("SETTINGS")) {
@@ -220,11 +227,13 @@ void ProcessSerial() {
           lastDataTime = millis();
         }
 
-        if (key == "S")
-          slow = true; //slow motors down
+        if (key == "S") {
+          slow = true;  //slow motors down
+          slowTimeout = LENGHTOFSLOWTIMEOUT;
+        }
 
         if (key == "F")
-          slow = false; //set motors to normal speed
+          slow = false;  //set motors to normal speed
       }
     }
   }
@@ -237,6 +246,12 @@ void loop() {
   unsigned long elapsed = now - lastUpdate;
   lastUpdate = now;
   TotalElapsed += elapsed;
+
+  if (slow) {
+    slowTimeout -= elapsed;
+    if (slowTimeout <= 0)
+      slow = false;
+  }
 
   ProcessSerial();
 
@@ -290,28 +305,29 @@ void loop() {
   int pulseR = map((int)R_ABS, 0, 180, 500, 2500);
 
 
-  //save last positions
-  lastLPos = pulseL;
-  lastRPos = pulseR;
 
-
-  if (slow) //slow down motors moving to new position. do this for when powering up or powering down
+  //slow = true;
+  if (slow)  //slow down motors moving to new position. do this for when powering up or powering down
   {
 
-    if (abs(pulseL - lastLPos) < 2 && abs(pulseR - lastRPos) < 3)
-    {
-      slow = false;
-    }
+  //save last positions
+  lastLPos = ServoLeft.readMicroseconds();
+  lastRPos = ServoRight.readMicroseconds();
 
-    pulseL = (float)pulseL * .01f + (float)lastLPos * .99f;
-    pulseR = (float)pulseR * .01f + (float)lastRPos * .99f;
+//  if (abs(pulseL - lastLPos) < 2 && abs(pulseR - lastRPos) < 3) {
+ //     slow = false;
+  //  }
 
+      pulseL = (float)pulseL * .01f + (float)lastLPos * .99f;
+      pulseR = (float)pulseR * .01f + (float)lastRPos * .99f;
+    
   }
 
+  
   ServoLeft.writeMicroseconds(pulseL);
 
   if (DUAL_MOTORS)
     ServoRight.writeMicroseconds(pulseR);
- 
+
   delay(4);
 }

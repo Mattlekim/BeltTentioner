@@ -44,6 +44,8 @@ namespace belttentiontest
         IRacingSdkDatum? Datum_VertAccel = null;
 
         public Action<string>? CarNameChanged;
+
+        public bool IsInCar { get; private set; }
         // Singleton: make constructor private
         private IracingCommunicator()
         {
@@ -144,11 +146,13 @@ namespace belttentiontest
             }
             _lastABS_Status = _absActive;
             bool isReplay = _iracingClient.Data.GetBool(Datum_IsReplayPlaying);
+            IsInCar = !isReplay;
             if (isReplay)
             {
              
                 ScaledValueUpdated?.Invoke(0, 0, 0);
                 GForceUpdated?.Invoke(0);
+                
                 return;
             }
 

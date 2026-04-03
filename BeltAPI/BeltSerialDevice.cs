@@ -437,6 +437,28 @@ namespace BeltAPI
             }
         }
 
+        public void SendSlowMode()
+        {
+            try
+            {
+                var sp = serialPort;
+                if (sp != null && sp.IsOpen)
+                {
+                    var line = string.Empty;
+
+                    line = $"S:0{sp.NewLine}";
+                    sp.Write(line);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Device may have been unplugged or port closed
+                MessageReceived?.Invoke("DEVICE_UNPLUGGED");
+                Disconnect();
+            }
+
+        }
+
         public void SendValue(float value, bool leftMotor)
         {
             if (!isConnected)

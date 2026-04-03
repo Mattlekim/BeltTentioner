@@ -499,7 +499,7 @@ namespace belttentiontest
 
                 telemetryReader.Dispose();
                 telemetryReader = null;
-
+                UpdateCarDriveState(false);
                 BeginInvoke(new Action(() =>
                 {
                     Log("Disconnected from SimHub telemetry MMF");
@@ -517,9 +517,15 @@ namespace belttentiontest
                 BeginInvoke(new Action(() =>
                 {
                     if (_simhub_Paused)
+                    {
                         _lb_menu.Text = "In Menu";
+                        UpdateCarDriveState(false);
+                    }
                     else
+                    {
                         _lb_menu.Text = "In Game";
+                        UpdateCarDriveState(true);
+                    }
                 }));
             }
             if (_simhub_Telemetry.GameRunning)
@@ -544,6 +550,7 @@ namespace belttentiontest
                             {
                                 CarName = _simhub_Telemetry.CarName;
                                 LoadCarSettings($"{_simhub_Telemetry.GameName}-{CarName}");
+                                UpdateCarDriveState(true);
                                 BeginInvoke(new Action(() =>
                                 {
                                     lb_carName.Text = CarName;
@@ -556,7 +563,7 @@ namespace belttentiontest
                         var brake = _simhub_Telemetry.Braking / 9.81f;
                         var corn = _simhub_Telemetry.Cornering / 9.81f;
                         var ver = _simhub_Telemetry.Vertical / 9.81f;
-
+                        UpdateCarDriveState(true);
                         if (_simHub_SupportBraking != _simhub_Telemetry.SupportBraking)
                         {
                             _simHub_SupportBraking = _simhub_Telemetry.SupportBraking;
@@ -610,8 +617,6 @@ namespace belttentiontest
             }
         }
 
-
-
         private void OnIracingConnected()
         {
             if (!applicatoinSettings.UseIracing)
@@ -620,7 +625,7 @@ namespace belttentiontest
             maxGForceRecorded = 0f; //reset max G-Force on new connection
             labelMaxGForce.Text = $"Max G-Force: {maxGForceRecorded:F2}";
 
-
+            UpdateCarDriveState(true);
 
             if (!IsHandleCreated)
             {
@@ -635,6 +640,23 @@ namespace belttentiontest
             }));
         }
 
+        private bool _wasInCar;
+        private void UpdateCarDriveState(bool isInCar)
+        {
+            if (isInCar && !_wasInCar)
+            {
+                BeltTentionerDevice.SendSlowMode();
+            }
+            else
+                   if (_wasInCar && !isInCar)
+            {
+                BeltTentionerDevice.SendSlowMode();
+            }
+
+            _wasInCar = isInCar;
+        }
+
+
         private void OnIracingDisconnected()
         {
             if (!applicatoinSettings.UseIracing)
@@ -644,6 +666,9 @@ namespace belttentiontest
             CarName = "NA";
             LoadCarSettings(CarName);
             lb_carName.Text = CarName;
+
+
+            UpdateCarDriveState(false);
 
             if (!IsHandleCreated)
             {
@@ -957,7 +982,7 @@ namespace belttentiontest
 
                         _carSettings.InvertHeave = false;
 
-                        BeltMotorData output = BeltTentionerDevice.DeviceMotorSettings.Setup(0, 0, inputValue, (int)percentageUpDownRestingPoint.Value);
+                        BeltMotorData output = BeltTentionerDevice.DeviceMotorSettings.Setup(0, 0, inputValue, CarSettingsDatabase.Instance.CurrentSettings);
                         float yValue = output.CalculateDataToSerail(BeltTentionerDevice, _carSettings);
 
                         _carSettings.InvertHeave = inverted;
@@ -1045,7 +1070,7 @@ namespace belttentiontest
                     float combinedLong = _lastLongForceInput;
                     float combinedLat = _lastLatForceInput;
                     float combinedVert = _lastVertForceInput;
-                    BeltMotorData combinedOutput = BeltTentionerDevice.DeviceMotorSettings.Setup(combinedLong, combinedLat, combinedVert, (int)percentageUpDownRestingPoint.Value);
+                    BeltMotorData combinedOutput = BeltTentionerDevice.DeviceMotorSettings.Setup(combinedLong, combinedLat, combinedVert, CarSettingsDatabase.Instance.CurrentSettings);
                     float combinedValue = combinedOutput.CalculateDataToSerail(BeltTentionerDevice, CarSettingsDatabase.Instance.CurrentSettings);
                     combinedValue = Math.Abs(combinedValue); //for showing max force dont invert it
                     // Bar max is based on settings.MaxPower (0-100 percent of motor range)
@@ -1125,7 +1150,8 @@ namespace belttentiontest
             simSurge = surge;
             simSway = sway;
             simHeave = (float)Math.Round(heave, 1);
-
+            UpdateCarDriveState(IracingCommunicator.Instance.IsInCar);
+            
             //  simHeave -= 1;
 
             //haveData = true;
@@ -1164,12 +1190,24 @@ namespace belttentiontest
             }
 
 
+            BeltMotorData value;
+            if (_wasInCar)
+            {
 
-            BeltMotorData value = BeltTentionerDevice.DeviceMotorSettings.Setup(simSurge, simSway, simHeave, (int)percentageUpDownRestingPoint.Value);
-
+                value = BeltTentionerDevice.DeviceMotorSettings.Setup(simSurge, simSway, simHeave, CarSettingsDatabase.Instance.CurrentSettings);
+            }
+            else
+            {
+                CarSettings settings = CarSettingsDatabase.Instance.CurrentSettings;
+                int rp = settings.RestingPoint;
+                settings.RestingPoint = 0;
+                value = BeltTentionerDevice.DeviceMotorSettings.Setup(0, 0, 1, settings);
+                settings.RestingPoint = rp;
+                
+            }
 
             float yValue = value.SendDataToSerial(BeltTentionerDevice, CarSettingsDatabase.Instance.CurrentSettings);
-
+            
 
             float tmp = _lastMotorOutputValues.LeftSurgeOutput;
             _lastMotorOutputValues = value;
