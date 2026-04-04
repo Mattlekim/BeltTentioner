@@ -1923,6 +1923,8 @@ namespace belttentiontest
 
         private void _bntNegativeSway_CheckedChanged(object sender, EventArgs e)
         {
+            if (_isLoading)
+                return;
             CarSettingsDatabase.Instance.CurrentSettings.NegativeSway = _bntNegativeSway.Checked;
             SaveSoon();
         }
