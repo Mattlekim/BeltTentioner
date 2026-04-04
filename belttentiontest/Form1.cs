@@ -242,6 +242,7 @@ namespace belttentiontest
             BeltTentionerDevice.HandshakeComplete += OnHandshakeCompleteFromSerial;
             BeltTentionerDevice.OnMotorSettingsRecived += OnMotorSettingsRecived;
 
+            WindowsMessageBridge.IsEnabled = false;
             WindowsMessageBridge.BeltMessageReceived += (msg) =>
             {
                 switch (msg.Type)

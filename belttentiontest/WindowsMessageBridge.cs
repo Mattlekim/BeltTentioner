@@ -21,6 +21,8 @@ namespace BeltTentionerLib
 
     public class BeltMessage
     {
+       
+
         public BeltMessageType Type { get; set; }
         public float Value { get; set; }
         public BeltMessage(BeltMessageType type, float value)
@@ -53,9 +55,14 @@ namespace BeltTentionerLib
         public static event Action<BeltMessage>? BeltMessageReceived;
         public static event Action<string>? MessageReceived;
 
+        public static bool IsEnabled { get; set; } = true; // Default to enabled
+
         // Log received BeltMessages for debugging
         static WindowsMessageBridge()
         {
+            if (!IsEnabled)
+                return;
+
             BeltMessageReceived += (msg) =>
             {
                 try
@@ -128,6 +135,7 @@ namespace BeltTentionerLib
         [DllImport("user32.dll")]
         public static extern bool IsWindowVisible(IntPtr hWnd);
 
+
         public static void ListAllWindows()
         {
             EnumWindows((hWnd, lParam) =>
@@ -148,6 +156,9 @@ namespace BeltTentionerLib
         // Send a string message to another window by title
         public static bool SendStringMessage(string targetWindowTitle, string message)
         {
+            if (!IsEnabled)
+                return false;
+
             ListAllWindows();
 
             IntPtr hPointer = FindWindow(null, targetWindowTitle);
@@ -184,6 +195,9 @@ namespace BeltTentionerLib
         // Decodes and handles Windows messages
         public static bool DecodeWndProc(ref Message m)
         {
+            if (!IsEnabled)
+                return false;
+
             // Only handle custom WM_COPYDATA messages, ignore all others
             if (m.Msg == WM_COPYDATA)
             {
