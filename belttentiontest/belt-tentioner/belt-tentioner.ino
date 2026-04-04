@@ -1,7 +1,7 @@
 #include <Servo.h>
 #include <EEPROM.h>
 
-#define LEFT_MOTOR 3
+#define LEFT_MOTOR 10
 #define RIGHT_MOTOR 9
 
 float L_TARGET = 0;
@@ -36,7 +36,7 @@ byte ABS_RUNNING_FRAME = 0;
 long slowTimeout = 0;
 // Save settings to EEPROM
 void saveSettings() {
-  int addr = 0;
+  int addr = 200;
   EEPROM.put(addr, L_MIN);
   addr += sizeof(L_MIN);
   EEPROM.put(addr, L_MAX);
@@ -54,7 +54,7 @@ void saveSettings() {
 
 // Load settings from EEPROM
 void loadSettings() {
-  int addr = 0;
+  int addr = 200;
   EEPROM.get(addr, L_MIN);
   addr += sizeof(L_MIN);
   EEPROM.get(addr, L_MAX);

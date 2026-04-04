@@ -100,6 +100,8 @@ namespace BeltAPI
             if (carSettings.InvertHeave)
             {
                 HeaveForceInput = -HeaveForceInput;
+
+
                 HeaveForceInput += 1;
             }
             else
@@ -188,6 +190,8 @@ namespace BeltAPI
             if (device.DeviceMotorSettings.RightInverted)
                 signalRight = device.DeviceMotorSettings.RightMaximumAngle - signalRight;
 
+            signalLeft = (float)Math.Round(signalLeft, 1);
+            signalRight = (float)Math.Round(signalRight, 1);
             device.SendValue(signalLeft, signalRight);
             return signalLeft;
         }

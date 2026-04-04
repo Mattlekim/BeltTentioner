@@ -1206,7 +1206,7 @@ namespace belttentiontest
                 settings.RestingPoint = rp;
                 
             }
-
+            
             float yValue = value.SendDataToSerial(BeltTentionerDevice, CarSettingsDatabase.Instance.CurrentSettings);
             
 
