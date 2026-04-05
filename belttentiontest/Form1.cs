@@ -318,14 +318,19 @@ namespace belttentiontest
 
             irCommunicator.CarNameChanged += (carName) =>
             {
+                
                 BeginInvoke(new Action(() =>
                 {
                     if (!applicatoinSettings.UseIracing)
                         return;
 
-                    lb_carName.Text = $"Car: {carName}";
-                    CarName = carName;
-                    LoadCarSettings(carName);
+                    try
+                    {
+                        lb_carName.Text = $"Car: {carName}";
+                        CarName = carName;
+                        LoadCarSettings(carName);
+                    }
+                    catch { }
                 }));
             };
 
@@ -666,7 +671,7 @@ namespace belttentiontest
             SaveSoon();
             CarName = "NA";
             LoadCarSettings(CarName);
-            lb_carName.Text = CarName;
+          
 
 
             UpdateCarDriveState(false);
@@ -679,6 +684,7 @@ namespace belttentiontest
 
             BeginInvoke(new Action(() =>
             {
+                lb_carName.Text = CarName;
                 _of_Control.IsOn = false;
                 Log("iRacing: Not connected");
             }));
@@ -1395,6 +1401,7 @@ namespace belttentiontest
         private void LoadCarSettings(string carName)
         {
             _isLoading = true;
+           // carName = null;
             CarSettingsDatabase.Instance.LoadCarSettingsFromFile(carName);
             var settings = CarSettingsDatabase.Instance.CurrentSettings;
             // Apply settings to UI
@@ -1428,7 +1435,11 @@ namespace belttentiontest
             _coneringCurveAmount = settings.SwayCurveAmount;
             nud_ConeringCurveAmount.Value = (decimal)settings.SwayCurveAmount;
             percentageUpDownRestingPoint.Value = (decimal)settings.RestingPoint;
-            lb_carName.Text = carName;
+
+            BeginInvoke(new Action(() =>
+            {
+                lb_carName.Text = carName;
+            }));
 
             cb_invertHeave.Checked = settings.InvertHeave; // NEW
             cb_invertSurge.Checked = settings.InvertSurge; // NEW
