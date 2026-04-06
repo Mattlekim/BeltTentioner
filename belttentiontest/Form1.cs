@@ -160,14 +160,15 @@ namespace belttentiontest
 
         public Form1()
         {
+            MyLogger.Log("Application started");
             _isLoading = true;
             LoadAutoConnectSetting();
             _instance = this;
             InitializeComponent();
 
 
-
             // Silent update check on startup (fire-and-forget)
+            MyLogger.Log("Checking for updates...");
             _ = Task.Run(async () =>
             {
                 try
@@ -189,6 +190,7 @@ namespace belttentiontest
                 catch { }
             });
 
+            MyLogger.Log("Binding Controls");
             this.Text = $"Belt Tensioner V{AboutBox.Version}";
             ThinTrackBar.Bind(_ttb_maxOutput, numericUpDownMaxPower);
             ThinTrackBar.Bind(_ttb_restingPoint, percentageUpDownRestingPoint);
@@ -242,7 +244,9 @@ namespace belttentiontest
             BeltTentionerDevice.HandshakeComplete += OnHandshakeCompleteFromSerial;
             BeltTentionerDevice.OnMotorSettingsRecived += OnMotorSettingsRecived;
 
+            
             WindowsMessageBridge.IsEnabled = false;
+            MyLogger.Log($"Initializing Windows Message Bridge {(WindowsMessageBridge.IsEnabled? "Yes" : "No")}");
             WindowsMessageBridge.BeltMessageReceived += (msg) =>
             {
                 switch (msg.Type)
@@ -307,6 +311,7 @@ namespace belttentiontest
                 catch { }
             };
 
+            MyLogger.Log("Initialization complete, setting up iRacing monitoring");
             // start iRacing monitoring
             irCommunicator = IracingCommunicator.Instance;
             irCommunicator.ConnectionChanged += OnIracingConnectionChanged;
@@ -318,22 +323,19 @@ namespace belttentiontest
 
             irCommunicator.CarNameChanged += (carName) =>
             {
+               
+                CarName = carName;
+
                 
-                BeginInvoke(new Action(() =>
-                {
-                    if (!applicatoinSettings.UseIracing)
-                        return;
+               
+                LoadCarSettings(carName);
+               
 
-                    try
-                    {
-                        lb_carName.Text = $"Car: {carName}";
-                        CarName = carName;
-                        LoadCarSettings(carName);
-                    }
-                    catch { }
-                }));
             };
+          
+             
 
+            //   throw new InvalidOperationException("This is a test exception to verify crash logging.");
             // initial statuses
             // labelStatus.Text = "Status"; // keep labelStatus for serial device status
             // textBoxIracingStatus initial text set in designer
@@ -356,7 +358,7 @@ namespace belttentiontest
 
 
 
-            LoadCarSettings(CarName);
+         //   LoadCarSettings(CarName);
 
             // Auto-connect on startup if enabled
             if (applicatoinSettings.AutoConnectOnStartup)
@@ -554,6 +556,7 @@ namespace belttentiontest
                         if (_simhub_Telemetry.GameName != string.Empty)
                             if (CarName != _simhub_Telemetry.CarName)
                             {
+                                Debugger.Log(0, "hi", "THIS SHOUILD NOT RUN");
                                 CarName = _simhub_Telemetry.CarName;
                                 LoadCarSettings($"{_simhub_Telemetry.GameName}-{CarName}");
                                 UpdateCarDriveState(true);
@@ -670,6 +673,7 @@ namespace belttentiontest
 
             SaveSoon();
             CarName = "NA";
+            Debugger.Log(0, "hi", $"============IRACING DISCONCTED================");
             LoadCarSettings(CarName);
           
 
@@ -921,7 +925,8 @@ namespace belttentiontest
                 int? prevY = null, prevX = null;
 
                 CarSettings _carSettings = CarSettingsDatabase.Instance.CurrentSettings;
-
+                if (_carSettings == null)
+                    return; 
                 if (_cb_showBraking.Checked)
                     for (int x = -47; x < graphWidth; x++)
                     {
@@ -1167,6 +1172,9 @@ namespace belttentiontest
         private void UpdateBeltTentionFeedback()
         {
 
+            if (CarSettingsDatabase.Instance.CurrentSettings == null)
+                return;
+
             if (!irCommunicator.Isconnected && !_simHubConnected)
             {
                 simSway = 0;
@@ -1345,6 +1353,8 @@ namespace belttentiontest
 
         private void numericUpDownGForceToBelt_ValueChanged_1(object sender, EventArgs e)
         {
+            if (_isLoading)
+                return;
             //   _gForceMult = (float)numericUpDownGForceToBelt.Value;
             BeltSettingsChanged();
         }
@@ -1400,51 +1410,74 @@ namespace belttentiontest
 
         private void LoadCarSettings(string carName)
         {
+
+
             _isLoading = true;
-           // carName = null;
+            // carName = null;
+
+    
             CarSettingsDatabase.Instance.LoadCarSettingsFromFile(carName);
+ 
             var settings = CarSettingsDatabase.Instance.CurrentSettings;
+
+   
             // Apply settings to UI
-            _gForceMult = settings.SurgeStrenght;
-            _maxPower = settings.MaxPower;
-            _curveAmount = settings.SurgeCurveAmount;
 
-
-
-            try
+          //  try
             {
-                numericUpDownGForceToBelt.Value = (decimal)settings.SurgeStrenght;
+                _gForceMult = settings.SurgeStrenght;
+                _maxPower = settings.MaxPower;
+                _curveAmount = settings.SurgeCurveAmount;
             }
-            catch
+           // catch (Exception x)
             {
-                numericUpDownGForceToBelt.Value = numericUpDownGForceToBelt.Minimum;
+           //     Debugger.Log(0, "hi", $"Error loading settings: {x.Message}\n");
             }
 
-            numericUpDownMaxPower.Value = settings.MaxPower;
-            numericUpDownCurveAmount.Value = (decimal)settings.SurgeCurveAmount;
-            nud_coneringStrengh.Value = (decimal)settings.SwayStrength;
-            nudVertical.Value = (decimal)settings.HeaveStrength; // NEW
-            if (settings.AbsStrength < 3)
-                settings.AbsStrength = 3;
-            nud_ABS.Value = (int)settings.AbsStrength; // NEW
-            cb_ABS_Enabled.Checked = settings.AbsEnabled; // NEW
 
-            cb_invert_sway.Checked = settings.InvertSway; // NEW
-
-            // Set new setting to UI
-            _coneringCurveAmount = settings.SwayCurveAmount;
-            nud_ConeringCurveAmount.Value = (decimal)settings.SwayCurveAmount;
-            percentageUpDownRestingPoint.Value = (decimal)settings.RestingPoint;
-
+        
             BeginInvoke(new Action(() =>
             {
+
+          
                 lb_carName.Text = carName;
+                try
+                {
+                    numericUpDownGForceToBelt.Value = (decimal)settings.SurgeStrenght;
+                }
+                catch
+                {
+                    numericUpDownGForceToBelt.Value = numericUpDownGForceToBelt.Minimum;
+                }
+
+                numericUpDownMaxPower.Value = settings.MaxPower;
+                numericUpDownCurveAmount.Value = (decimal)settings.SurgeCurveAmount;
+                nud_coneringStrengh.Value = (decimal)settings.SwayStrength;
+                nudVertical.Value = (decimal)settings.HeaveStrength; // NEW
+                if (settings.AbsStrength < 3)
+                    settings.AbsStrength = 3;
+                nud_ABS.Value = (int)settings.AbsStrength; // NEW
+                cb_ABS_Enabled.Checked = settings.AbsEnabled; // NEW
+
+                cb_invert_sway.Checked = settings.InvertSway; // NEW
+
+                // Set new setting to UI
+                _coneringCurveAmount = settings.SwayCurveAmount;
+                nud_ConeringCurveAmount.Value = (decimal)settings.SwayCurveAmount;
+                percentageUpDownRestingPoint.Value = (decimal)settings.RestingPoint;
+
+
+
+                cb_invertHeave.Checked = settings.InvertHeave; // NEW
+                cb_invertSurge.Checked = settings.InvertSurge; // NEW
+
+                _bntNegativeSway.Checked = settings.NegativeSway;
+           
+
             }));
 
-            cb_invertHeave.Checked = settings.InvertHeave; // NEW
-            cb_invertSurge.Checked = settings.InvertSurge; // NEW
+         
 
-            _bntNegativeSway.Checked = settings.NegativeSway;
             DrawCurveGraph();
             _isLoading = false;
         }
@@ -1617,6 +1650,8 @@ namespace belttentiontest
         {
             if (!CarSettingsDatabase.Instance.Settings.TryGetValue(CarName, out var settings))
                 return;
+            if (settings == null)
+                throw new Exception();
             settings.HeaveStrength = (float)nudVertical.Value;
             BeltSettingsChanged();
         }

@@ -7,7 +7,7 @@ namespace belttentiontest
     public partial class AboutBox : Form
     {
 
-        public const string Version = "1.0.44";
+        public const string Version = "1.0.45";
         public const string FileVersion = Version + ".0"; // ensures four-part version for file/version attributes
 
         public AboutBox()

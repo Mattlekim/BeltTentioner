@@ -44,20 +44,26 @@ namespace belttentiontest
 
         public void LoadCarSettingsInToCurrent(string carName)
         {
-           
+       
             // If no settings for carName, try to copy from NA
             if (!Settings.TryGetValue(carName, out var settings)) //if car name not found in settings, try to copy from NA
             {
+          
                 if (Settings.TryGetValue("NA", out var naSettings))
                 {
                     // Deep copy NA settings to new car
-                    Settings.Add(carName, naSettings);
+                   
+                    
+               
+                    Settings.Add(carName, naSettings?.DeepCopy() ?? new CarSettings());
                 }
                 else
                 {
-                    settings = new CarSettings();
+                 
+                    Settings.Add(carName, new CarSettings());
                 }
-                Settings[carName] = settings;
+
+               
                 
                 // Save immediately so the new car gets its own settings file entry
                 SaveCurrentCarSettings(null);
@@ -76,6 +82,7 @@ namespace belttentiontest
             {
                 try
                 {
+                    System.Diagnostics.Debugger.Log(0, "CarSettingsDatabase", $"Settings File FOUND!");
                     var json = File.ReadAllText(carSettingsFile);
                     var data = JsonSerializer.Deserialize<CarSettingsDatabase>(json) ?? new CarSettingsDatabase();
                     this.Settings = data.Settings;

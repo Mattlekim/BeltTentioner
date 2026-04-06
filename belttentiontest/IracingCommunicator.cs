@@ -125,10 +125,11 @@ namespace belttentiontest
 
                         if (carName != _oldCarName)
                         {
+                            _oldCarName = carName;
                             CarNameChanged?.Invoke(carName);
                         }
 
-                        _oldCarName = carName;
+                        
                     }
                 }
                 catch

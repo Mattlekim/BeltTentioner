@@ -29,9 +29,29 @@ namespace BeltAPI
         public float AbsStrength { get; set; } = 1.0f; // NEW: ABS strength
         public bool AbsEnabled { get; set; } = false;  // NEW: ABS enabled
 
-       
+
         public int RestingPoint { get; set; } = 0; // NEW: Resting point for the motor
 
         public bool NegativeSway { get; set; } = false;
+
+        public CarSettings DeepCopy()
+        {
+            return new CarSettings
+            {
+                MaxPower = this.MaxPower,
+                SurgeStrenght = this.SurgeStrenght,
+                SurgeCurveAmount = this.SurgeCurveAmount,
+                InvertSurge = this.InvertSurge,
+                SwayStrength = this.SwayStrength,
+                SwayCurveAmount = this.SwayCurveAmount,
+                InvertSway = this.InvertSway,
+                HeaveStrength = this.HeaveStrength,
+                InvertHeave = this.InvertHeave,
+                AbsStrength = this.AbsStrength,
+                AbsEnabled = this.AbsEnabled,
+                RestingPoint = this.RestingPoint,
+                NegativeSway = this.NegativeSway
+            };
+        }
     }
 }
