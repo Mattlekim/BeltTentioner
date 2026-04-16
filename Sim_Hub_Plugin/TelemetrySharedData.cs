@@ -18,6 +18,12 @@ namespace SharedResources
         public float Braking;
         public float Cornering;
         public float Vertical;
+
+        public float RotationPitch;
+        public float RotationRoll;
+        public float RotationYaw;
+
+      
         [MarshalAs(UnmanagedType.I1)]
         public bool GameRunning;
 
@@ -31,7 +37,7 @@ namespace SharedResources
         public bool SupportVertical;
 
         [MarshalAs(UnmanagedType.I1)]
-        public bool Paused;
+        public bool Paused; 
     }
 
 }

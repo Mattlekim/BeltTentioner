@@ -27,6 +27,13 @@ namespace BeltAPI
 
         private bool _getSettings = false;
 
+        public List<string> _log = new List<string>();
+
+        public List<string> GetLog => _log;
+
+        private void Log(string message) =>
+            _log.Add($"[{DateTime.Now:HH:mm:ss.fff}] {message}");
+
         private MotorSettings _motorSettings;
 
         /// <summary>
@@ -76,18 +83,19 @@ namespace BeltAPI
 
         private void SerialPort_ErrorReceived(object? sender, SerialErrorReceivedEventArgs e)
         {
-            // Device unplugged or hardware error
+            Log($"Serial error received: {e.EventType}");
             MessageReceived?.Invoke("DEVICE_UNPLUGGED");
             Disconnect();
         }
 
         private void DecodeSettings(string message)
         {
-
+            Log($"DecodeSettings: {message}");
             var parsedSettings = ParseSerialLineSettings(message.Substring(1));
 
             if (parsedSettings.HasValue)
             {
+                Log($"Settings decoded: lmin={parsedSettings.Value.lmin} lmax={parsedSettings.Value.lmax} rmin={parsedSettings.Value.rmin} rmax={parsedSettings.Value.rmax} linvert={parsedSettings.Value.linvert} rinvert={parsedSettings.Value.rinvert} both={parsedSettings.Value.both}");
 
                 _motorSettings.LeftMaximumAngle = Math.Clamp(parsedSettings.Value.lmin, 0, MAXPOSIBLEMOTORANGLE);
                 _motorSettings.LeftMaximumAngle = Math.Clamp(parsedSettings.Value.lmax, 0, MAXPOSIBLEMOTORANGLE);
@@ -104,7 +112,10 @@ namespace BeltAPI
                     OnMotorSettingsRecived?.Invoke();
                 }
             }
-
+            else
+            {
+                Log($"DecodeSettings: failed to parse '{message}'");
+            }
         }
         // Read any available data and raise MessageReceived and HandshakeComplete when appropriate
         private void ReadAllSerialData(SerialPort sp)
@@ -119,7 +130,8 @@ namespace BeltAPI
                 string data;
                 try { data = sp.ReadExisting(); } catch (Exception ex)
                 {
-                    // Device may have been unplugged or port closed
+                    Log($"ReadExisting failed: {ex.Message}");
+                   
                     MessageReceived?.Invoke("DEVICE_UNPLUGGED");
                     Disconnect();
                     return;
@@ -131,6 +143,7 @@ namespace BeltAPI
                 {
                     var line = raw.Trim();
                     if (line.Length == 0) continue;
+                    Log($"RX: {line}");
                     if (line[0] == 'S') //if recive settings
                     {
                         DecodeSettings(line);
@@ -144,7 +157,7 @@ namespace BeltAPI
             }
             catch (Exception ex)
             {
-                // Device may have been unplugged or port closed
+                Log($"ReadAllSerialData exception: {ex.Message}");
                 MessageReceived?.Invoke("DEVICE_UNPLUGGED");
                 Disconnect();
             }
@@ -162,7 +175,7 @@ namespace BeltAPI
                     try { await Task.Delay(preWriteDelayMs, ct).ConfigureAwait(false); } catch (OperationCanceledException) { }
                 }
 
-                try { sp.Write("HELLO\n"); } catch { }
+                try { sp.Write("HELLO\n"); Log($"Sent HELLO on {sp.PortName}"); } catch { }
 
                 var sw = System.Diagnostics.Stopwatch.StartNew();
                 while (!ct.IsCancellationRequested && sw.ElapsedMilliseconds < waitMs)
@@ -313,11 +326,14 @@ namespace BeltAPI
 
             try
             {
+                Log($"Trying port {portName}");
                 trial.Open();
                 trial.ErrorReceived += SerialPort_ErrorReceived;
+                Log($"Opened port {portName}");
             }
-            catch
+            catch (Exception ex)
             {
+                Log($"Failed to open port {portName}: {ex.Message}");
                 try { trial.Dispose(); } catch { }
                 return null;
             }
@@ -328,15 +344,18 @@ namespace BeltAPI
                 var ok = await SendHandshakeAsync(trial, ct, preWriteDelayMs, waitMs).ConfigureAwait(false);
                 if (ok)
                 {
+                    Log($"Handshake succeeded on {portName}");
                     isConnected = true;
                     return trial;
                 }
 
+                Log($"Handshake timed out on {portName}");
                 try { trial.Close(); trial.Dispose(); } catch { }
                 return null;
             }
-            catch
+            catch (Exception ex)
             {
+                Log($"Exception during handshake on {portName}: {ex.Message}");
                 try { trial.Close(); trial.Dispose(); } catch { }
                 return null;
             }
@@ -350,6 +369,7 @@ namespace BeltAPI
             if (!isConnected)
                 return;
 
+            Log("Sending SETTINGS request");
             _getSettings = true;
             string msg = $"SETTINGS";
             try
@@ -391,6 +411,7 @@ namespace BeltAPI
                 var sp = serialPort;
                 if (sp != null && sp.IsOpen)
                 {
+                    Log($"TX settings: {msg}");
                     sp.WriteLine(msg);
                     LogToFile("Sent settings: " + msg);
                 }
@@ -419,8 +440,8 @@ namespace BeltAPI
                 {
                     value = Math.Clamp(value, 0, 30);
                     var line = string.Empty;
-                    
-                        line = $"ABS{value}{sp.NewLine}";
+                    line = $"ABS{value}{sp.NewLine}";
+                    Log($"TX: ABS{value}");
                     sp.Write(line);
                 }
                 else
@@ -444,9 +465,8 @@ namespace BeltAPI
                 var sp = serialPort;
                 if (sp != null && sp.IsOpen)
                 {
-                    var line = string.Empty;
-
-                    line = $"S:0{sp.NewLine}";
+                    var line = $"S:0{sp.NewLine}";
+                    Log("TX: S:0 (slow mode)");
                     sp.Write(line);
                 }
             }
@@ -525,7 +545,7 @@ namespace BeltAPI
         bool isConnected = false;
         public void Disconnect()
         {
-           
+            Log($"Disconnect called (port: {PortName ?? "none"})");
             try { ClosePort(); } catch { }
             isConnected = false;
 
@@ -669,6 +689,7 @@ namespace BeltAPI
 
         public async Task<bool> ConnectAsync(CancellationToken ct)
         {
+            Log($"Atempting To Connect");
             string[] ports = SerialPort.GetPortNames();
             if (ports.Length == 0)
             {
@@ -678,16 +699,21 @@ namespace BeltAPI
             bool ok = await ManualScanAsync(ct).ConfigureAwait(false);
             if (ok)
             {
+                Log($"Connected to {PortName}");
                 isConnected = true;
                 SendRequestSettings();
+            }
+            else
+            {
+                Log("ConnectAsync: no device responded");
             }
             return ok;
         }
 
-        public BeltMotorData SetupMotorsForData(float surge, float sway, float heave, CarSettings settings)
+        public BeltMotorData SetupMotorsForData(float surge, float sway, float heave, CarSettings settings, Rotation carRotation = default)
         {
             
-            return DeviceMotorSettings.Setup(surge, sway, heave, settings);
+            return DeviceMotorSettings.Setup(surge, sway, heave, settings, carRotation);
         }
     }
 }

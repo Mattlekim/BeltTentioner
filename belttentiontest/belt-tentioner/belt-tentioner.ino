@@ -23,16 +23,21 @@ unsigned long lastDataTime = 0;
 //the old firmware is run
 bool slow = true;
 
+
 int ABS_STRENGTH = 20;
 bool ABS_ACTIVATED = true;
 float ABS_FRQ = 2;
 float abs_frame = 0;
 float L_ABS, R_ABS;
 
+float _fromSlowModeStart_L = 0;
+float _fromSlowModeStart_R = 0;
 byte ABS_RUNNING_FRAME = 0;
 
+bool _isConnected = false;
+bool _isDisconecting = false;
 
-#define LENGHTOFSLOWTIMEOUT 3000
+#define LENGHTOFSLOWTIMEOUT 2000
 long slowTimeout = 0;
 // Save settings to EEPROM
 void saveSettings() {
@@ -79,6 +84,9 @@ void setup() {
 
 
   loadSettings();
+
+  ResetMotors();
+
   Serial.println("Waiting for handshake... Send 'HELLO' to begin.");
 }
 
@@ -116,7 +124,7 @@ void SetUPServos() {
 
 
 void ResetMotors() {
-  slow = true;
+
   ABS_ACTIVATED = false;
   if (L_INVERT)
     L_TARGET = L_MAX;
@@ -149,8 +157,9 @@ void ProcessSerial() {
         handshakeComplete = true;
         SetUPServos();
         Serial.println("READY");
-        slow = true;
-        slowTimeout = LENGHTOFSLOWTIMEOUT * 2;
+
+        _isConnected = true;
+        _isDisconecting = false;
       }
 
     } else if (input.equalsIgnoreCase("SETTINGS")) {
@@ -229,6 +238,8 @@ void ProcessSerial() {
 
         if (key == "S") {
           slow = true;  //slow motors down
+          _fromSlowModeStart_L = L_ABS;
+          _fromSlowModeStart_R = R_ABS;
           slowTimeout = LENGHTOFSLOWTIMEOUT;
         }
 
@@ -239,7 +250,15 @@ void ProcessSerial() {
   }
 }
 
+float lerp(float a, float b, float amount) {
+  if (amount < 0.0f) amount = 0.0f;
+  if (amount > 1.0f) amount = 1.0f;
+
+  return a + (b - a) * amount;
+}
+
 int lastLPos, lastRPos;
+
 void loop() {
   unsigned long now = millis();  // current time in ms
                                  // time since last update
@@ -249,81 +268,99 @@ void loop() {
 
   if (slow) {
     slowTimeout -= elapsed;
-    if (slowTimeout <= 0)
+    if (slowTimeout <= 0) {
       slow = false;
+      slowTimeout = 0;
+
+      if (_isDisconecting) {
+        _isDisconecting = false;
+        _isConnected = false;
+      }
+    }
   }
 
   ProcessSerial();
 
   if (!handshakeComplete) return;
 
+  if (!_isConnected) return;
+
   if (millis() - lastDataTime > 5000) {
-    ResetMotors();
+    if (!_isDisconecting) {
+      _isDisconecting = true;
+      slow = true;
+      slowTimeout = LENGHTOFSLOWTIMEOUT;
+      _fromSlowModeStart_L = L_ABS;
+      _fromSlowModeStart_R = R_ABS;
+      ResetMotors();
+    }
   }
+
 
   L_ABS = 0;
   R_ABS = 0;
 
-  if (ABS_ACTIVATED) {
-    ABS_RUNNING_FRAME++;
-    if (ABS_RUNNING_FRAME > 3)
-      ABS_ACTIVATED = false;
-    if (abs_frame > ABS_FRQ) {
-      if (L_INVERT)
-        L_ABS = -ABS_STRENGTH;
-      else
-        L_ABS = ABS_STRENGTH;
+  if (!_isDisconecting) {
+    if (ABS_ACTIVATED) {
+      ABS_RUNNING_FRAME++;
+      if (ABS_RUNNING_FRAME > 3)
+        ABS_ACTIVATED = false;
+      if (abs_frame > ABS_FRQ) {
+        if (L_INVERT)
+          L_ABS = -ABS_STRENGTH;
+        else
+          L_ABS = ABS_STRENGTH;
 
 
-    } else {
-      if (R_INVERT)
-        R_ABS = -ABS_STRENGTH;
-      else
-        R_ABS = ABS_STRENGTH;
+      } else {
+        if (R_INVERT)
+          R_ABS = -ABS_STRENGTH;
+        else
+          R_ABS = ABS_STRENGTH;
+      }
     }
+    // L_ABS = 0;
+    L_ABS += L_TARGET;
+    R_ABS += R_TARGET;
+    abs_frame++;
+    if (abs_frame >= ABS_FRQ * 2)
+      abs_frame = 0;
+    if (L_ABS > L_MAX)
+      L_ABS = L_MAX;
+
+    if (L_ABS < L_MIN)
+      L_ABS = L_MIN;
+
+    if (R_ABS > R_MAX)
+      R_ABS = R_MAX;
+
+    if (R_ABS < R_MIN)
+      R_ABS = R_MIN;
   }
-  // L_ABS = 0;
-  L_ABS += L_TARGET;
-  R_ABS += R_TARGET;
-  abs_frame++;
-  if (abs_frame >= ABS_FRQ * 2)
-    abs_frame = 0;
-  if (L_ABS > L_MAX)
-    L_ABS = L_MAX;
-
-  if (L_ABS < L_MIN)
-    L_ABS = L_MIN;
-
-  if (R_ABS > R_MAX)
-    R_ABS = R_MAX;
-
-  if (R_ABS < R_MIN)
-    R_ABS = R_MIN;
 
   // Map 0–180 range to 1000–2000 µs pulse width
-  int pulseL = map((int)L_ABS, 0, 180, 500, 2500);
-  int pulseR = map((int)R_ABS, 0, 180, 500, 2500);
-
+  int pulseL = 0;
+  int pulseR = 0;
 
 
   //slow = true;
   if (slow)  //slow down motors moving to new position. do this for when powering up or powering down
   {
 
-  //save last positions
-  lastLPos = ServoLeft.readMicroseconds();
-  lastRPos = ServoRight.readMicroseconds();
+    float a = (float)slowTimeout / (float)LENGHTOFSLOWTIMEOUT;
 
-//  if (abs(pulseL - lastLPos) < 2 && abs(pulseR - lastRPos) < 3) {
- //     slow = false;
-  //  }
+    pulseL = lerp(L_TARGET, _fromSlowModeStart_L, a);
+    pulseR = lerp(R_TARGET, _fromSlowModeStart_R, a);
 
-      pulseL = (float)pulseL * .01f + (float)lastLPos * .99f;
-      pulseR = (float)pulseR * .01f + (float)lastRPos * .99f;
-    
+    pulseL = map((int)pulseL, 0, 180, 500, 2500);
+    pulseR = map((int)pulseR, 0, 180, 500, 2500);
+
+
+  } else {
+    pulseL = map((int)L_ABS, 0, 180, 500, 2500);
+    pulseR = map((int)R_ABS, 0, 180, 500, 2500);
   }
 
-  
   ServoLeft.writeMicroseconds(pulseL);
 
   if (DUAL_MOTORS)

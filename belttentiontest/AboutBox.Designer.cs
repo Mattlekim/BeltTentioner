@@ -38,6 +38,8 @@ namespace belttentiontest
             // labelProductName
             // 
             labelProductName.AutoSize = true;
+            labelProductName.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            labelProductName.ForeColor = Color.FromArgb(100, 160, 255);
             labelProductName.Location = new Point(12, 9);
             labelProductName.Name = "labelProductName";
             labelProductName.Size = new Size(84, 15);
@@ -47,6 +49,8 @@ namespace belttentiontest
             // labelVersion
             // 
             labelVersion.AutoSize = true;
+            labelVersion.Font = new Font("Segoe UI", 9F);
+            labelVersion.ForeColor = Color.FromArgb(160, 160, 190);
             labelVersion.Location = new Point(12, 33);
             labelVersion.Name = "labelVersion";
             labelVersion.Size = new Size(45, 15);
@@ -56,6 +60,8 @@ namespace belttentiontest
             // labelCopyright
             // 
             labelCopyright.AutoSize = true;
+            labelCopyright.Font = new Font("Segoe UI", 9F);
+            labelCopyright.ForeColor = Color.FromArgb(160, 160, 190);
             labelCopyright.Location = new Point(12, 57);
             labelCopyright.Name = "labelCopyright";
             labelCopyright.Size = new Size(60, 15);
@@ -65,6 +71,8 @@ namespace belttentiontest
             // labelCompanyName
             // 
             labelCompanyName.AutoSize = true;
+            labelCompanyName.Font = new Font("Segoe UI", 9F);
+            labelCompanyName.ForeColor = Color.FromArgb(160, 160, 190);
             labelCompanyName.Location = new Point(12, 81);
             labelCompanyName.Name = "labelCompanyName";
             labelCompanyName.Size = new Size(94, 15);
@@ -73,19 +81,26 @@ namespace belttentiontest
             // 
             // buttonOK
             // 
+            buttonOK.BackColor = Color.FromArgb(100, 160, 255);
             buttonOK.DialogResult = DialogResult.OK;
+            buttonOK.FlatStyle = FlatStyle.Flat;
+            buttonOK.FlatAppearance.BorderColor = Color.FromArgb(70, 110, 200);
+            buttonOK.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            buttonOK.ForeColor = Color.White;
             buttonOK.Location = new Point(100, 110);
             buttonOK.Name = "buttonOK";
             buttonOK.Size = new Size(75, 23);
             buttonOK.TabIndex = 4;
             buttonOK.Text = "OK";
-            buttonOK.UseVisualStyleBackColor = true;
+            buttonOK.UseVisualStyleBackColor = false;
             // 
             // AboutBox
             // 
             AcceptButton = buttonOK;
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
+            BackColor = Color.FromArgb(18, 18, 30);
+            ForeColor = Color.FromArgb(160, 160, 190);
             ClientSize = new Size(284, 151);
             Controls.Add(buttonOK);
             Controls.Add(labelCompanyName);

@@ -2,7 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using IRSDKSharper;
-
+using BeltAPI;
 namespace belttentiontest
 {
     // Simple monitor that reports whether iRacing is running.
@@ -29,7 +29,7 @@ namespace belttentiontest
         public event Action<float>? GForceUpdated;
 
         // Event to notify when scaledValue is updated
-        public event Action<float, float, float>? ScaledValueUpdated;
+        public event Action<float, float, float, Rotation>? ScaledValueUpdated;
 
         public event Action? ABSValueUpdated;
 
@@ -42,6 +42,10 @@ namespace belttentiontest
         IRacingSdkDatum? Datum_LongAccel = null;
         IRacingSdkDatum? Datum_LatAccel = null;
         IRacingSdkDatum? Datum_VertAccel = null;
+
+        IRacingSdkDatum? Datum_Pitch = null;
+        IRacingSdkDatum? Datum_Roll = null;
+        IRacingSdkDatum? Datum_Yaw = null;
 
         public Action<string>? CarNameChanged;
 
@@ -100,6 +104,11 @@ namespace belttentiontest
             Datum_LongAccel = _iracingClient.Data.TelemetryDataProperties["LongAccel"];
             Datum_LatAccel = _iracingClient.Data.TelemetryDataProperties["LatAccel"];
             Datum_VertAccel = _iracingClient.Data.TelemetryDataProperties["VertAccel"];
+
+            Datum_Pitch = _iracingClient.Data.TelemetryDataProperties["Pitch"];
+            Datum_Roll = _iracingClient.Data.TelemetryDataProperties["Roll"];
+            Datum_Yaw = _iracingClient.Data.TelemetryDataProperties["Yaw"];
+
             _dataInitialized = true;
             return true;
         }
@@ -151,7 +160,7 @@ namespace belttentiontest
             if (isReplay)
             {
              
-                ScaledValueUpdated?.Invoke(0, 0, 0);
+                ScaledValueUpdated?.Invoke(0, 0, 0, Rotation.Zero);
                 GForceUpdated?.Invoke(0);
                 
                 return;
@@ -167,10 +176,14 @@ namespace belttentiontest
 
             float ver = _iracingClient.Data.GetFloat(Datum_VertAccel);
             float heaveForce = ver / 9.81f;
-            // Notify subscribers with the new g_Force value
-        
-            ScaledValueUpdated?.Invoke(-surgeForce, swayForce, heaveForce);
 
+            float pitch = _iracingClient.Data.GetFloat(Datum_Pitch);    
+            float roll = _iracingClient.Data.GetFloat(Datum_Roll);
+            float yaw = _iracingClient.Data.GetFloat(Datum_Yaw);
+            // Notify subscribers with the new g_Force value
+
+            ScaledValueUpdated?.Invoke(-surgeForce, swayForce, heaveForce, 
+                new Rotation(pitch, roll, yaw));
             if (_absActive)
                 ABSValueUpdated?.Invoke();
 

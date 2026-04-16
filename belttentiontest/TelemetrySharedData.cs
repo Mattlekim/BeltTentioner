@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
+using BeltAPI;
 namespace SharedResources
 {
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -18,6 +19,13 @@ namespace SharedResources
         public float Braking;
         public float Cornering;
         public float Vertical;
+
+        public float RotationPitch;
+        public float RotationRoll;
+        public float RotationYaw;
+
+       
+
         [MarshalAs(UnmanagedType.I1)]
         public bool GameRunning;
 

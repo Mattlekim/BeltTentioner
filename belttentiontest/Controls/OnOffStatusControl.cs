@@ -16,8 +16,8 @@ namespace belttentiontest.Controls
         {
             SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
             DoubleBuffered = true;
-            BackColor = SystemColors.Control;
-            ForeColor = SystemColors.ControlText;
+            BackColor = Color.FromArgb(18, 18, 30);
+            ForeColor = Color.FromArgb(160, 160, 190);
             Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
             Size = new Size(160, 24);
         }
@@ -59,7 +59,7 @@ namespace belttentiontest.Controls
 
         [Category("Appearance")]
         [Description("Color of the status text")]
-        public Color TextColor { get; set; } = SystemColors.ControlText;
+        public Color TextColor { get; set; } = Color.FromArgb(160, 160, 190);
 
         protected override void OnPaint(PaintEventArgs pe)
         {

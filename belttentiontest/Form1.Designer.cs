@@ -1,216 +1,124 @@
-﻿using belttentiontest.Controls;
 using System;
 using System.ComponentModel;
+using System.Drawing;
 using System.Windows.Forms;
+using belttentiontest.Controls;
 
 namespace belttentiontest
 {
     partial class Form1
     {
-        /// <summary>
-        /// Required designer variable.
-        /// </summary>
         private IContainer components = null;
-        private GForceUpDown numericUpDownTarget;
         private Button buttonConnect;
-        private Label labelGForce;
-        private CheckBox checkBoxTest;
-        private NumericUpDown numericUpDownCurveAmount;
-        private PictureBox pictureBoxCurveGraph;
-        private PercentageUpDown numericUpDownMaxPower;
+        private ModernCheckBox checkBoxTest;
         private Label labelMaxPower;
-        private NumericUpDown numericUpDownGForceToBelt;
         private Label labelGForceToBelt;
-        private Label labelMaxGForce; // Max G-Force label
         private Label lblSettingsSaved;
-        private Label lblChangesNotSaved; // Label for unsaved changes
+        private Label lblChangesNotSaved;
+        private Panel _scrollPanel;
 
-        /// <summary>
-        /// Clean up any resources being used.
-        /// </summary>
-        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
         protected override void Dispose(bool disposing)
         {
             if (disposing && (components != null))
-            {
                 components.Dispose();
-            }
             base.Dispose(disposing);
         }
 
         #region Windows Form Designer generated code
 
-        /// <summary>
-        /// Required method for Designer support - do not modify
-        /// the contents of this method with the code editor.
-        /// Minimal InitializeComponent to provide the referenced controls.
-        /// </summary>
         private void InitializeComponent()
         {
             ComponentResourceManager resources = new ComponentResourceManager(typeof(Form1));
-            numericUpDownTarget = new GForceUpDown();
             buttonConnect = new Button();
-            labelGForce = new Label();
-            checkBoxTest = new CheckBox();
-            numericUpDownCurveAmount = new NumericUpDown();
-            pictureBoxCurveGraph = new PictureBox();
-            numericUpDownMaxPower = new PercentageUpDown();
             labelMaxPower = new Label();
-            numericUpDownGForceToBelt = new NumericUpDown();
             labelGForceToBelt = new Label();
-            labelMaxGForce = new Label();
-            gb_Car_Settings = new GroupBox();
-            _cb_showVer = new CheckBox();
-            _cb_showCorn = new CheckBox();
-            _cb_showBraking = new CheckBox();
+            lb_ABS_Status = new Label();
+            gb_Car_Settings = new CollapsibleGroupBox();
+            _cb_tilt = new CollapsibleGroupBox();
+            _ttb_masterTilt = new ThinTrackBar();
+            label14 = new Label();
+            _cb_tilt_invertRoll = new ModernCheckBox();
+            _ttb_roll = new ThinTrackBar();
+            label12 = new Label();
+            _cb_tilt_invertPitch = new ModernCheckBox();
+            _ttb_pitch = new ThinTrackBar();
+            label11 = new Label();
             _ttb_restingPoint = new ThinTrackBar();
             _ttb_maxOutput = new ThinTrackBar();
-            _gb_vertical = new GroupBox();
-            cb_invertHeave = new CheckBox();
+            _gb_vertical = new CollapsibleGroupBox();
+            cb_invertHeave = new ModernCheckBox();
             _ttb_verStr = new ThinTrackBar();
-            nudVertical = new NumericUpDown();
             label5 = new Label();
-            cb_livePrieview = new CheckBox();
-            _gb_cornering = new GroupBox();
-            nud_coneringStrengh = new NumericUpDown();
+            _gb_cornering = new CollapsibleGroupBox();
             _ttb_corneringStr = new ThinTrackBar();
             _ttb_corneringCurve = new ThinTrackBar();
             label8 = new Label();
-            cb_invert_sway = new CheckBox();
+            cb_invert_sway = new ModernCheckBox();
             label9 = new Label();
-            nud_ConeringCurveAmount = new NumericUpDown();
-            percentageUpDownRestingPoint = new PercentageUpDown();
-            _gb_Braking = new GroupBox();
-            cb_invertSurge = new CheckBox();
+            _gb_Braking = new CollapsibleGroupBox();
+            cb_invertSurge = new ModernCheckBox();
             _ttb_brakingStr = new ThinTrackBar();
             _ttb_brakingCurve = new ThinTrackBar();
             labelCurveAmount = new Label();
             lb_carName = new Label();
             label7 = new Label();
-            label1 = new Label();
+            _ttb_restingPoint2 = new ThinTrackBar();
             label2 = new Label();
-            groupBox1 = new GroupBox();
-            ck_Inverted = new CheckBox();
-            cb_duelMotors = new CheckBox();
+            groupBox1 = new CollapsibleGroupBox();
+            ck_Inverted = new ModernCheckBox();
+            cb_duelMotors = new ModernCheckBox();
             lb_SelectedMotor = new ListBox();
             bnt_Apply = new Button();
-            nud_Motor_End = new NumericUpDown();
-            nud_Motor_Start = new NumericUpDown();
+            _ttb_motorEnd = new ThinTrackBar();
+            _ttb_motorStart = new ThinTrackBar();
             label3 = new Label();
             lblSettingsSaved = new Label();
             lblChangesNotSaved = new Label();
-            groupBox2 = new GroupBox();
-            lb_ABS_Status = new Label();
-            bnt_testABS = new Button();
-            cb_ABS_Enabled = new CheckBox();
-            nud_ABS = new NumericUpDown();
+            groupBox2 = new CollapsibleGroupBox();
+            label10 = new Label();
+            label4 = new Label();
+            _ttb_negativeSway = new ThinTrackBar();
+            cb_ABS_Enabled = new ModernCheckBox();
+            _ttb_ABS = new ThinTrackBar();
             label6 = new Label();
-            cb_AutoConnect = new CheckBox();
+            cb_AutoConnect = new ModernCheckBox();
             _of_Control = new OnOffStatusControl();
             _of_simHub = new OnOffStatusControl();
             lb_simhub = new Label();
             _of_seatbeltDevice = new OnOffStatusControl();
-            _gb_simhub = new GroupBox();
+            _gb_simhub = new CollapsibleGroupBox();
             _lb_menu = new Label();
             _onSupportCorn = new OnOffStatusControl();
             _on_supoortVer = new OnOffStatusControl();
             _on_supportBrake = new OnOffStatusControl();
-            _bntNegativeSway = new CheckBox();
-            label4 = new Label();
-            ((ISupportInitialize)numericUpDownTarget).BeginInit();
-            ((ISupportInitialize)numericUpDownCurveAmount).BeginInit();
-            ((ISupportInitialize)pictureBoxCurveGraph).BeginInit();
-            ((ISupportInitialize)numericUpDownMaxPower).BeginInit();
-            ((ISupportInitialize)numericUpDownGForceToBelt).BeginInit();
+            _scrollPanel = new Panel();
+            _ttb_maxOutput2 = new ThinTrackBar();
             gb_Car_Settings.SuspendLayout();
+            _cb_tilt.SuspendLayout();
             _gb_vertical.SuspendLayout();
-            ((ISupportInitialize)nudVertical).BeginInit();
             _gb_cornering.SuspendLayout();
-            ((ISupportInitialize)nud_coneringStrengh).BeginInit();
-            ((ISupportInitialize)nud_ConeringCurveAmount).BeginInit();
-            ((ISupportInitialize)percentageUpDownRestingPoint).BeginInit();
             _gb_Braking.SuspendLayout();
             groupBox1.SuspendLayout();
-            ((ISupportInitialize)nud_Motor_End).BeginInit();
-            ((ISupportInitialize)nud_Motor_Start).BeginInit();
             groupBox2.SuspendLayout();
-            ((ISupportInitialize)nud_ABS).BeginInit();
             _gb_simhub.SuspendLayout();
+            _scrollPanel.SuspendLayout();
             SuspendLayout();
-            // 
-            // numericUpDownTarget
-            // 
-            numericUpDownTarget.DecimalPlaces = 2;
-            numericUpDownTarget.Increment = new decimal(new int[] { 1, 0, 0, 65536 });
-            numericUpDownTarget.Location = new Point(6, 166);
-            numericUpDownTarget.Maximum = new decimal(new int[] { 7, 0, 0, 0 });
-            numericUpDownTarget.Minimum = new decimal(new int[] { 2, 0, 0, int.MinValue });
-            numericUpDownTarget.Name = "numericUpDownTarget";
-            numericUpDownTarget.Size = new Size(120, 23);
-            numericUpDownTarget.TabIndex = 2;
-            numericUpDownTarget.Value = new decimal(new int[] { 2, 0, 0, 0 });
-            numericUpDownTarget.ValueChanged += numericUpDownTarget_ValueChanged;
             // 
             // buttonConnect
             // 
+            buttonConnect.BackColor = Color.FromArgb(100, 160, 255);
+            buttonConnect.FlatAppearance.BorderColor = Color.FromArgb(70, 110, 200);
+            buttonConnect.FlatStyle = FlatStyle.Flat;
+            buttonConnect.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            buttonConnect.ForeColor = Color.White;
             buttonConnect.Location = new Point(225, 89);
             buttonConnect.Name = "buttonConnect";
             buttonConnect.Size = new Size(75, 23);
             buttonConnect.TabIndex = 3;
+            buttonConnect.Tag = "de";
             buttonConnect.Text = "Connect";
-            buttonConnect.UseVisualStyleBackColor = true;
+            buttonConnect.UseVisualStyleBackColor = false;
             buttonConnect.Click += buttonConnect_Click;
-            // 
-            // labelGForce
-            // 
-            labelGForce.AutoSize = true;
-            labelGForce.Location = new Point(0, 562);
-            labelGForce.Name = "labelGForce";
-            labelGForce.Size = new Size(76, 15);
-            labelGForce.TabIndex = 7;
-            labelGForce.Text = "G-Force: 0.00";
-            // 
-            // checkBoxTest
-            // 
-            checkBoxTest.AutoSize = true;
-            checkBoxTest.Location = new Point(210, 167);
-            checkBoxTest.Name = "checkBoxTest";
-            checkBoxTest.Size = new Size(47, 19);
-            checkBoxTest.TabIndex = 8;
-            checkBoxTest.Text = "Test";
-            checkBoxTest.UseVisualStyleBackColor = true;
-            checkBoxTest.CheckedChanged += checkBoxTest_CheckedChanged;
-            // 
-            // numericUpDownCurveAmount
-            // 
-            numericUpDownCurveAmount.DecimalPlaces = 2;
-            numericUpDownCurveAmount.Increment = new decimal(new int[] { 5, 0, 0, 131072 });
-            numericUpDownCurveAmount.Location = new Point(212, 26);
-            numericUpDownCurveAmount.Maximum = new decimal(new int[] { 50, 0, 0, 65536 });
-            numericUpDownCurveAmount.Minimum = new decimal(new int[] { 1, 0, 0, 65536 });
-            numericUpDownCurveAmount.Name = "numericUpDownCurveAmount";
-            numericUpDownCurveAmount.Size = new Size(60, 23);
-            numericUpDownCurveAmount.TabIndex = 11;
-            numericUpDownCurveAmount.Value = new decimal(new int[] { 100, 0, 0, 131072 });
-            numericUpDownCurveAmount.ValueChanged += numericUpDownCurveAmount_ValueChanged;
-            // 
-            // pictureBoxCurveGraph
-            // 
-            pictureBoxCurveGraph.Location = new Point(6, 427);
-            pictureBoxCurveGraph.Name = "pictureBoxCurveGraph";
-            pictureBoxCurveGraph.Size = new Size(276, 132);
-            pictureBoxCurveGraph.TabIndex = 13;
-            pictureBoxCurveGraph.TabStop = false;
-            // 
-            // numericUpDownMaxPower
-            // 
-            numericUpDownMaxPower.Location = new Point(219, 43);
-            numericUpDownMaxPower.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
-            numericUpDownMaxPower.Name = "numericUpDownMaxPower";
-            numericUpDownMaxPower.Size = new Size(60, 23);
-            numericUpDownMaxPower.TabIndex = 14;
-            numericUpDownMaxPower.Value = new decimal(new int[] { 100, 0, 0, 0 });
-            numericUpDownMaxPower.ValueChanged += numericUpDownMaxPower_ValueChanged;
             // 
             // labelMaxPower
             // 
@@ -221,17 +129,6 @@ namespace belttentiontest
             labelMaxPower.TabIndex = 15;
             labelMaxPower.Text = "Max Output";
             // 
-            // numericUpDownGForceToBelt
-            // 
-            numericUpDownGForceToBelt.Location = new Point(212, 55);
-            numericUpDownGForceToBelt.Maximum = new decimal(new int[] { 400, 0, 0, 0 });
-            numericUpDownGForceToBelt.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
-            numericUpDownGForceToBelt.Name = "numericUpDownGForceToBelt";
-            numericUpDownGForceToBelt.Size = new Size(60, 23);
-            numericUpDownGForceToBelt.TabIndex = 17;
-            numericUpDownGForceToBelt.Value = new decimal(new int[] { 100, 0, 0, 0 });
-            numericUpDownGForceToBelt.ValueChanged += numericUpDownGForceToBelt_ValueChanged_1;
-            // 
             // labelGForceToBelt
             // 
             labelGForceToBelt.AutoSize = true;
@@ -241,155 +138,220 @@ namespace belttentiontest
             labelGForceToBelt.TabIndex = 18;
             labelGForceToBelt.Text = "Strength";
             // 
-            // labelMaxGForce
+            // lb_ABS_Status
             // 
-            labelMaxGForce.AutoSize = true;
-            labelMaxGForce.Location = new Point(181, 563);
-            labelMaxGForce.Name = "labelMaxGForce";
-            labelMaxGForce.Size = new Size(101, 15);
-            labelMaxGForce.TabIndex = 22;
-            labelMaxGForce.Text = "Max G-Force: 0.00";
+            lb_ABS_Status.Location = new Point(0, 0);
+            lb_ABS_Status.Name = "lb_ABS_Status";
+            lb_ABS_Status.Size = new Size(100, 23);
+            lb_ABS_Status.TabIndex = 0;
             // 
             // gb_Car_Settings
             // 
-            gb_Car_Settings.Controls.Add(_cb_showVer);
-            gb_Car_Settings.Controls.Add(_cb_showCorn);
-            gb_Car_Settings.Controls.Add(_cb_showBraking);
+            gb_Car_Settings.Collapsed = false;
+            gb_Car_Settings.Collapsible = true;
+            gb_Car_Settings.Controls.Add(_cb_tilt);
             gb_Car_Settings.Controls.Add(_ttb_restingPoint);
             gb_Car_Settings.Controls.Add(_ttb_maxOutput);
             gb_Car_Settings.Controls.Add(_gb_vertical);
-            gb_Car_Settings.Controls.Add(cb_livePrieview);
             gb_Car_Settings.Controls.Add(_gb_cornering);
-            gb_Car_Settings.Controls.Add(percentageUpDownRestingPoint);
             gb_Car_Settings.Controls.Add(_gb_Braking);
             gb_Car_Settings.Controls.Add(lb_carName);
             gb_Car_Settings.Controls.Add(label7);
-            gb_Car_Settings.Controls.Add(labelMaxGForce);
-            gb_Car_Settings.Controls.Add(labelGForce);
-            gb_Car_Settings.Controls.Add(pictureBoxCurveGraph);
-            gb_Car_Settings.Controls.Add(label1);
             gb_Car_Settings.Controls.Add(labelMaxPower);
-            gb_Car_Settings.Controls.Add(numericUpDownMaxPower);
+            gb_Car_Settings.ForeColor = Color.White;
             gb_Car_Settings.Location = new Point(12, 137);
             gb_Car_Settings.Name = "gb_Car_Settings";
-            gb_Car_Settings.Size = new Size(289, 617);
+            gb_Car_Settings.Size = new Size(290, 512);
             gb_Car_Settings.TabIndex = 23;
             gb_Car_Settings.TabStop = false;
             gb_Car_Settings.Text = "Car Settings";
             // 
-            // _cb_showVer
+            // _cb_tilt
             // 
-            _cb_showVer.AutoSize = true;
-            _cb_showVer.Checked = true;
-            _cb_showVer.CheckState = CheckState.Checked;
-            _cb_showVer.Location = new Point(212, 580);
-            _cb_showVer.Name = "_cb_showVer";
-            _cb_showVer.Size = new Size(64, 19);
-            _cb_showVer.TabIndex = 113;
-            _cb_showVer.Text = "Vertical";
-            _cb_showVer.UseVisualStyleBackColor = true;
-            _cb_showVer.CheckedChanged += _cb_showVer_CheckedChanged;
+            _cb_tilt.Collapsed = false;
+            _cb_tilt.Collapsible = false;
+            _cb_tilt.Controls.Add(_ttb_masterTilt);
+            _cb_tilt.Controls.Add(label14);
+            _cb_tilt.Controls.Add(_cb_tilt_invertRoll);
+            _cb_tilt.Controls.Add(_ttb_roll);
+            _cb_tilt.Controls.Add(label12);
+            _cb_tilt.Controls.Add(_cb_tilt_invertPitch);
+            _cb_tilt.Controls.Add(_ttb_pitch);
+            _cb_tilt.Controls.Add(label11);
+            _cb_tilt.Location = new Point(7, 390);
+            _cb_tilt.Name = "_cb_tilt";
+            _cb_tilt.Size = new Size(276, 111);
+            _cb_tilt.TabIndex = 117;
+            _cb_tilt.TabStop = false;
+            _cb_tilt.Text = "Gravity (Tilt)";
             // 
-            // _cb_showCorn
+            // _ttb_masterTilt
             // 
-            _cb_showCorn.AutoSize = true;
-            _cb_showCorn.Checked = true;
-            _cb_showCorn.CheckState = CheckState.Checked;
-            _cb_showCorn.Location = new Point(102, 580);
-            _cb_showCorn.Name = "_cb_showCorn";
-            _cb_showCorn.Size = new Size(79, 19);
-            _cb_showCorn.TabIndex = 112;
-            _cb_showCorn.Text = "Cornering";
-            _cb_showCorn.UseVisualStyleBackColor = true;
-            _cb_showCorn.CheckedChanged += _cb_showCorn_CheckedChanged;
+            _ttb_masterTilt.DecimalPlaces = 0;
+            _ttb_masterTilt.FillColor = Color.FromArgb(255, 128, 0);
+            _ttb_masterTilt.Location = new Point(95, 76);
+            _ttb_masterTilt.Maximum = 200F;
+            _ttb_masterTilt.Minimum = 1F;
+            _ttb_masterTilt.Name = "_ttb_masterTilt";
+            _ttb_masterTilt.Size = new Size(175, 20);
+            _ttb_masterTilt.TabIndex = 127;
+            _ttb_masterTilt.ThumbColor = Color.White;
+            _ttb_masterTilt.TrackColor = Color.FromArgb(55, 55, 80);
+            _ttb_masterTilt.Value = 1F;
+            _ttb_masterTilt.ValueChanged += nud_masterTilt_ValueChanged;
             // 
-            // _cb_showBraking
+            // label14
             // 
-            _cb_showBraking.AutoSize = true;
-            _cb_showBraking.Checked = true;
-            _cb_showBraking.CheckState = CheckState.Checked;
-            _cb_showBraking.Location = new Point(5, 580);
-            _cb_showBraking.Name = "_cb_showBraking";
-            _cb_showBraking.Size = new Size(66, 19);
-            _cb_showBraking.TabIndex = 111;
-            _cb_showBraking.Text = "Braking";
-            _cb_showBraking.UseVisualStyleBackColor = true;
-            _cb_showBraking.CheckedChanged += _cb_showBraking_CheckedChanged;
+            label14.AutoSize = true;
+            label14.Location = new Point(4, 81);
+            label14.Name = "label14";
+            label14.Size = new Size(91, 15);
+            label14.TabIndex = 125;
+            label14.Text = "Master Strength";
+            // 
+            // _cb_tilt_invertRoll
+            // 
+            _cb_tilt_invertRoll.BackColor = Color.Transparent;
+            _cb_tilt_invertRoll.Font = new Font("Segoe UI", 9F);
+            _cb_tilt_invertRoll.ForeColor = Color.FromArgb(160, 160, 190);
+            _cb_tilt_invertRoll.Location = new Point(197, 45);
+            _cb_tilt_invertRoll.Name = "_cb_tilt_invertRoll";
+            _cb_tilt_invertRoll.Size = new Size(78, 20);
+            _cb_tilt_invertRoll.TabIndex = 123;
+            _cb_tilt_invertRoll.Text = "Invert";
+            _cb_tilt_invertRoll.CheckedChanged += _cb_tilt_invertRoll_CheckedChanged;
+            // 
+            // _ttb_roll
+            // 
+            _ttb_roll.DecimalPlaces = 0;
+            _ttb_roll.FillColor = Color.FromArgb(0, 192, 0);
+            _ttb_roll.Location = new Point(40, 47);
+            _ttb_roll.Maximum = 200F;
+            _ttb_roll.Minimum = 1F;
+            _ttb_roll.Name = "_ttb_roll";
+            _ttb_roll.Size = new Size(161, 20);
+            _ttb_roll.TabIndex = 119;
+            _ttb_roll.ThumbColor = Color.White;
+            _ttb_roll.TrackColor = Color.FromArgb(55, 55, 80);
+            _ttb_roll.Value = 1F;
+            _ttb_roll.ValueChanged += nud_roll_ValueChanged;
+            // 
+            // label12
+            // 
+            label12.AutoSize = true;
+            label12.Location = new Point(6, 49);
+            label12.Name = "label12";
+            label12.Size = new Size(27, 15);
+            label12.TabIndex = 117;
+            label12.Text = "Roll";
+            // 
+            // _cb_tilt_invertPitch
+            // 
+            _cb_tilt_invertPitch.BackColor = Color.Transparent;
+            _cb_tilt_invertPitch.Font = new Font("Segoe UI", 9F);
+            _cb_tilt_invertPitch.ForeColor = Color.FromArgb(160, 160, 190);
+            _cb_tilt_invertPitch.Location = new Point(197, 22);
+            _cb_tilt_invertPitch.Name = "_cb_tilt_invertPitch";
+            _cb_tilt_invertPitch.Size = new Size(78, 20);
+            _cb_tilt_invertPitch.TabIndex = 116;
+            _cb_tilt_invertPitch.Text = "Invert";
+            _cb_tilt_invertPitch.CheckedChanged += _cb_tilt_invertPitch_CheckedChanged;
+            // 
+            // _ttb_pitch
+            // 
+            _ttb_pitch.DecimalPlaces = 0;
+            _ttb_pitch.FillColor = Color.Blue;
+            _ttb_pitch.Location = new Point(40, 22);
+            _ttb_pitch.Maximum = 200F;
+            _ttb_pitch.Minimum = 1F;
+            _ttb_pitch.Name = "_ttb_pitch";
+            _ttb_pitch.Size = new Size(161, 20);
+            _ttb_pitch.TabIndex = 115;
+            _ttb_pitch.ThumbColor = Color.White;
+            _ttb_pitch.TrackColor = Color.FromArgb(55, 55, 80);
+            _ttb_pitch.Value = 1F;
+            _ttb_pitch.ValueChanged += nud_pitch_ValueChanged;
+            // 
+            // label11
+            // 
+            label11.AutoSize = true;
+            label11.Location = new Point(6, 24);
+            label11.Name = "label11";
+            label11.Size = new Size(34, 15);
+            label11.TabIndex = 53;
+            label11.Text = "Pitch";
             // 
             // _ttb_restingPoint
             // 
+            _ttb_restingPoint.DecimalPlaces = 0;
             _ttb_restingPoint.FillColor = Color.Cyan;
             _ttb_restingPoint.Location = new Point(94, 72);
             _ttb_restingPoint.Maximum = 30F;
             _ttb_restingPoint.Minimum = 0F;
             _ttb_restingPoint.Name = "_ttb_restingPoint";
-            _ttb_restingPoint.Size = new Size(100, 20);
+            _ttb_restingPoint.Size = new Size(186, 20);
             _ttb_restingPoint.TabIndex = 110;
             _ttb_restingPoint.ThumbColor = Color.White;
-            _ttb_restingPoint.TrackColor = Color.Gray;
-            _ttb_restingPoint.Value = 1F;
+            _ttb_restingPoint.TrackColor = Color.FromArgb(55, 55, 80);
+            _ttb_restingPoint.Value = 0F;
+            _ttb_restingPoint.ValueChanged += percentageUpDownRestingPoint_ValueChanged;
             // 
             // _ttb_maxOutput
             // 
+            _ttb_maxOutput.DecimalPlaces = 0;
             _ttb_maxOutput.FillColor = Color.Red;
             _ttb_maxOutput.Location = new Point(94, 44);
             _ttb_maxOutput.Maximum = 100F;
             _ttb_maxOutput.Minimum = 1F;
             _ttb_maxOutput.Name = "_ttb_maxOutput";
-            _ttb_maxOutput.Size = new Size(100, 20);
+            _ttb_maxOutput.Size = new Size(186, 20);
             _ttb_maxOutput.TabIndex = 109;
             _ttb_maxOutput.ThumbColor = Color.White;
-            _ttb_maxOutput.TrackColor = Color.Gray;
-            _ttb_maxOutput.Value = 1F;
+            _ttb_maxOutput.TrackColor = Color.FromArgb(55, 55, 80);
+            _ttb_maxOutput.Value = 100F;
+            _ttb_maxOutput.ValueChanged += numericUpDownMaxPower_ValueChanged;
             // 
             // _gb_vertical
             // 
+            _gb_vertical.Collapsed = false;
+            _gb_vertical.Collapsible = false;
             _gb_vertical.Controls.Add(cb_invertHeave);
             _gb_vertical.Controls.Add(_ttb_verStr);
-            _gb_vertical.Controls.Add(nudVertical);
             _gb_vertical.Controls.Add(label5);
-            _gb_vertical.Location = new Point(6, 328);
+            _gb_vertical.ForeColor = Color.FromArgb(255, 128, 0);
+            _gb_vertical.Location = new Point(6, 316);
             _gb_vertical.Name = "_gb_vertical";
-            _gb_vertical.Size = new Size(276, 74);
+            _gb_vertical.Size = new Size(276, 70);
             _gb_vertical.TabIndex = 108;
             _gb_vertical.TabStop = false;
             _gb_vertical.Text = "Vertical (Heave)";
             // 
             // cb_invertHeave
             // 
-            cb_invertHeave.AutoSize = true;
-            cb_invertHeave.Location = new Point(7, 49);
+            cb_invertHeave.BackColor = Color.Transparent;
+            cb_invertHeave.Font = new Font("Segoe UI", 9F);
+            cb_invertHeave.ForeColor = Color.FromArgb(255, 128, 0);
+            cb_invertHeave.Location = new Point(7, 47);
             cb_invertHeave.Name = "cb_invertHeave";
-            cb_invertHeave.Size = new Size(93, 19);
+            cb_invertHeave.Size = new Size(78, 20);
             cb_invertHeave.TabIndex = 116;
-            cb_invertHeave.Text = "Invert Forces";
-            cb_invertHeave.UseVisualStyleBackColor = true;
+            cb_invertHeave.Text = "Invert";
             cb_invertHeave.CheckedChanged += cb_invertHeave_CheckedChanged;
             // 
             // _ttb_verStr
             // 
+            _ttb_verStr.DecimalPlaces = 0;
             _ttb_verStr.FillColor = Color.FromArgb(255, 128, 0);
-            _ttb_verStr.Location = new Point(88, 23);
+            _ttb_verStr.Location = new Point(70, 23);
             _ttb_verStr.Maximum = 200F;
             _ttb_verStr.Minimum = 1F;
             _ttb_verStr.Name = "_ttb_verStr";
-            _ttb_verStr.Size = new Size(100, 20);
+            _ttb_verStr.Size = new Size(200, 20);
             _ttb_verStr.TabIndex = 115;
             _ttb_verStr.ThumbColor = Color.White;
-            _ttb_verStr.TrackColor = Color.Gray;
+            _ttb_verStr.TrackColor = Color.FromArgb(55, 55, 80);
             _ttb_verStr.Value = 1F;
-            // 
-            // nudVertical
-            // 
-            nudVertical.Increment = new decimal(new int[] { 1, 0, 0, 65536 });
-            nudVertical.Location = new Point(210, 22);
-            nudVertical.Maximum = new decimal(new int[] { 200, 0, 0, 0 });
-            nudVertical.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
-            nudVertical.Name = "nudVertical";
-            nudVertical.Size = new Size(60, 23);
-            nudVertical.TabIndex = 54;
-            nudVertical.Value = new decimal(new int[] { 10, 0, 0, 0 });
-            nudVertical.ValueChanged += nudVertical_ValueChanged;
+            _ttb_verStr.ValueChanged += nudVertical_ValueChanged;
             // 
             // label5
             // 
@@ -400,68 +362,53 @@ namespace belttentiontest
             label5.TabIndex = 53;
             label5.Text = "Strength";
             // 
-            // cb_livePrieview
-            // 
-            cb_livePrieview.AutoSize = true;
-            cb_livePrieview.Location = new Point(102, 406);
-            cb_livePrieview.Name = "cb_livePrieview";
-            cb_livePrieview.Size = new Size(91, 19);
-            cb_livePrieview.TabIndex = 102;
-            cb_livePrieview.Text = "Live Preview";
-            cb_livePrieview.UseVisualStyleBackColor = true;
-            // 
             // _gb_cornering
             // 
-            _gb_cornering.Controls.Add(nud_coneringStrengh);
+            _gb_cornering.Collapsed = false;
+            _gb_cornering.Collapsible = false;
             _gb_cornering.Controls.Add(_ttb_corneringStr);
             _gb_cornering.Controls.Add(_ttb_corneringCurve);
             _gb_cornering.Controls.Add(label8);
             _gb_cornering.Controls.Add(cb_invert_sway);
             _gb_cornering.Controls.Add(label9);
-            _gb_cornering.Controls.Add(nud_ConeringCurveAmount);
-            _gb_cornering.Location = new Point(6, 215);
+            _gb_cornering.ForeColor = Color.FromArgb(0, 192, 0);
+            _gb_cornering.Location = new Point(6, 203);
             _gb_cornering.Name = "_gb_cornering";
             _gb_cornering.Size = new Size(276, 107);
             _gb_cornering.TabIndex = 107;
             _gb_cornering.TabStop = false;
             _gb_cornering.Text = "Cornering (Sway)";
             // 
-            // nud_coneringStrengh
-            // 
-            nud_coneringStrengh.Location = new Point(210, 53);
-            nud_coneringStrengh.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
-            nud_coneringStrengh.Name = "nud_coneringStrengh";
-            nud_coneringStrengh.Size = new Size(60, 23);
-            nud_coneringStrengh.TabIndex = 115;
-            nud_coneringStrengh.Value = new decimal(new int[] { 1, 0, 0, 0 });
-            nud_coneringStrengh.ValueChanged += nud_coneringStrengh_ValueChanged;
-            // 
             // _ttb_corneringStr
             // 
+            _ttb_corneringStr.DecimalPlaces = 0;
             _ttb_corneringStr.FillColor = Color.Lime;
-            _ttb_corneringStr.Location = new Point(88, 53);
+            _ttb_corneringStr.Location = new Point(70, 53);
             _ttb_corneringStr.Maximum = 200F;
             _ttb_corneringStr.Minimum = 1F;
             _ttb_corneringStr.Name = "_ttb_corneringStr";
-            _ttb_corneringStr.Size = new Size(100, 20);
+            _ttb_corneringStr.Size = new Size(200, 20);
             _ttb_corneringStr.TabIndex = 114;
             _ttb_corneringStr.ThumbColor = Color.White;
-            _ttb_corneringStr.TrackColor = Color.Gray;
+            _ttb_corneringStr.TrackColor = Color.FromArgb(55, 55, 80);
             _ttb_corneringStr.Value = 1F;
+            _ttb_corneringStr.ValueChanged += nud_coneringStrengh_ValueChanged;
             _ttb_corneringStr.Click += _ttb_corneringStr_Click;
             // 
             // _ttb_corneringCurve
             // 
+            _ttb_corneringCurve.DecimalPlaces = 2;
             _ttb_corneringCurve.FillColor = Color.Lime;
-            _ttb_corneringCurve.Location = new Point(88, 25);
+            _ttb_corneringCurve.Location = new Point(70, 25);
             _ttb_corneringCurve.Maximum = 10F;
             _ttb_corneringCurve.Minimum = 0.1F;
             _ttb_corneringCurve.Name = "_ttb_corneringCurve";
-            _ttb_corneringCurve.Size = new Size(100, 20);
+            _ttb_corneringCurve.Size = new Size(200, 20);
             _ttb_corneringCurve.TabIndex = 113;
             _ttb_corneringCurve.ThumbColor = Color.White;
-            _ttb_corneringCurve.TrackColor = Color.Gray;
+            _ttb_corneringCurve.TrackColor = Color.FromArgb(55, 55, 80);
             _ttb_corneringCurve.Value = 1F;
+            _ttb_corneringCurve.ValueChanged += nud_ConeringCurveAmount_ValueChanged;
             // 
             // label8
             // 
@@ -474,13 +421,14 @@ namespace belttentiontest
             // 
             // cb_invert_sway
             // 
-            cb_invert_sway.AutoSize = true;
+            cb_invert_sway.BackColor = Color.Transparent;
+            cb_invert_sway.Font = new Font("Segoe UI", 9F);
+            cb_invert_sway.ForeColor = Color.Lime;
             cb_invert_sway.Location = new Point(6, 78);
             cb_invert_sway.Name = "cb_invert_sway";
-            cb_invert_sway.Size = new Size(93, 19);
+            cb_invert_sway.Size = new Size(78, 20);
             cb_invert_sway.TabIndex = 55;
-            cb_invert_sway.Text = "Invert Forces";
-            cb_invert_sway.UseVisualStyleBackColor = true;
+            cb_invert_sway.Text = "Invert";
             cb_invert_sway.CheckedChanged += cb_invert_sway_CheckedChanged;
             // 
             // label9
@@ -492,80 +440,64 @@ namespace belttentiontest
             label9.TabIndex = 18;
             label9.Text = "Strength";
             // 
-            // nud_ConeringCurveAmount
-            // 
-            nud_ConeringCurveAmount.DecimalPlaces = 2;
-            nud_ConeringCurveAmount.Increment = new decimal(new int[] { 5, 0, 0, 131072 });
-            nud_ConeringCurveAmount.Location = new Point(210, 23);
-            nud_ConeringCurveAmount.Maximum = new decimal(new int[] { 5, 0, 0, 0 });
-            nud_ConeringCurveAmount.Minimum = new decimal(new int[] { 1, 0, 0, 65536 });
-            nud_ConeringCurveAmount.Name = "nud_ConeringCurveAmount";
-            nud_ConeringCurveAmount.Size = new Size(60, 23);
-            nud_ConeringCurveAmount.TabIndex = 101;
-            nud_ConeringCurveAmount.Value = new decimal(new int[] { 100, 0, 0, 131072 });
-            nud_ConeringCurveAmount.ValueChanged += nud_ConeringCurveAmount_ValueChanged;
-            // 
-            // percentageUpDownRestingPoint
-            // 
-            percentageUpDownRestingPoint.Location = new Point(219, 70);
-            percentageUpDownRestingPoint.Maximum = new decimal(new int[] { 60, 0, 0, 0 });
-            percentageUpDownRestingPoint.Name = "percentageUpDownRestingPoint";
-            percentageUpDownRestingPoint.Size = new Size(60, 23);
-            percentageUpDownRestingPoint.TabIndex = 105;
-            percentageUpDownRestingPoint.ValueChanged += percentageUpDownRestingPoint_ValueChanged;
-            // 
             // _gb_Braking
             // 
+            _gb_Braking.Collapsed = false;
+            _gb_Braking.Collapsible = false;
             _gb_Braking.Controls.Add(cb_invertSurge);
             _gb_Braking.Controls.Add(_ttb_brakingStr);
             _gb_Braking.Controls.Add(_ttb_brakingCurve);
             _gb_Braking.Controls.Add(labelCurveAmount);
-            _gb_Braking.Controls.Add(numericUpDownGForceToBelt);
             _gb_Braking.Controls.Add(labelGForceToBelt);
-            _gb_Braking.Controls.Add(numericUpDownCurveAmount);
-            _gb_Braking.Location = new Point(7, 97);
+            _gb_Braking.ForeColor = SystemColors.MenuHighlight;
+            _gb_Braking.Location = new Point(7, 90);
             _gb_Braking.Name = "_gb_Braking";
-            _gb_Braking.Size = new Size(276, 112);
+            _gb_Braking.Size = new Size(276, 107);
             _gb_Braking.TabIndex = 106;
             _gb_Braking.TabStop = false;
             _gb_Braking.Text = "Braking (Surge)";
             // 
             // cb_invertSurge
             // 
-            cb_invertSurge.AutoSize = true;
+            cb_invertSurge.BackColor = Color.Transparent;
+            cb_invertSurge.Font = new Font("Segoe UI", 9F);
+            cb_invertSurge.ForeColor = SystemColors.Highlight;
             cb_invertSurge.Location = new Point(6, 81);
             cb_invertSurge.Name = "cb_invertSurge";
-            cb_invertSurge.Size = new Size(93, 19);
+            cb_invertSurge.Size = new Size(78, 20);
             cb_invertSurge.TabIndex = 113;
-            cb_invertSurge.Text = "Invert Forces";
-            cb_invertSurge.UseVisualStyleBackColor = true;
+            cb_invertSurge.Text = "Invert";
             cb_invertSurge.CheckedChanged += cb_invertSurge_CheckedChanged;
             // 
             // _ttb_brakingStr
             // 
-            _ttb_brakingStr.FillColor = Color.Blue;
-            _ttb_brakingStr.Location = new Point(87, 56);
+            _ttb_brakingStr.DecimalPlaces = 0;
+            _ttb_brakingStr.FillColor = Color.FromArgb(100, 160, 255);
+            _ttb_brakingStr.Location = new Point(70, 56);
             _ttb_brakingStr.Maximum = 200F;
             _ttb_brakingStr.Minimum = 1F;
             _ttb_brakingStr.Name = "_ttb_brakingStr";
-            _ttb_brakingStr.Size = new Size(100, 20);
+            _ttb_brakingStr.Size = new Size(200, 20);
             _ttb_brakingStr.TabIndex = 112;
             _ttb_brakingStr.ThumbColor = Color.White;
-            _ttb_brakingStr.TrackColor = Color.Gray;
+            _ttb_brakingStr.TrackColor = Color.FromArgb(55, 55, 80);
             _ttb_brakingStr.Value = 1F;
+            _ttb_brakingStr.ValueChanged += numericUpDownGForceToBelt_ValueChanged_1;
             // 
             // _ttb_brakingCurve
             // 
-            _ttb_brakingCurve.FillColor = Color.Blue;
-            _ttb_brakingCurve.Location = new Point(87, 27);
-            _ttb_brakingCurve.Maximum = 10F;
+            _ttb_brakingCurve.DecimalPlaces = 2;
+            _ttb_brakingCurve.FillColor = Color.FromArgb(100, 160, 255);
+            _ttb_brakingCurve.Location = new Point(70, 27);
+            _ttb_brakingCurve.Maximum = 5F;
             _ttb_brakingCurve.Minimum = 0.1F;
             _ttb_brakingCurve.Name = "_ttb_brakingCurve";
-            _ttb_brakingCurve.Size = new Size(100, 20);
+            _ttb_brakingCurve.Size = new Size(200, 20);
             _ttb_brakingCurve.TabIndex = 111;
             _ttb_brakingCurve.ThumbColor = Color.White;
-            _ttb_brakingCurve.TrackColor = Color.Gray;
+            _ttb_brakingCurve.TrackColor = Color.FromArgb(55, 55, 80);
             _ttb_brakingCurve.Value = 1F;
+            _ttb_brakingCurve.ValueChanged += numericUpDownCurveAmount_ValueChanged;
             // 
             // labelCurveAmount
             // 
@@ -595,14 +527,20 @@ namespace belttentiontest
             label7.TabIndex = 104;
             label7.Text = "Resting Point";
             // 
-            // label1
+            // _ttb_restingPoint2
             // 
-            label1.AutoSize = true;
-            label1.Location = new Point(105, 562);
-            label1.Name = "label1";
-            label1.Size = new Size(49, 15);
-            label1.TabIndex = 17;
-            label1.Text = "GForces";
+            _ttb_restingPoint2.DecimalPlaces = 0;
+            _ttb_restingPoint2.FillColor = Color.DodgerBlue;
+            _ttb_restingPoint2.Location = new Point(0, 0);
+            _ttb_restingPoint2.Maximum = 100F;
+            _ttb_restingPoint2.Minimum = 1F;
+            _ttb_restingPoint2.Name = "_ttb_restingPoint2";
+            _ttb_restingPoint2.Size = new Size(150, 20);
+            _ttb_restingPoint2.TabIndex = 0;
+            _ttb_restingPoint2.ThumbColor = Color.White;
+            _ttb_restingPoint2.TrackColor = Color.FromArgb(55, 55, 80);
+            _ttb_restingPoint2.Value = 1F;
+            _ttb_restingPoint2.Visible = false;
             // 
             // label2
             // 
@@ -615,87 +553,108 @@ namespace belttentiontest
             // 
             // groupBox1
             // 
+            groupBox1.Collapsed = false;
+            groupBox1.Collapsible = true;
             groupBox1.Controls.Add(ck_Inverted);
             groupBox1.Controls.Add(cb_duelMotors);
             groupBox1.Controls.Add(lb_SelectedMotor);
             groupBox1.Controls.Add(bnt_Apply);
-            groupBox1.Controls.Add(nud_Motor_End);
-            groupBox1.Controls.Add(checkBoxTest);
-            groupBox1.Controls.Add(nud_Motor_Start);
-            groupBox1.Controls.Add(numericUpDownTarget);
+            groupBox1.Controls.Add(_ttb_motorEnd);
+            groupBox1.Controls.Add(_ttb_motorStart);
             groupBox1.Controls.Add(label3);
             groupBox1.Controls.Add(label2);
             groupBox1.Controls.Add(lblSettingsSaved);
             groupBox1.Controls.Add(lblChangesNotSaved);
-            groupBox1.Location = new Point(11, 852);
+            groupBox1.ForeColor = Color.White;
+            groupBox1.Location = new Point(12, 759);
             groupBox1.Name = "groupBox1";
-            groupBox1.Size = new Size(287, 196);
+            groupBox1.Size = new Size(290, 173);
             groupBox1.TabIndex = 26;
             groupBox1.TabStop = false;
             groupBox1.Text = "Motor Settings";
             // 
             // ck_Inverted
             // 
-            ck_Inverted.AutoSize = true;
+            ck_Inverted.BackColor = Color.Transparent;
+            ck_Inverted.Font = new Font("Segoe UI", 9F);
+            ck_Inverted.ForeColor = Color.FromArgb(160, 160, 190);
             ck_Inverted.Location = new Point(7, 117);
             ck_Inverted.Name = "ck_Inverted";
-            ck_Inverted.Size = new Size(69, 19);
+            ck_Inverted.Size = new Size(91, 20);
             ck_Inverted.TabIndex = 32;
             ck_Inverted.Text = "Inverted";
-            ck_Inverted.UseVisualStyleBackColor = true;
             ck_Inverted.CheckedChanged += bnt_Inverted_CheckedChanged;
             // 
             // cb_duelMotors
             // 
-            cb_duelMotors.AutoSize = true;
-            cb_duelMotors.Location = new Point(178, 22);
+            cb_duelMotors.BackColor = Color.Transparent;
+            cb_duelMotors.Font = new Font("Segoe UI", 9F);
+            cb_duelMotors.ForeColor = Color.FromArgb(160, 160, 190);
+            cb_duelMotors.Location = new Point(165, 22);
             cb_duelMotors.Name = "cb_duelMotors";
-            cb_duelMotors.Size = new Size(91, 19);
+            cb_duelMotors.Size = new Size(114, 20);
             cb_duelMotors.TabIndex = 31;
             cb_duelMotors.Text = "Dual Motors";
-            cb_duelMotors.UseVisualStyleBackColor = true;
             cb_duelMotors.CheckedChanged += cb_duelMotors_CheckedChanged;
             // 
             // lb_SelectedMotor
             // 
+            lb_SelectedMotor.BackColor = Color.FromArgb(30, 30, 50);
+            lb_SelectedMotor.BorderStyle = BorderStyle.FixedSingle;
+            lb_SelectedMotor.ForeColor = Color.FromArgb(160, 160, 190);
             lb_SelectedMotor.FormattingEnabled = true;
             lb_SelectedMotor.ItemHeight = 15;
             lb_SelectedMotor.Items.AddRange(new object[] { "Left Motor", "Right Motor" });
             lb_SelectedMotor.Location = new Point(6, 20);
             lb_SelectedMotor.Name = "lb_SelectedMotor";
-            lb_SelectedMotor.Size = new Size(120, 34);
+            lb_SelectedMotor.Size = new Size(120, 32);
             lb_SelectedMotor.TabIndex = 30;
             lb_SelectedMotor.SelectedIndexChanged += lb_SelectedMotor_SelectedIndexChanged;
             // 
             // bnt_Apply
             // 
+            bnt_Apply.BackColor = Color.FromArgb(80, 200, 120);
+            bnt_Apply.FlatAppearance.BorderColor = Color.FromArgb(50, 150, 90);
+            bnt_Apply.FlatStyle = FlatStyle.Flat;
+            bnt_Apply.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            bnt_Apply.ForeColor = Color.White;
             bnt_Apply.Location = new Point(187, 135);
             bnt_Apply.Name = "bnt_Apply";
             bnt_Apply.Size = new Size(75, 23);
             bnt_Apply.TabIndex = 29;
             bnt_Apply.Text = "Apply";
-            bnt_Apply.UseVisualStyleBackColor = true;
+            bnt_Apply.UseVisualStyleBackColor = false;
             bnt_Apply.Click += bnt_Apply_Click;
             // 
-            // nud_Motor_End
+            // _ttb_motorEnd
             // 
-            nud_Motor_End.Location = new Point(202, 88);
-            nud_Motor_End.Maximum = new decimal(new int[] { 270, 0, 0, 0 });
-            nud_Motor_End.Name = "nud_Motor_End";
-            nud_Motor_End.Size = new Size(60, 23);
-            nud_Motor_End.TabIndex = 28;
-            nud_Motor_End.Value = new decimal(new int[] { 100, 0, 0, 131072 });
-            nud_Motor_End.ValueChanged += nud_Motor_End_ValueChanged;
+            _ttb_motorEnd.DecimalPlaces = 0;
+            _ttb_motorEnd.FillColor = Color.FromArgb(100, 160, 255);
+            _ttb_motorEnd.Location = new Point(90, 88);
+            _ttb_motorEnd.Maximum = 270F;
+            _ttb_motorEnd.Minimum = 0F;
+            _ttb_motorEnd.Name = "_ttb_motorEnd";
+            _ttb_motorEnd.Size = new Size(172, 20);
+            _ttb_motorEnd.TabIndex = 28;
+            _ttb_motorEnd.ThumbColor = Color.White;
+            _ttb_motorEnd.TrackColor = Color.FromArgb(55, 55, 80);
+            _ttb_motorEnd.Value = 180F;
+            _ttb_motorEnd.ValueChanged += nud_Motor_End_ValueChanged;
             // 
-            // nud_Motor_Start
+            // _ttb_motorStart
             // 
-            nud_Motor_Start.Location = new Point(202, 59);
-            nud_Motor_Start.Maximum = new decimal(new int[] { 270, 0, 0, 0 });
-            nud_Motor_Start.Name = "nud_Motor_Start";
-            nud_Motor_Start.Size = new Size(60, 23);
-            nud_Motor_Start.TabIndex = 24;
-            nud_Motor_Start.Value = new decimal(new int[] { 100, 0, 0, 131072 });
-            nud_Motor_Start.ValueChanged += nud_Motor_Start_ValueChanged;
+            _ttb_motorStart.DecimalPlaces = 0;
+            _ttb_motorStart.FillColor = Color.FromArgb(100, 160, 255);
+            _ttb_motorStart.Location = new Point(90, 59);
+            _ttb_motorStart.Maximum = 270F;
+            _ttb_motorStart.Minimum = 0F;
+            _ttb_motorStart.Name = "_ttb_motorStart";
+            _ttb_motorStart.Size = new Size(172, 20);
+            _ttb_motorStart.TabIndex = 24;
+            _ttb_motorStart.ThumbColor = Color.White;
+            _ttb_motorStart.TrackColor = Color.FromArgb(55, 55, 80);
+            _ttb_motorStart.Value = 0F;
+            _ttb_motorStart.ValueChanged += nud_Motor_Start_ValueChanged;
             // 
             // label3
             // 
@@ -715,6 +674,7 @@ namespace belttentiontest
             lblSettingsSaved.Name = "lblSettingsSaved";
             lblSettingsSaved.Size = new Size(109, 19);
             lblSettingsSaved.TabIndex = 33;
+            lblSettingsSaved.Tag = "de";
             lblSettingsSaved.Text = "Settings saved.";
             lblSettingsSaved.Visible = false;
             // 
@@ -732,88 +692,109 @@ namespace belttentiontest
             // 
             // groupBox2
             // 
+            groupBox2.Collapsed = false;
+            groupBox2.Collapsible = true;
+            groupBox2.Controls.Add(label10);
             groupBox2.Controls.Add(label4);
-            groupBox2.Controls.Add(_bntNegativeSway);
-            groupBox2.Controls.Add(lb_ABS_Status);
-            groupBox2.Controls.Add(bnt_testABS);
+            groupBox2.Controls.Add(_ttb_negativeSway);
             groupBox2.Controls.Add(cb_ABS_Enabled);
-            groupBox2.Controls.Add(nud_ABS);
+            groupBox2.Controls.Add(_ttb_ABS);
             groupBox2.Controls.Add(label6);
-            groupBox2.Location = new Point(11, 750);
+            groupBox2.Location = new Point(12, 657);
             groupBox2.Name = "groupBox2";
-            groupBox2.Size = new Size(286, 96);
+            groupBox2.Size = new Size(290, 96);
             groupBox2.TabIndex = 27;
             groupBox2.TabStop = false;
-            groupBox2.Text = "EXPERIMENTAL";
+            groupBox2.Text = "Other";
             groupBox2.Enter += groupBox2_Enter;
             // 
-            // lb_ABS_Status
+            // label10
             // 
-            lb_ABS_Status.AutoSize = true;
-            lb_ABS_Status.Location = new Point(13, 74);
-            lb_ABS_Status.Name = "lb_ABS_Status";
-            lb_ABS_Status.Size = new Size(51, 15);
-            lb_ABS_Status.TabIndex = 57;
-            lb_ABS_Status.Text = "ABS: Off";
+            label10.AutoSize = true;
+            label10.Location = new Point(9, 69);
+            label10.Name = "label10";
+            label10.Size = new Size(76, 15);
+            label10.TabIndex = 62;
+            label10.Text = "ABS Strength";
             // 
-            // bnt_testABS
+            // label4
             // 
-            bnt_testABS.Location = new Point(238, 49);
-            bnt_testABS.Name = "bnt_testABS";
-            bnt_testABS.Size = new Size(42, 23);
-            bnt_testABS.TabIndex = 56;
-            bnt_testABS.Text = "Test";
-            bnt_testABS.UseVisualStyleBackColor = true;
-            bnt_testABS.Click += bnt_testABS_Click;
+            label4.AutoSize = true;
+            label4.Location = new Point(6, 26);
+            label4.Name = "label4";
+            label4.Size = new Size(84, 15);
+            label4.TabIndex = 59;
+            label4.Text = "Negative Sway";
+            // 
+            // _ttb_negativeSway
+            // 
+            _ttb_negativeSway.DecimalPlaces = 0;
+            _ttb_negativeSway.FillColor = Color.FromArgb(80, 200, 120);
+            _ttb_negativeSway.Location = new Point(95, 22);
+            _ttb_negativeSway.Maximum = 100F;
+            _ttb_negativeSway.Minimum = 0F;
+            _ttb_negativeSway.Name = "_ttb_negativeSway";
+            _ttb_negativeSway.Size = new Size(185, 20);
+            _ttb_negativeSway.TabIndex = 60;
+            _ttb_negativeSway.ThumbColor = Color.White;
+            _ttb_negativeSway.TrackColor = Color.FromArgb(55, 55, 80);
+            _ttb_negativeSway.Value = 0F;
+            _ttb_negativeSway.ValueChanged += nud_negativeSway_ValueChanged;
             // 
             // cb_ABS_Enabled
             // 
-            cb_ABS_Enabled.AutoSize = true;
-            cb_ABS_Enabled.Location = new Point(161, 53);
+            cb_ABS_Enabled.BackColor = Color.Transparent;
+            cb_ABS_Enabled.Font = new Font("Segoe UI", 9F);
+            cb_ABS_Enabled.ForeColor = Color.FromArgb(160, 160, 190);
+            cb_ABS_Enabled.Location = new Point(95, 45);
             cb_ABS_Enabled.Name = "cb_ABS_Enabled";
-            cb_ABS_Enabled.Size = new Size(68, 19);
+            cb_ABS_Enabled.Size = new Size(90, 20);
             cb_ABS_Enabled.TabIndex = 35;
             cb_ABS_Enabled.Text = "Enabled";
-            cb_ABS_Enabled.UseVisualStyleBackColor = true;
             cb_ABS_Enabled.CheckedChanged += cb_ABS_Enabled_CheckedChanged;
             // 
-            // nud_ABS
+            // _ttb_ABS
             // 
-            nud_ABS.DecimalPlaces = 2;
-            nud_ABS.Location = new Point(95, 51);
-            nud_ABS.Maximum = new decimal(new int[] { 30, 0, 0, 0 });
-            nud_ABS.Minimum = new decimal(new int[] { 3, 0, 0, 0 });
-            nud_ABS.Name = "nud_ABS";
-            nud_ABS.Size = new Size(60, 23);
-            nud_ABS.TabIndex = 55;
-            nud_ABS.Value = new decimal(new int[] { 3, 0, 0, 0 });
-            nud_ABS.ValueChanged += nud_ABS_ValueChanged;
+            _ttb_ABS.DecimalPlaces = 1;
+            _ttb_ABS.FillColor = Color.FromArgb(220, 60, 60);
+            _ttb_ABS.Location = new Point(95, 67);
+            _ttb_ABS.Maximum = 30F;
+            _ttb_ABS.Minimum = 3F;
+            _ttb_ABS.Name = "_ttb_ABS";
+            _ttb_ABS.Size = new Size(185, 20);
+            _ttb_ABS.TabIndex = 55;
+            _ttb_ABS.ThumbColor = Color.White;
+            _ttb_ABS.TrackColor = Color.FromArgb(55, 55, 80);
+            _ttb_ABS.Value = 3F;
+            _ttb_ABS.ValueChanged += nud_ABS_ValueChanged;
             // 
             // label6
             // 
             label6.AutoSize = true;
-            label6.Location = new Point(13, 55);
+            label6.Location = new Point(8, 48);
             label6.Name = "label6";
-            label6.Size = new Size(76, 15);
+            label6.Size = new Size(61, 15);
             label6.TabIndex = 36;
-            label6.Text = "ABS Strength";
+            label6.Text = "ABS Effect";
             // 
             // cb_AutoConnect
             // 
-            cb_AutoConnect.AutoSize = true;
+            cb_AutoConnect.BackColor = Color.Transparent;
+            cb_AutoConnect.Font = new Font("Segoe UI", 9F);
+            cb_AutoConnect.ForeColor = Color.FromArgb(160, 160, 190);
             cb_AutoConnect.Location = new Point(15, 115);
             cb_AutoConnect.Name = "cb_AutoConnect";
-            cb_AutoConnect.Size = new Size(185, 19);
+            cb_AutoConnect.Size = new Size(211, 20);
             cb_AutoConnect.TabIndex = 28;
+            cb_AutoConnect.Tag = "de";
             cb_AutoConnect.Text = "Connect To Device On Startup";
-            cb_AutoConnect.UseVisualStyleBackColor = true;
             cb_AutoConnect.CheckedChanged += cb_AutoConnect_CheckedChanged;
             // 
             // _of_Control
             // 
-            _of_Control.BackColor = SystemColors.Control;
+            _of_Control.BackColor = Color.FromArgb(18, 18, 30);
             _of_Control.Font = new Font("Segoe UI", 9F);
-            _of_Control.ForeColor = SystemColors.ControlText;
+            _of_Control.ForeColor = Color.FromArgb(160, 160, 190);
             _of_Control.IsOn = false;
             _of_Control.Location = new Point(143, 2);
             _of_Control.Name = "_of_Control";
@@ -823,13 +804,13 @@ namespace belttentiontest
             _of_Control.StatusText = "Iracing:";
             _of_Control.TabIndex = 30;
             _of_Control.Text = "Iracing:";
-            _of_Control.TextColor = SystemColors.ControlText;
+            _of_Control.TextColor = Color.FromArgb(160, 160, 190);
             // 
             // _of_simHub
             // 
-            _of_simHub.BackColor = SystemColors.Control;
+            _of_simHub.BackColor = Color.FromArgb(18, 18, 30);
             _of_simHub.Font = new Font("Segoe UI", 9F);
-            _of_simHub.ForeColor = SystemColors.ControlText;
+            _of_simHub.ForeColor = Color.FromArgb(160, 160, 190);
             _of_simHub.IsOn = false;
             _of_simHub.Location = new Point(226, 2);
             _of_simHub.Name = "_of_simHub";
@@ -839,7 +820,7 @@ namespace belttentiontest
             _of_simHub.StatusText = "SIMHUB:";
             _of_simHub.TabIndex = 31;
             _of_simHub.Text = "SIMHUB:";
-            _of_simHub.TextColor = SystemColors.ControlText;
+            _of_simHub.TextColor = Color.FromArgb(160, 160, 190);
             // 
             // lb_simhub
             // 
@@ -852,9 +833,9 @@ namespace belttentiontest
             // 
             // _of_seatbeltDevice
             // 
-            _of_seatbeltDevice.BackColor = SystemColors.Control;
+            _of_seatbeltDevice.BackColor = Color.FromArgb(18, 18, 30);
             _of_seatbeltDevice.Font = new Font("Segoe UI", 14F, FontStyle.Bold);
-            _of_seatbeltDevice.ForeColor = SystemColors.ControlText;
+            _of_seatbeltDevice.ForeColor = Color.FromArgb(160, 160, 190);
             _of_seatbeltDevice.IsOn = false;
             _of_seatbeltDevice.Location = new Point(11, 88);
             _of_seatbeltDevice.Name = "_of_seatbeltDevice";
@@ -864,10 +845,12 @@ namespace belttentiontest
             _of_seatbeltDevice.StatusText = "Seatbelt Device:";
             _of_seatbeltDevice.TabIndex = 33;
             _of_seatbeltDevice.Text = "Seatbelt Device:";
-            _of_seatbeltDevice.TextColor = SystemColors.ControlText;
+            _of_seatbeltDevice.TextColor = Color.FromArgb(160, 160, 190);
             // 
             // _gb_simhub
             // 
+            _gb_simhub.Collapsed = false;
+            _gb_simhub.Collapsible = true;
             _gb_simhub.Controls.Add(_lb_menu);
             _gb_simhub.Controls.Add(_onSupportCorn);
             _gb_simhub.Controls.Add(_on_supoortVer);
@@ -893,9 +876,9 @@ namespace belttentiontest
             // 
             // _onSupportCorn
             // 
-            _onSupportCorn.BackColor = SystemColors.Control;
+            _onSupportCorn.BackColor = Color.FromArgb(18, 18, 30);
             _onSupportCorn.Font = new Font("Segoe UI", 9F);
-            _onSupportCorn.ForeColor = SystemColors.ControlText;
+            _onSupportCorn.ForeColor = Color.FromArgb(160, 160, 190);
             _onSupportCorn.IsOn = false;
             _onSupportCorn.Location = new Point(202, 35);
             _onSupportCorn.Name = "_onSupportCorn";
@@ -905,13 +888,13 @@ namespace belttentiontest
             _onSupportCorn.StatusText = "Cornering";
             _onSupportCorn.TabIndex = 35;
             _onSupportCorn.Text = "Cornering";
-            _onSupportCorn.TextColor = SystemColors.ControlText;
+            _onSupportCorn.TextColor = Color.FromArgb(160, 160, 190);
             // 
             // _on_supoortVer
             // 
-            _on_supoortVer.BackColor = SystemColors.Control;
+            _on_supoortVer.BackColor = Color.FromArgb(18, 18, 30);
             _on_supoortVer.Font = new Font("Segoe UI", 9F);
-            _on_supoortVer.ForeColor = SystemColors.ControlText;
+            _on_supoortVer.ForeColor = Color.FromArgb(160, 160, 190);
             _on_supoortVer.IsOn = false;
             _on_supoortVer.Location = new Point(5, 35);
             _on_supoortVer.Name = "_on_supoortVer";
@@ -921,13 +904,13 @@ namespace belttentiontest
             _on_supoortVer.StatusText = "Vertical";
             _on_supoortVer.TabIndex = 34;
             _on_supoortVer.Text = "Vertical";
-            _on_supoortVer.TextColor = SystemColors.ControlText;
+            _on_supoortVer.TextColor = Color.FromArgb(160, 160, 190);
             // 
             // _on_supportBrake
             // 
-            _on_supportBrake.BackColor = SystemColors.Control;
+            _on_supportBrake.BackColor = Color.FromArgb(18, 18, 30);
             _on_supportBrake.Font = new Font("Segoe UI", 9F);
-            _on_supportBrake.ForeColor = SystemColors.ControlText;
+            _on_supportBrake.ForeColor = Color.FromArgb(160, 160, 190);
             _on_supportBrake.IsOn = false;
             _on_supportBrake.Location = new Point(108, 35);
             _on_supportBrake.Name = "_on_supportBrake";
@@ -937,108 +920,106 @@ namespace belttentiontest
             _on_supportBrake.StatusText = "Braking";
             _on_supportBrake.TabIndex = 33;
             _on_supportBrake.Text = "Braking";
-            _on_supportBrake.TextColor = SystemColors.ControlText;
+            _on_supportBrake.TextColor = Color.FromArgb(160, 160, 190);
             // 
-            // _bntNegativeSway
+            // _scrollPanel
             // 
-            _bntNegativeSway.AutoSize = true;
-            _bntNegativeSway.Location = new Point(161, 22);
-            _bntNegativeSway.Name = "_bntNegativeSway";
-            _bntNegativeSway.Size = new Size(68, 19);
-            _bntNegativeSway.TabIndex = 58;
-            _bntNegativeSway.Text = "Enabled";
-            _bntNegativeSway.UseVisualStyleBackColor = true;
-            _bntNegativeSway.CheckedChanged += _bntNegativeSway_CheckedChanged;
+            _scrollPanel.AutoScroll = true;
+            _scrollPanel.BackColor = Color.FromArgb(18, 18, 30);
+            _scrollPanel.Controls.Add(_gb_simhub);
+            _scrollPanel.Controls.Add(_of_seatbeltDevice);
+            _scrollPanel.Controls.Add(_of_simHub);
+            _scrollPanel.Controls.Add(_of_Control);
+            _scrollPanel.Controls.Add(cb_AutoConnect);
+            _scrollPanel.Controls.Add(groupBox2);
+            _scrollPanel.Controls.Add(groupBox1);
+            _scrollPanel.Controls.Add(gb_Car_Settings);
+            _scrollPanel.Controls.Add(buttonConnect);
+            _scrollPanel.Dock = DockStyle.Fill;
+            _scrollPanel.Location = new Point(0, 0);
+            _scrollPanel.Name = "_scrollPanel";
+            _scrollPanel.Size = new Size(332, 944);
+            _scrollPanel.TabIndex = 0;
+            _scrollPanel.MouseWheel += _scrollPanel_MouseWheel;
             // 
-            // label4
+            // _ttb_maxOutput2
             // 
-            label4.AutoSize = true;
-            label4.Location = new Point(15, 26);
-            label4.Name = "label4";
-            label4.Size = new Size(84, 15);
-            label4.TabIndex = 59;
-            label4.Text = "Negative Sway";
+            _ttb_maxOutput2.DecimalPlaces = 0;
+            _ttb_maxOutput2.FillColor = Color.DodgerBlue;
+            _ttb_maxOutput2.Location = new Point(0, 0);
+            _ttb_maxOutput2.Maximum = 100F;
+            _ttb_maxOutput2.Minimum = 1F;
+            _ttb_maxOutput2.Name = "_ttb_maxOutput2";
+            _ttb_maxOutput2.Size = new Size(150, 20);
+            _ttb_maxOutput2.TabIndex = 0;
+            _ttb_maxOutput2.ThumbColor = Color.White;
+            _ttb_maxOutput2.TrackColor = Color.FromArgb(55, 55, 80);
+            _ttb_maxOutput2.Value = 1F;
+            _ttb_maxOutput2.Visible = false;
             // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(316, 1056);
-            Controls.Add(_gb_simhub);
-            Controls.Add(_of_seatbeltDevice);
-            Controls.Add(_of_simHub);
-            Controls.Add(_of_Control);
-            Controls.Add(cb_AutoConnect);
-            Controls.Add(groupBox2);
-            Controls.Add(groupBox1);
-            Controls.Add(gb_Car_Settings);
-            Controls.Add(buttonConnect);
+            BackColor = Color.FromArgb(18, 18, 30);
+            ClientSize = new Size(332, 944);
+            Controls.Add(_scrollPanel);
+            ForeColor = Color.FromArgb(160, 160, 190);
             Icon = (Icon)resources.GetObject("$this.Icon");
+            MaximumSize = new Size(348, 32000);
+            MinimumSize = new Size(348, 300);
             Name = "Form1";
             Text = "Belt Tensioner";
             Load += Form1_Load;
-            ((ISupportInitialize)numericUpDownTarget).EndInit();
-            ((ISupportInitialize)numericUpDownCurveAmount).EndInit();
-            ((ISupportInitialize)pictureBoxCurveGraph).EndInit();
-            ((ISupportInitialize)numericUpDownMaxPower).EndInit();
-            ((ISupportInitialize)numericUpDownGForceToBelt).EndInit();
             gb_Car_Settings.ResumeLayout(false);
             gb_Car_Settings.PerformLayout();
+            _cb_tilt.ResumeLayout(false);
+            _cb_tilt.PerformLayout();
             _gb_vertical.ResumeLayout(false);
             _gb_vertical.PerformLayout();
-            ((ISupportInitialize)nudVertical).EndInit();
             _gb_cornering.ResumeLayout(false);
             _gb_cornering.PerformLayout();
-            ((ISupportInitialize)nud_coneringStrengh).EndInit();
-            ((ISupportInitialize)nud_ConeringCurveAmount).EndInit();
-            ((ISupportInitialize)percentageUpDownRestingPoint).EndInit();
             _gb_Braking.ResumeLayout(false);
             _gb_Braking.PerformLayout();
             groupBox1.ResumeLayout(false);
             groupBox1.PerformLayout();
-            ((ISupportInitialize)nud_Motor_End).EndInit();
-            ((ISupportInitialize)nud_Motor_Start).EndInit();
             groupBox2.ResumeLayout(false);
             groupBox2.PerformLayout();
-            ((ISupportInitialize)nud_ABS).EndInit();
             _gb_simhub.ResumeLayout(false);
             _gb_simhub.PerformLayout();
+            _scrollPanel.ResumeLayout(false);
             ResumeLayout(false);
-            PerformLayout();
         }
 
         #endregion
-        private GroupBox gb_Car_Settings;
+
+        private CollapsibleGroupBox gb_Car_Settings;
         private Label lb_carName;
+        private Label lb_ABS_Status;
         private Label labelCurveAmount;
         private Label label2;
-        private GroupBox groupBox1;
+        private CollapsibleGroupBox groupBox1;
         private Button bnt_Apply;
-        private NumericUpDown nud_Motor_End;
-        private NumericUpDown nud_Motor_Start;
+        private ThinTrackBar _ttb_motorEnd;
+        private ThinTrackBar _ttb_motorStart;
         private Label label3;
         private ListBox lb_SelectedMotor;
-        private CheckBox cb_duelMotors;
-        private CheckBox ck_Inverted;
-        private NumericUpDown nudVertical;
+        private ModernCheckBox cb_duelMotors;
+        private ModernCheckBox ck_Inverted;
         private Label label5;
-        private GroupBox groupBox2;
-        private NumericUpDown nud_ABS;
+        private CollapsibleGroupBox groupBox2;
+        private ThinTrackBar _ttb_ABS;
         private Label label6;
-        private CheckBox cb_ABS_Enabled;
-        private Button bnt_testABS;
-        private CheckBox cb_invert_sway;
-        private Label lb_ABS_Status;
-        private CheckBox cb_AutoConnect;
-        private NumericUpDown nud_ConeringCurveAmount;
-        private CheckBox cb_livePrieview;
-        private PercentageUpDown percentageUpDownRestingPoint;
+        private ModernCheckBox cb_ABS_Enabled;
+        private ModernCheckBox cb_invert_sway;
+        private ModernCheckBox cb_AutoConnect;
+        private ThinTrackBar _ttb_restingPoint2;
         private Label label7;
-        private GroupBox _gb_Braking;
-        private GroupBox _gb_cornering;
+        private CollapsibleGroupBox _gb_Braking;
+        private CollapsibleGroupBox _gb_cornering;
         private Label label8;
         private Label label9;
-        private GroupBox _gb_vertical;
+        private CollapsibleGroupBox _gb_vertical;
         private ThinTrackBar _ttb_maxOutput;
         private ThinTrackBar _ttb_restingPoint;
         private ThinTrackBar _ttb_verStr;
@@ -1046,23 +1027,29 @@ namespace belttentiontest
         private ThinTrackBar _ttb_corneringCurve;
         private ThinTrackBar _ttb_brakingStr;
         private ThinTrackBar _ttb_brakingCurve;
-        private CheckBox _cb_showBraking;
-        private Label label1;
-        private CheckBox _cb_showVer;
-        private CheckBox _cb_showCorn;
-        private NumericUpDown nud_coneringStrengh;
         private OnOffStatusControl _of_Control;
         private OnOffStatusControl _of_simHub;
         private Label lb_simhub;
         private OnOffStatusControl _of_seatbeltDevice;
-        private GroupBox _gb_simhub;
+        private CollapsibleGroupBox _gb_simhub;
         private OnOffStatusControl _onSupportCorn;
         private OnOffStatusControl _on_supoortVer;
         private OnOffStatusControl _on_supportBrake;
         private Label _lb_menu;
-        private CheckBox cb_invertHeave;
-        private CheckBox cb_invertSurge;
+        private ModernCheckBox cb_invertHeave;
+        private ModernCheckBox cb_invertSurge;
         private Label label4;
-        private CheckBox _bntNegativeSway;
+        private ThinTrackBar _ttb_negativeSway;
+        private CollapsibleGroupBox _cb_tilt;
+        private ModernCheckBox _cb_tilt_invertPitch;
+        private ThinTrackBar _ttb_pitch;
+        private Label label11;
+        private Label label10;
+        private ThinTrackBar _ttb_masterTilt;
+        private Label label14;
+        private ModernCheckBox _cb_tilt_invertRoll;
+        private ThinTrackBar _ttb_roll;
+        private Label label12;
+        private ThinTrackBar _ttb_maxOutput2;
     }
 }

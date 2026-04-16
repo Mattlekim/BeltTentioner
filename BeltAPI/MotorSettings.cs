@@ -19,6 +19,7 @@ namespace BeltAPI
         public float RightMinimumAngle;
         public float RightMaximumAngle;
 
+
         /// <summary>
         /// calculate teh motor curve
         /// </summary>
@@ -78,8 +79,9 @@ namespace BeltAPI
             return scaledValue;
         }
 
-        public BeltMotorData Setup(float SimSurgeValue, float SimSwayValue, float SimHeaveValue, CarSettings settings)
+        public BeltMotorData Setup(float SimSurgeValue, float SimSwayValue, float SimHeaveValue, CarSettings settings, Rotation carRotation = default)
         {
+
             SimSurgeValue = Math.Clamp(SimSurgeValue, -CarSettings.SurgeGForceScale, CarSettings.SurgeGForceScale);
             SimSwayValue = Math.Clamp(SimSwayValue, -CarSettings.SwayGForceScale, CarSettings.SwayGForceScale);
             SimHeaveValue = Math.Clamp(SimHeaveValue, -CarSettings.HeaveGForceScale, CarSettings.HeaveGForceScale);
@@ -93,6 +95,8 @@ namespace BeltAPI
             motorOutput.SwayForceInput = SimSwayValue;
 
             motorOutput.HeaveForceInput = SimHeaveValue;
+
+            motorOutput.CarRotation = carRotation;
 
             motorOutput.RestingPoint = settings.RestingPoint;
 

@@ -17,7 +17,7 @@ namespace BeltAPI
         public float HeaveForceInput;
         public float SurgeForceInput;
 
-        public bool ExperimentalSway; // this is for testing out new sway code, 
+        public float ExperimentalSway; // 0-100: how much negative sway is applied to the opposite motor
 
         /// <summary>
         /// this is the point where the motors are in the ideal position, 
@@ -30,8 +30,8 @@ namespace BeltAPI
         /// the total force going to the belt made up of all forces combinded
         /// </summary>
         public float TotalForceOutput => lSurgeOutput + lSwayOutput + lHeaveOutput;
-   
 
+        public Rotation CarRotation;
         /// <summary>
         /// enable everything
         /// I am using weights as a way to disable or enable certain forces, this is for ease of use in the future if we want to add more forces or have a need to disable one without changing the code
@@ -68,6 +68,20 @@ namespace BeltAPI
         public float RightSurgeOutput => rSurgeOutput;
         public float RightSwayOutput => rSwayOutput;
         public float RightHeaveOutput => rHeaveOutput;
+
+
+        private (float, float) CalculateRollForces(CarSettings carSettings, float roll)
+        {
+            float output = (float)Math.Sin(carSettings.InvertRoll? -roll: roll) * carSettings.RollStrength * .01f;
+            return (output, output);
+        }
+
+        private (float, float) CalculatePitchForces(CarSettings carSettings, float pitch)
+        {
+            float output = (float)Math.Sin(carSettings.InvertPitch ? -pitch : pitch) * carSettings.PitchStrength * .01f;
+            return (output, output);
+        }
+
         private (float, float) CalculateSurgeForces(BeltSerialDevice device, CarSettings carSettings)
         {
             float curved = device.DeviceMotorSettings.CalculateCurve(SurgeForceInput, carSettings.SurgeCurveAmount, Axis.Surge);
@@ -91,24 +105,41 @@ namespace BeltAPI
         }
 
 
-        private void CalculateForces(BeltSerialDevice device, CarSettings carSettings)
+        private void CalculateForces(BeltSerialDevice device, CarSettings carSettings, bool removeGravity, Rotation carRotation)
         {
-          //  carSettings.HeaveStrength = 1;
+
+            if (removeGravity)
+            {
+                var (gravitySurge, gravitySway, gravityHeave) = carRotation.GravityVector();
+
+                // gravityHeave is negative when upright (~-1g), so subtracting it removes gravity
+                HeaveForceInput -= Math.Abs(gravityHeave);
+                SwayForceInput -= Math.Abs(gravitySway);
+                SurgeForceInput -= Math.Abs(gravitySurge);
+            }
+
+            if (carSettings.InvertHeave)
+                HeaveForceInput = -HeaveForceInput;
+
+            
+             
+
+            //  carSettings.HeaveStrength = 1;
             (lSurgeOutput, rSurgeOutput) = CalculateSurgeForces(device, carSettings);
             (lSwayOutput, rSwayOutput) = CalculateSwayForces(device, carSettings);
 
-            if (carSettings.InvertHeave)
-            {
-                HeaveForceInput = -HeaveForceInput;
 
+            float lRollOutput, rRollOutput;
 
-                HeaveForceInput += 1;
-            }
-            else
-            {
-                HeaveForceInput -= 1;
+            (lRollOutput, rRollOutput) = CalculateRollForces(carSettings, carRotation.Roll);
+            lSwayOutput += lRollOutput;
+            rSwayOutput += rRollOutput;
 
-            }
+            float lPitchOutput, rPitchOutput;
+            (lPitchOutput, rPitchOutput) = CalculatePitchForces(carSettings, carRotation.Pitch);
+            lSurgeOutput += lPitchOutput;
+            rSurgeOutput += rPitchOutput;
+
             (lHeaveOutput, rHeaveOutput) = CalculateHeaveForces(device, carSettings);
 
             if (carSettings.InvertSurge)
@@ -124,37 +155,25 @@ namespace BeltAPI
             if (lSwayOutput < 0)
             {
                 lSwayOutput = Math.Abs(lSwayOutput);
-                if (ExperimentalSway)
-                    rSwayOutput = -lSwayOutput;
-                else
-                    rSwayOutput = 0;
+                rSwayOutput = -lSwayOutput * (ExperimentalSway / 100f);
             }
             else
             {
                 rSwayOutput = Math.Abs(lSwayOutput);
-                if (ExperimentalSway)
-                    lSwayOutput = -rSwayOutput;
-                else
-                    lSwayOutput = 0;
-            }
-
-            if (carSettings.InvertHeave)
-            {
-                lHeaveOutput = -lHeaveOutput;
-                rHeaveOutput = -rHeaveOutput;
+                lSwayOutput = -rSwayOutput * (ExperimentalSway / 100f);
             }
         }
 
-        public float CalculateDataForGraph(BeltSerialDevice device, CarSettings carSettings)
+        public float CalculateDataForGraph(BeltSerialDevice device, CarSettings carSettings, bool removeGravity, Rotation carRotation = default)
         {
-            CalculateForces(device, carSettings);
+            CalculateForces(device, carSettings, removeGravity, carRotation);
             float signalLeft = (lSurgeOutput * SurgeWeight) + (lSwayOutput * SwayWeight) + (lHeaveOutput * HeaveWeight); //add all forces
             return signalLeft;
         }
 
-        public float CalculateDataToSerail(BeltSerialDevice device, CarSettings carSettings)
+        public float CalculateDataToSerail(BeltSerialDevice device, CarSettings carSettings, Rotation carRotation = default)
         {
-            CalculateForces(device, carSettings);
+            CalculateForces(device, carSettings, true, carRotation);
 
             float signalLeft = (lSurgeOutput * SurgeWeight) + (lSwayOutput * SwayWeight) + (lHeaveOutput * HeaveWeight); //add all forces
 
@@ -165,18 +184,23 @@ namespace BeltAPI
             return signalLeft;
         }
 
-     
 
+        private (float, float) _lastMotorDataSent;
+
+        public (float, float) GetLastMotorDataSent()
+        {
+            return _lastMotorDataSent;
+        }
         /// <summary>
         /// Call this to calculate all forces that we will send to the belt
         /// this ussing the given motor settings and returns the motor forces
         /// </summary>
         /// <param name="settings"></param>
         /// <returns></returns>
-        public float SendDataToSerial(BeltSerialDevice device, CarSettings carSettings)
+        public float SendDataToSerial(BeltSerialDevice device, CarSettings carSettings, bool removeGravity = false, Rotation carRotation = default)
         {
             
-            CalculateForces(device, carSettings);
+            CalculateForces(device, carSettings, removeGravity, carRotation);
 
             float signalLeft = (lSurgeOutput * SurgeWeight) + (lSwayOutput * SwayWeight) + (lHeaveOutput * HeaveWeight); //add all forces
             float signalRight = (rSurgeOutput * SurgeWeight) + (rSwayOutput * SwayWeight) + (rHeaveOutput * HeaveWeight); //add all forces
@@ -192,6 +216,9 @@ namespace BeltAPI
 
             signalLeft = (float)Math.Round(signalLeft, 1);
             signalRight = (float)Math.Round(signalRight, 1);
+
+            _lastMotorDataSent = (signalLeft, signalRight);
+
             device.SendValue(signalLeft, signalRight);
             return signalLeft;
         }

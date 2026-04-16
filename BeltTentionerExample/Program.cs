@@ -20,14 +20,14 @@ _carSettings.SurgeCurveAmount = 1;
 _carSettings.SwayCurveAmount = 1;
 _carSettings.MaxPower = 100;
 _carSettings.RestingPoint = 0;
-_carSettings.NegativeSway = false;
-_carSettings.RestingPoint = 20;
+_carSettings.NegativeSway = 0f;
+_carSettings.RestingPoint = 0;
 float testValue = 0;
 
 
 
 BeltSerialDevice bsd = new BeltSerialDevice();
-
+bool enableSlowMode = false;
 var serialSendDataTimer = new System.Timers.Timer(33);
 bool skip = false;
 serialSendDataTimer.Elapsed += (s, e) =>
@@ -44,6 +44,10 @@ serialSendDataTimer.Elapsed += (s, e) =>
 
     BeltMotorData bmd;
     float output = 0;
+    Console.SetCursorPosition(30, 9);
+    Console.ForegroundColor = ConsoleColor.Green;
+    Console.Write($"{testState}");
+    Console.ForegroundColor = ConsoleColor.White;
     switch (testState)
     {
         case BeltTentionerExample.TestState.Idle:
@@ -54,10 +58,12 @@ serialSendDataTimer.Elapsed += (s, e) =>
             testValue += 0.02f;
 
             output = Math.Abs((float)(Math.Sin(testValue) * 7f));
-            
+
             bmd = bsd.SetupMotorsForData(output, 0, 1, _carSettings);
             bmd.SendDataToSerial(bsd, _carSettings);
 
+           
+            
             Console.SetCursorPosition(30, 10);
             Console.Write("Surge Output: " + output.ToString("0.00") + "    ");
             break;
@@ -80,6 +86,74 @@ serialSendDataTimer.Elapsed += (s, e) =>
 
             Console.SetCursorPosition(30, 10);
             Console.Write("Heave Output: " + output.ToString("0.00") + "    ");
+            break;
+        case BeltTentionerExample.TestState.TestLeft:
+            testValue += 0.02f;
+            output = (float)(Math.Sin(testValue) * 3f);
+            bmd = bsd.SetupMotorsForData(0, -Math.Abs(output), 1, _carSettings);
+
+            bmd.SendDataToSerial(bsd, _carSettings);
+
+            Console.SetCursorPosition(30, 10);
+            Console.Write("Left Output: " + Math.Abs(output).ToString("0.00") + "    ");
+            break;
+
+        case BeltTentionerExample.TestState.TestRight:
+            testValue += 0.02f;
+            output = (float)(Math.Sin(testValue) * 3f);
+            bmd = bsd.SetupMotorsForData(0, Math.Abs(output), 1, _carSettings);
+
+            bmd.SendDataToSerial(bsd, _carSettings);
+
+            Console.SetCursorPosition(30, 10);
+            Console.Write("Right Output: " + Math.Abs(output).ToString("0.00") + "    ");
+            break;
+
+        case BeltTentionerExample.TestState.TestMin:
+
+            bmd = bsd.SetupMotorsForData(0, 0, 0, _carSettings);
+
+            bmd.SendDataToSerial(bsd, _carSettings);
+
+            Console.SetCursorPosition(30, 10);
+            Console.Write("Setting Motors To Minium angle");
+            break;
+
+
+        case BeltTentionerExample.TestState.TestMax:
+            CarSettings tmpsettings = _carSettings.DeepCopy();
+            tmpsettings.MaxPower = 100;
+            tmpsettings.SurgeStrenght = 100;
+            bmd = bsd.SetupMotorsForData(200, 0, 0, tmpsettings);
+
+            bmd.SendDataToSerial(bsd, tmpsettings);
+
+            Console.SetCursorPosition(30, 10);
+            Console.Write("Setting Motors To Maximum angle");
+            break;
+
+        case BeltTentionerExample.TestState.TestSlowMode:
+            if (enableSlowMode)
+            {
+                testValue = 20f;
+                
+                bmd = bsd.SetupMotorsForData(testValue, 0, 1, _carSettings);
+                bmd.SendDataToSerial(bsd, _carSettings);
+                Console.SetCursorPosition(30, 10);
+                Console.Write("Setting Motor Position");
+                
+
+                Thread.Sleep(2000);
+                bsd.SendSlowMode();
+                Thread.Sleep(100);
+                enableSlowMode = false;
+                break; ;
+            }
+            testValue = 0f;
+            bmd = bsd.SetupMotorsForData(testValue, 0, 1, _carSettings);
+            bmd.SendDataToSerial(bsd, _carSettings);
+            Console.SetCursorPosition(30, 10);
+            Console.Write("Slow Mode Enabled");
             break;
     }
     skip = false;
@@ -185,9 +259,20 @@ while (alive)
         Console.SetCursorPosition(0, 9);
         Console.WriteLine("3: Test Heave");
         Console.SetCursorPosition(0, 10);
-        Console.WriteLine("4: Stop Test");
+        Console.WriteLine("4: Test Left");
         Console.SetCursorPosition(0, 11);
-        Console.WriteLine("5: Exit");
+        Console.WriteLine("5: Test Right");
+        Console.SetCursorPosition(0, 12);
+        Console.WriteLine("6: Test Min");
+        Console.SetCursorPosition(0, 13);
+        Console.WriteLine("7: Test Max");
+        Console.SetCursorPosition(0, 14);
+        Console.WriteLine("8: Slow Mode Test");
+
+        Console.SetCursorPosition(0, 15);
+        Console.WriteLine("9: Stop Test");
+        Console.SetCursorPosition(0, 16);
+        Console.WriteLine("0: Exit");
 
     }
     if (Console.KeyAvailable)
@@ -209,12 +294,44 @@ while (alive)
                 testState = BeltTentionerExample.TestState.TestHeave;
                 // bsd.TestBothMotors();
                 break;
+           
             case ConsoleKey.D4:
-                testState = BeltTentionerExample.TestState.Idle;
-         
+                testState = BeltTentionerExample.TestState.TestLeft;
+               
+
+
+                break;
+            case ConsoleKey.D5:
+                testState = BeltTentionerExample.TestState.TestRight;
+
+
                 break;
 
-            case ConsoleKey.D5:
+            case ConsoleKey.D6:
+                testState = BeltTentionerExample.TestState.TestMin;
+
+
+                break;
+
+            case ConsoleKey.D7:
+                testState = BeltTentionerExample.TestState.TestMax;
+
+
+                break;
+
+            case ConsoleKey.D8:
+                testState = BeltTentionerExample.TestState.TestSlowMode;
+                enableSlowMode = true;
+
+                break;
+
+            case ConsoleKey.D9:
+                testState = BeltTentionerExample.TestState.Idle;
+
+                break;
+
+
+            case ConsoleKey.D0:
                 alive = false;
                 serialSendDataTimer.Stop();
                 

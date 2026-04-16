@@ -11,6 +11,11 @@ namespace BeltTentionerExample
         Idle,
         TestSurge,
         TestSway,
-        TestHeave
+        TestHeave,
+        TestLeft,
+        TestRight,
+        TestMin,
+        TestMax,
+        TestSlowMode
     }
 }

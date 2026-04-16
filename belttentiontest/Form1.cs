@@ -7,10 +7,12 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.IO.MemoryMappedFiles;
 using System.IO.Ports;
 using System.Runtime.ConstrainedExecution;
+using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Text.Json;
 using System.Threading;
@@ -27,7 +29,7 @@ namespace belttentiontest
 
         public const float MAXPOSIBLEMOTORVALUE = 180;
 
-        private BeltSerialDevice BeltTentionerDevice;
+        public BeltSerialDevice BeltTentionerDevice;
         private bool handshakeComplete = false;
         private CancellationTokenSource? autoConnectCts;
 
@@ -87,9 +89,10 @@ namespace belttentiontest
             public bool AutoConnectOnStartup { get; set; } = false;
             public bool UseSimHub { get; set; } = false;
             public bool UseIracing { get; set; } = true;
+            public List<string> CollapsedGroups { get; set; } = new();
         }
 
-        public static AppSettings applicatoinSettings { get; set; } = new AppSettings();
+        public static AppSettings ApplicatoinSettings { get; set; } = new AppSettings();
 
         private const string AutoConnectSettingsFile = "autoconnect.json";
 
@@ -99,14 +102,14 @@ namespace belttentiontest
             {
                 if (!File.Exists(AutoConnectSettingsFile))
                 {
-                    applicatoinSettings = new AppSettings();
+                    ApplicatoinSettings = new AppSettings();
                     return;
                 }
 
                 var json = File.ReadAllText(AutoConnectSettingsFile);
                 if (string.IsNullOrWhiteSpace(json))
                 {
-                    applicatoinSettings = new AppSettings();
+                    ApplicatoinSettings = new AppSettings();
                     return;
                 }
 
@@ -114,24 +117,24 @@ namespace belttentiontest
                 var trimmed = json.TrimStart();
                 if (trimmed.StartsWith('{'))
                 {
-                    applicatoinSettings = JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
+                    ApplicatoinSettings = JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
                 }
                 else
                 {
                     // legacy format
                     if (bool.TryParse(json.Trim(), out var legacy))
                     {
-                        applicatoinSettings = new AppSettings { AutoConnectOnStartup = legacy };
+                        ApplicatoinSettings = new AppSettings { AutoConnectOnStartup = legacy };
                     }
                     else
                     {
-                        applicatoinSettings = new AppSettings();
+                        ApplicatoinSettings = new AppSettings();
                     }
                 }
             }
             catch
             {
-                applicatoinSettings = new AppSettings();
+                ApplicatoinSettings = new AppSettings();
             }
         }
 
@@ -140,7 +143,7 @@ namespace belttentiontest
             try
             {
                 var opts = new JsonSerializerOptions { WriteIndented = true };
-                var json = JsonSerializer.Serialize(applicatoinSettings, opts);
+                var json = JsonSerializer.Serialize(ApplicatoinSettings, opts);
                 File.WriteAllText(AutoConnectSettingsFile, json);
             }
             catch { }
@@ -192,18 +195,8 @@ namespace belttentiontest
 
             MyLogger.Log("Binding Controls");
             this.Text = $"Belt Tensioner V{AboutBox.Version}";
-            ThinTrackBar.Bind(_ttb_maxOutput, numericUpDownMaxPower);
-            ThinTrackBar.Bind(_ttb_restingPoint, percentageUpDownRestingPoint);
 
-            ThinTrackBar.Bind(_ttb_brakingCurve, numericUpDownCurveAmount);
-            ThinTrackBar.Bind(_ttb_brakingStr, numericUpDownGForceToBelt);
-
-            ThinTrackBar.Bind(_ttb_corneringCurve, nud_ConeringCurveAmount);
-            ThinTrackBar.Bind(_ttb_corneringStr, nud_coneringStrengh);
-
-            ThinTrackBar.Bind(_ttb_verStr, nudVertical);
-
-            cb_AutoConnect.Checked = applicatoinSettings.AutoConnectOnStartup;
+            cb_AutoConnect.Checked = ApplicatoinSettings.AutoConnectOnStartup;
 
             // custom paint for braking groupbox border
             _gb_Braking.Paint += _gb_Braking_Paint;
@@ -233,11 +226,11 @@ namespace belttentiontest
 
 
 
-            buttonConnect.Enabled = false;
+   //         buttonConnect.Enabled = false;
 
-            _of_seatbeltDevice.Text = "Scanning...";
+  //          _of_seatbeltDevice.Text = "Scanning...";
             SetControlsEnabled(false);
-            buttonConnect.Enabled = true;
+            //buttonConnect.Enabled = true;
 
             BeltTentionerDevice = new BeltSerialDevice();
             BeltTentionerDevice.MessageReceived += OnMessageReceivedFromSerial;
@@ -252,27 +245,27 @@ namespace belttentiontest
                 switch (msg.Type)
                 {
                     case BeltMessageType.GForce:
-                        numericUpDownGForceToBelt.Value = (decimal)msg.Value;
+                        _ttb_brakingStr.Value = msg.Value;
                         break;
 
                     case BeltMessageType.GCurve:
-                        numericUpDownCurveAmount.Value = (decimal)msg.Value;
+                        _ttb_brakingCurve.Value = msg.Value;
                         break;
 
                     case BeltMessageType.VForce:
-                        nudVertical.Value = (decimal)msg.Value;
+                        _ttb_verStr.Value = msg.Value;
                         break;
 
                     case BeltMessageType.CForce:
-                        nud_coneringStrengh.Value = (decimal)msg.Value;
+                        _ttb_corneringStr.Value = msg.Value;
                         break;
 
                     case BeltMessageType.CCurve:
-                        nud_ConeringCurveAmount.Value = (decimal)msg.Value;
+                        _ttb_corneringCurve.Value = msg.Value;
                         break;
 
                     case BeltMessageType.MaxOutput:
-                        numericUpDownMaxPower.Value = (decimal)msg.Value;
+                        _ttb_maxOutput.Value = msg.Value;
                         break;
 
                     case BeltMessageType.InvertConeringForces:
@@ -282,7 +275,7 @@ namespace belttentiontest
                         cb_ABS_Enabled.Checked = msg.Value != 0;
                         break;
                     case BeltMessageType.ABSStrength:
-                        nud_ABS.Value = (decimal)msg.Value;
+                        _ttb_ABS.Value = msg.Value;
                         break;
                 }
             };
@@ -312,6 +305,8 @@ namespace belttentiontest
             };
 
             MyLogger.Log("Initialization complete, setting up iRacing monitoring");
+
+           
             // start iRacing monitoring
             irCommunicator = IracingCommunicator.Instance;
             irCommunicator.ConnectionChanged += OnIracingConnectionChanged;
@@ -361,7 +356,7 @@ namespace belttentiontest
          //   LoadCarSettings(CarName);
 
             // Auto-connect on startup if enabled
-            if (applicatoinSettings.AutoConnectOnStartup)
+            if (ApplicatoinSettings.AutoConnectOnStartup)
             {
 
 
@@ -384,23 +379,28 @@ namespace belttentiontest
             }
 
             // Add Help menu with About...
+            var darkTable = new DarkMenuColorTable();
             var menuStrip = new MenuStrip();
+            menuStrip.BackColor = Color.FromArgb(18, 18, 30);
+            menuStrip.ForeColor = Color.FromArgb(160, 160, 190);
+            menuStrip.Renderer = new ToolStripProfessionalRenderer(darkTable);
             var menuSystem = new ToolStripMenuItem("Settings");
-            IracingCommunicator.Instance.Enabled = applicatoinSettings.UseIracing;
+            menuSystem.ForeColor = Color.FromArgb(160, 160, 190);
+            IracingCommunicator.Instance.Enabled = ApplicatoinSettings.UseIracing;
             var menuUseIracing = new ToolStripMenuItem("Use IRacing Telemetry");
             menuUseIracing.CheckOnClick = true;
-            menuUseIracing.Checked = applicatoinSettings.UseIracing;
+            menuUseIracing.Checked = ApplicatoinSettings.UseIracing;
             var menuUseSimHub = new ToolStripMenuItem("Use SimHub Telemetry");
             menuUseIracing.Click += (s, e) =>
             {
-                applicatoinSettings.UseIracing = menuUseIracing.Checked;
-                _of_Control.Enabled = applicatoinSettings.UseIracing;
-                IracingCommunicator.Instance.Enabled = applicatoinSettings.UseIracing;
-                if (applicatoinSettings.UseIracing)
+                ApplicatoinSettings.UseIracing = menuUseIracing.Checked;
+                _of_Control.Enabled = ApplicatoinSettings.UseIracing;
+                IracingCommunicator.Instance.Enabled = ApplicatoinSettings.UseIracing;
+                if (ApplicatoinSettings.UseIracing)
                 {
-                    applicatoinSettings.UseSimHub = false;
-                    menuUseSimHub.Checked = applicatoinSettings.UseSimHub;
-                    _of_simHub.Enabled = applicatoinSettings.UseSimHub;
+                    ApplicatoinSettings.UseSimHub = false;
+                    menuUseSimHub.Checked = ApplicatoinSettings.UseSimHub;
+                    _of_simHub.Enabled = ApplicatoinSettings.UseSimHub;
                     _gb_simhub.Enabled = false;
                 }
 
@@ -409,18 +409,18 @@ namespace belttentiontest
 
 
             menuUseSimHub.CheckOnClick = true;
-            menuUseSimHub.Checked = applicatoinSettings.UseSimHub;
+            menuUseSimHub.Checked = ApplicatoinSettings.UseSimHub;
             menuUseSimHub.Click += (s, e) =>
             {
-                applicatoinSettings.UseSimHub = menuUseSimHub.Checked;
-                _of_simHub.Enabled = applicatoinSettings.UseSimHub;
+                ApplicatoinSettings.UseSimHub = menuUseSimHub.Checked;
+                _of_simHub.Enabled = ApplicatoinSettings.UseSimHub;
                 _gb_simhub.Enabled = true;
-                if (applicatoinSettings.UseSimHub)
+                if (ApplicatoinSettings.UseSimHub)
                 {
-                    applicatoinSettings.UseIracing = false;
-                    menuUseIracing.Checked = applicatoinSettings.UseIracing;
-                    _of_Control.Enabled = applicatoinSettings.UseIracing;
-                    IracingCommunicator.Instance.Enabled = applicatoinSettings.UseIracing;
+                    ApplicatoinSettings.UseIracing = false;
+                    menuUseIracing.Checked = ApplicatoinSettings.UseIracing;
+                    _of_Control.Enabled = ApplicatoinSettings.UseIracing;
+                    IracingCommunicator.Instance.Enabled = ApplicatoinSettings.UseIracing;
                 }
 
                 SaveAutoConnectSetting();
@@ -436,8 +436,23 @@ namespace belttentiontest
             updateMenuItem.Click += async (s, e) => await Updater.CheckForUpdatesAsync(this);
             var aboutMenuItem = new ToolStripMenuItem("About...");
             aboutMenuItem.Click += (s, e) => ShowAboutBox();
+            var debugLogMenuItem = new ToolStripMenuItem("Show Debug Log...");
+            debugLogMenuItem.Click += (s, e) => ShowDebugLog();
+            var testingMenuItem = new ToolStripMenuItem("Open Testing Form...");
+            testingMenuItem.Click += (s, e) => ShowTestingForm();
+            var dropdownColor = Color.FromArgb(160, 160, 190);
+            menuUseIracing.ForeColor = dropdownColor;
+            menuUseSimHub.ForeColor = dropdownColor;
+            debugLogMenuItem.ForeColor = dropdownColor;
+            testingMenuItem.ForeColor = dropdownColor;
+            updateMenuItem.ForeColor = dropdownColor;
+            aboutMenuItem.ForeColor = dropdownColor;
             menuSystem.DropDownItems.Add(menuUseIracing);
             menuSystem.DropDownItems.Add(menuUseSimHub);
+            menuSystem.DropDownItems.Add(new ToolStripSeparator());
+            menuSystem.DropDownItems.Add(debugLogMenuItem);
+            menuSystem.DropDownItems.Add(testingMenuItem);
+            menuSystem.DropDownItems.Add(new ToolStripSeparator());
             menuSystem.DropDownItems.Add(updateMenuItem);
             menuSystem.DropDownItems.Add(aboutMenuItem);
             menuStrip.Items.Add(menuSystem);
@@ -445,12 +460,20 @@ namespace belttentiontest
             this.Controls.Add(menuStrip);
 
 
-            if (!applicatoinSettings.UseSimHub)
+            if (!ApplicatoinSettings.UseSimHub)
                 _of_simHub.Enabled = false;
 
-            if (!applicatoinSettings.UseIracing)
+            if (!ApplicatoinSettings.UseIracing)
                 _of_Control.Enabled = false;
             _isLoading = false;
+
+
+            cb_AutoConnect.Enabled = true;
+            if (!ApplicatoinSettings.AutoConnectOnStartup)
+                buttonConnect.Enabled = true;
+            else
+                buttonConnect.Enabled = false;
+
         }
 
         bool _simHubConnected = false;
@@ -465,7 +488,7 @@ namespace belttentiontest
         bool _simhub_Paused = false;
         private void GetSimHubData()
         {
-            if (!applicatoinSettings.UseSimHub)
+            if (!ApplicatoinSettings.UseSimHub)
                 return;
 
             if (telemetryReader == null)
@@ -540,7 +563,7 @@ namespace belttentiontest
             {
                 _simHubConnected = true;
 
-                if (!applicatoinSettings.UseIracing)
+                if (!ApplicatoinSettings.UseIracing)
                 {
                     if (_simhub_Telemetry.GameName != lastGameName)
                     {
@@ -572,6 +595,8 @@ namespace belttentiontest
                         var brake = _simhub_Telemetry.Braking / 9.81f;
                         var corn = _simhub_Telemetry.Cornering / 9.81f;
                         var ver = _simhub_Telemetry.Vertical / 9.81f;
+
+                        Rotation carRotation = new Rotation(_simhub_Telemetry.RotationPitch, _simhub_Telemetry.RotationPitch, _simhub_Telemetry.RotationYaw);
                         UpdateCarDriveState(true);
                         if (_simHub_SupportBraking != _simhub_Telemetry.SupportBraking)
                         {
@@ -603,12 +628,12 @@ namespace belttentiontest
 
 
                         //OnScaledValueUpdated(brake, rcorn, ver, false);
-                        UpdateBeltTensionerForces(brake, corn, ver);
+                        UpdateBeltTensionerForces(brake, corn, ver, carRotation);
                     }
                     else
                     {
                         //   OnScaledValueUpdated(0, 0, 0, false);
-                        UpdateBeltTensionerForces(0, 0, 0);
+                        UpdateBeltTensionerForces(0, 0, 0, Rotation.Zero);
                     }
                 }
             }
@@ -628,11 +653,11 @@ namespace belttentiontest
 
         private void OnIracingConnected()
         {
-            if (!applicatoinSettings.UseIracing)
+            if (!ApplicatoinSettings.UseIracing)
                 return;
 
             maxGForceRecorded = 0f; //reset max G-Force on new connection
-            labelMaxGForce.Text = $"Max G-Force: {maxGForceRecorded:F2}";
+          
 
             UpdateCarDriveState(true);
 
@@ -668,7 +693,7 @@ namespace belttentiontest
 
         private void OnIracingDisconnected()
         {
-            if (!applicatoinSettings.UseIracing)
+            if (!ApplicatoinSettings.UseIracing)
                 return;
 
             SaveSoon();
@@ -724,15 +749,15 @@ namespace belttentiontest
             {
                 if (lb_SelectedMotor.SelectedIndex == 1)
                 {
-                    nud_Motor_Start.Value = R_MIN;
-                    nud_Motor_End.Value = R_MAX;
-                    ck_Inverted.Checked = R_INVERT;
+                    _ttb_motorStart.Value = R_MIN;
+                    _ttb_motorEnd.Value   = R_MAX;
+                    ck_Inverted.Checked   = R_INVERT;
                 }
                 else
                 {
-                    nud_Motor_Start.Value = L_MIN;
-                    nud_Motor_End.Value = L_MAX;
-                    ck_Inverted.Checked = L_INVERT;
+                    _ttb_motorStart.Value = L_MIN;
+                    _ttb_motorEnd.Value   = L_MAX;
+                    ck_Inverted.Checked   = L_INVERT;
                 }
                 cb_duelMotors.Checked = DuelMotors;
                 lblChangesNotSaved.Visible = false;
@@ -822,7 +847,7 @@ namespace belttentiontest
 
         private void OnIracingConnectionChanged(bool connected)
         {
-            if (!applicatoinSettings.UseIracing)
+            if (!ApplicatoinSettings.UseIracing)
                 return;
 
             // If the form handle isn't created yet, store the state so we can update when shown
@@ -843,290 +868,38 @@ namespace belttentiontest
             if (!IsHandleCreated) return;
             BeginInvoke(new Action(() =>
             {
-                labelGForce.Text = $"G-Force: {gForce:F2}";
+                
                 if (gForce > maxGForceRecorded)
                 {
                     maxGForceRecorded = gForce;
-                    labelMaxGForce.Text = $"Max G-Force: {maxGForceRecorded:F2}";
+                    
                 }
                 // Removed trackBarGForce update
             }));
         }
 
-        private float _lastLongForceInput = 0f;
-        private float _lastLatForceInput = 0f;
-        private float _lastVertForceInput = 0f;
-
         private void DrawCurveGraph()
         {
-            if (pictureBoxCurveGraph == null) return;
-            int width = pictureBoxCurveGraph.Width;
-            int height = pictureBoxCurveGraph.Height;
-            int axisSpace = 20;
-            int xPadding = 12;
-            int graphWidth = width - 2 * xPadding;
-            int graphHeight = height - axisSpace;
-            var bmp = new System.Drawing.Bitmap(width, height);
-            using (var g = System.Drawing.Graphics.FromImage(bmp))
-            {
-                g.Clear(System.Drawing.Color.White);
-                var penMain = new System.Drawing.Pen(System.Drawing.Color.Blue, 2);
-                var penLat = new System.Drawing.Pen(System.Drawing.Color.Green, 2);
-                var penVer = new System.Drawing.Pen(System.Drawing.Color.Orange, 2);
-                var penMax = new System.Drawing.Pen(System.Drawing.Color.OrangeRed, 2);
-                var penResting = new System.Drawing.Pen(System.Drawing.Color.Cyan, 2);
-                var penPreview = new System.Drawing.Pen(System.Drawing.Color.Purple, 2);
-                var font = new System.Drawing.Font("Arial", 8);
-                var brush = System.Drawing.Brushes.Black;
-
-                // Draw Y axis label (rotated)
-                string yLabel = "Output To Belt";
-                var yLabelSize = g.MeasureString(yLabel, font);
-                g.TranslateTransform(0, (height - axisSpace) / 2);
-                g.RotateTransform(-90);
-                g.DrawString(yLabel, font, brush, -(yLabelSize.Width / 2), 0);
-                g.ResetTransform();
-
-                // Draw axes
-                g.DrawLine(System.Drawing.Pens.Black, xPadding, 0, xPadding, graphHeight - 1);
-                g.DrawLine(System.Drawing.Pens.Black, xPadding, graphHeight - 1, xPadding + graphWidth - 1, graphHeight - 1);
-
-                // Draw X axis ticks and labels
-                int numTicks = 9;
-                for (int i = -2; i <= numTicks; i++)
-                {
-                    float tickValue = i;
-                    int tickX = xPadding + (int)Math.Round(tickValue / 10.0 * (graphWidth - 1));
-                    int tickY = height - 16;
-                    g.DrawLine(System.Drawing.Pens.Black, tickX, tickY - 4, tickX, tickY);
-                    string tickLabel = (tickValue - 2).ToString("0.##");
-                    var tickLabelSize = g.MeasureString(tickLabel, font);
-                    g.DrawString(tickLabel, font, brush, tickX - tickLabelSize.Width / 2, tickY - tickLabelSize.Height + 12);
-                }
-
-
-                float min = BeltTentionerDevice.DeviceMotorSettings.LeftMinimumAngle;
-                float max = BeltTentionerDevice.DeviceMotorSettings.LeftMaximumAngle;
-                if (min > max) (min, max) = (max, min);
-                float motorRange = max - min;
-                if (motorRange == 0) motorRange = 1;
-
-                // Helper for Y mapping
-                int MapY(float yValue) => (int)((1.0f - (Math.Clamp(yValue, min, max) - min) / motorRange) * (graphHeight - 1));
-
-                // Draw max output as a solid yellow line
-                float maxOutput = min + (motorRange * (_maxPower / 100f));
-                int yMax = MapY(maxOutput);
-                g.DrawLine(penMax, xPadding, yMax, xPadding + graphWidth - 1, yMax);
-
-                int yResting = MapY(motorRange * ((float)percentageUpDownRestingPoint.Value / 100f));
-                g.DrawLine(penResting, xPadding, yResting, xPadding + graphWidth - 1, yResting);
-                // Main curve (longitudinal G)
-                int? prevY = null, prevX = null;
-
-                CarSettings _carSettings = CarSettingsDatabase.Instance.CurrentSettings;
-                if (_carSettings == null)
-                    return; 
-                if (_cb_showBraking.Checked)
-                    for (int x = -47; x < graphWidth; x++)
-                    {
-                        float inputValue = (float)(x / (float)graphWidth) * 10;
-                        if (inputValue > CarSettings.SurgeGForceScale)
-                            break;
-
-                        bool inverted = _carSettings.InvertSurge;
-
-                        _carSettings.InvertSurge = false;
-                        BeltMotorData output = BeltTentionerDevice.SetupMotorsForData(inputValue, 0, 1, _carSettings);
-                        float yValue = output.CalculateDataToSerail(BeltTentionerDevice, _carSettings);
-
-                        _carSettings.InvertSurge = inverted;
-
-                        int y = MapY(yValue);
-                        int drawX = xPadding + x + 47;
-                        if (prevY.HasValue)
-                            g.DrawLine(penMain, prevX.Value, prevY.Value, drawX, y);
-                        prevY = y;
-                        prevX = drawX;
-                    }
-
-                // Lateral curve (cornering G)
-                prevY = null; prevX = null;
-                if (_cb_showCorn.Checked)
-                    for (int x = 0; x < graphWidth; x++)
-                    {
-
-                        float inputValue = (float)(x / (float)graphWidth) * 10;
-
-                        if (inputValue > CarSettings.SwayGForceScale)
-                            break;
-
-                        bool inverted = _carSettings.InvertSway;
-
-                        _carSettings.InvertSway = false;
-
-                        BeltMotorData output = BeltTentionerDevice.SetupMotorsForData(0, inputValue, 1, _carSettings);
-                        float yValue = output.CalculateDataToSerail(BeltTentionerDevice, _carSettings);
-                        (yValue, _) = BeltTentionerDevice.DeviceMotorSettings.ClampToMaxMotorPower(output.LeftSwayOutput + output.RightSwayOutput + _carSettings.RestingPoint / 100f, 0, _carSettings);
-                        _carSettings.InvertSway = inverted;
-
-                        int y = MapY(yValue);
-
-                        int drawX = 47 + xPadding + x;
-
-                        if (prevY.HasValue)
-                            g.DrawLine(penLat, prevX.Value, prevY.Value, drawX, y);
-                        prevY = y;
-                        prevX = drawX;
-                    }
-
-                prevY = null; prevX = null;
-
-                if (_cb_showVer.Checked)
-                    for (int x = -47; x < graphWidth; x++)
-                    {
-                        float inputValue = (float)(x / (float)graphWidth) * 10;
-
-                        if (inputValue > CarSettings.HeaveGForceScale)
-                            break;
-
-                        bool inverted = _carSettings.InvertHeave;
-
-                        _carSettings.InvertHeave = false;
-
-                        BeltMotorData output = BeltTentionerDevice.DeviceMotorSettings.Setup(0, 0, inputValue, CarSettingsDatabase.Instance.CurrentSettings);
-                        float yValue = output.CalculateDataToSerail(BeltTentionerDevice, _carSettings);
-
-                        _carSettings.InvertHeave = inverted;
-
-                        int drawX = 47 + xPadding + x;
-                        int y = MapY(yValue);
-                        if (prevY.HasValue)
-                            g.DrawLine(penVer, prevX.Value, prevY.Value, drawX, y);
-                        prevY = y;
-                        prevX = drawX;
-                    }
-
-                // Live preview: show actual positions if enabled
-                if (cb_livePrieview != null && cb_livePrieview.Checked)
-                {
-                    if (_cb_showBraking.Checked)
-                    {
-                        // Longitudinal force marker
-                        int longX = xPadding + (int)(_lastLongForceInput / CarSettings.SurgeGForceScale * (graphWidth - 1));
-
-                        float inputValue = (float)(longX / (float)graphWidth) * 10;
-                        if (inputValue > CarSettings.SurgeGForceScale)
-                            inputValue = CarSettings.SurgeGForceScale;
-
-                        bool inverted = _carSettings.InvertSurge;
-
-                        _carSettings.InvertSurge = false;
-                        BeltMotorData output = BeltTentionerDevice.SetupMotorsForData(inputValue, 0, 1, CarSettingsDatabase.Instance.CurrentSettings);
-                        float yValue = output.CalculateDataToSerail(BeltTentionerDevice, CarSettingsDatabase.Instance.CurrentSettings);
-
-                        _carSettings.InvertSurge = inverted;
-
-                        int y = MapY(yValue);
-                        int drawX = xPadding + longX + 47;
-
-                        g.FillEllipse(System.Drawing.Brushes.Blue, drawX - 5, y - 5, 10, 10);
-                    }
-
-                    // Lateral force marker
-                    if (_cb_showCorn.Checked)
-                    {
-                        int longX = xPadding + (int)(_lastLatForceInput / CarSettings.SwayGForceScale * (graphWidth - 1));
-
-                        float inputValue = (float)(longX / (float)graphWidth) * 10;
-                        if (inputValue > CarSettings.SwayGForceScale)
-                            inputValue = CarSettings.SwayGForceScale;
-
-                        bool inverted = _carSettings.InvertSway;
-
-                        _carSettings.InvertSway = false;
-
-                        BeltMotorData output = BeltTentionerDevice.SetupMotorsForData(0, inputValue, 1, _carSettings);
-                        float yValue = output.CalculateDataToSerail(BeltTentionerDevice, _carSettings);
-                        (yValue, _) = BeltTentionerDevice.DeviceMotorSettings.ClampToMaxMotorPower(output.LeftSwayOutput + output.RightSwayOutput + _carSettings.RestingPoint / 100f, 0, _carSettings);
-                        _carSettings.InvertSway = inverted;
-
-
-
-                        int y = MapY(yValue);
-                        int drawX = xPadding + longX + 47;
-                        g.FillEllipse(System.Drawing.Brushes.Green, drawX - 5, y - 5, 10, 10);
-                    }
-
-                    // Vertical force marker
-                    if (_cb_showVer.Checked)
-                    {
-                        int longX = xPadding + (int)((_lastVertForceInput - 1) / CarSettings.HeaveGForceScale * (graphWidth - 1));
-
-                        float inputValue = (float)(longX / (float)graphWidth) * 10;
-                        //  if (inputValue > CarSettings.HeaveGForceScale)
-                        //     inputValue = CarSettings.HeaveGForceScale;  
-                        bool inverted = _carSettings.InvertHeave;
-
-                        _carSettings.InvertHeave = false;
-                        BeltMotorData output = BeltTentionerDevice.SetupMotorsForData(0, 0, inputValue, _carSettings);
-                        float yValue = output.CalculateDataToSerail(BeltTentionerDevice, _carSettings);
-
-                        _carSettings.InvertHeave = inverted;
-
-                        int y = MapY(yValue);
-                        int drawX = xPadding + longX + 47;
-                        g.FillEllipse(Brushes.Orange, drawX - 5, y - 5, 10, 10);
-                    }
-                    // Combined bar (long + lat + vertical)
-                    float combinedLong = _lastLongForceInput;
-                    float combinedLat = _lastLatForceInput;
-                    float combinedVert = _lastVertForceInput;
-                    BeltMotorData combinedOutput = BeltTentionerDevice.DeviceMotorSettings.Setup(combinedLong, combinedLat, combinedVert, CarSettingsDatabase.Instance.CurrentSettings);
-                    float combinedValue = combinedOutput.CalculateDataToSerail(BeltTentionerDevice, CarSettingsDatabase.Instance.CurrentSettings);
-                    combinedValue = Math.Abs(combinedValue); //for showing max force dont invert it
-                    // Bar max is based on settings.MaxPower (0-100 percent of motor range)
-                    float barMaxValue = min + (motorRange * (CarSettingsDatabase.Instance.CurrentSettings.MaxPower / 100f));
-                    float barPercent = (combinedValue - min) / (barMaxValue - min);
-                    barPercent = Math.Clamp(barPercent, 0f, 1f);
-                    int barMaxHeight = (int)((barMaxValue - min) / motorRange * (graphHeight - 1));
-                    int barHeight = (int)(barPercent * barMaxHeight);
-                    int barWidth = 15;
-                    int barX = xPadding + graphWidth - barWidth - 2 + 12;
-                    int barY = graphHeight - barHeight;
-                    // Color logic
-
-                    Brush barBrush = BrushUtils.LerpBrush(Brushes.Green, Brushes.Red, barPercent);
-
-                    g.FillRectangle(barBrush, barX, barY, barWidth, barHeight);
-                    // Draw the bar's max outline
-                    int barMaxY = graphHeight - barMaxHeight;
-                    g.DrawRectangle(System.Drawing.Pens.Black, barX, barMaxY, barWidth, barMaxHeight);
-
-
-                }
-            }
-            pictureBoxCurveGraph.Image = bmp;
+            _testingForm?.DrawCurveGraph();
         }
 
         private void numericUpDownMaxPower_ValueChanged(object sender, EventArgs e)
         {
-            _maxPower = (int)numericUpDownMaxPower.Value;
+            _maxPower = (int)_ttb_maxOutput.Value;
             BeltSettingsChanged();
         }
 
         private void numericUpDownCurveAmount_ValueChanged(object sender, EventArgs e)
         {
-            _curveAmount = (double)numericUpDownCurveAmount.Value;
+            _curveAmount = _ttb_brakingCurve.Value;
             BeltSettingsChanged();
         }
-
 
         private bool _testABS = false;
         private void OnABSValueUpdated()
         {
             if (cb_ABS_Enabled.Checked)
-                BeltTentionerDevice.SendABS((int)nud_ABS.Value);
+                BeltTentionerDevice.SendABS((int)_ttb_ABS.Value);
         }
 
         private float _displaySurgeForce = 0, _displaySwayForce = 0, _displayHeaveForce = 0;
@@ -1135,12 +908,14 @@ namespace belttentiontest
 
 
         private float simSurge = 0, simSway = 0, simHeave = 0;
+        public Rotation simRotation;
 
-        private void UpdateTelemetoryData(float surge, float sway, float heave)
+        private void UpdateTelemetoryData(float surge, float sway, float heave, float pitch, float roll, float yaw)
         {
             simSurge = surge;
             simSway = sway;
             simHeave = heave;
+            simRotation = new Rotation(pitch, roll, yaw);
         }
 
 
@@ -1157,16 +932,26 @@ namespace belttentiontest
         }
 
         private bool haveData = false;
-        private void UpdateBeltTensionerForces(float surge, float sway, float heave)
+        private bool _haveTestingData = false;
+        public void UpdateBeltTensionerForces(float surge, float sway, float heave, Rotation carRotation)
         {
             simSurge = surge;
             simSway = sway;
-            simHeave = (float)Math.Round(heave, 1);
-            UpdateCarDriveState(IracingCommunicator.Instance.IsInCar);
-            
+            simHeave = heave;
+            simRotation = carRotation;
+            _haveTestingData = true;
             //  simHeave -= 1;
 
             //haveData = true;
+        }
+
+        public void StopBeltTensionerForces()
+        {
+            _haveTestingData = false;
+             simSurge = 0;
+             simSway = 0;
+             simHeave = 0;
+             simRotation = Rotation.Zero;   
         }
 
         private void UpdateBeltTentionFeedback()
@@ -1175,12 +960,14 @@ namespace belttentiontest
             if (CarSettingsDatabase.Instance.CurrentSettings == null)
                 return;
 
+            if (!_haveTestingData)
             if (!irCommunicator.Isconnected && !_simHubConnected)
             {
                 simSway = 0;
                 simHeave = 0;
                 simSurge = 0;
             }
+           
 
             if (!_motorSettingsLoaded)
                 return; //if we have not loaded in the correct motor settings return false
@@ -1193,35 +980,32 @@ namespace belttentiontest
 
             if (_testABS)
             {
-                BeltTentionerDevice.SendABS((int)nud_ABS.Value);
+                BeltTentionerDevice.SendABS((int)_ttb_ABS.Value);
                 return;
             }
 
-            if (checkBoxTest.Checked)
-            {
-                simSurge = (float)numericUpDownTarget.Value;
-                simHeave = 0;
-                simSway = 0;
-            }
+          
 
 
             BeltMotorData value;
-            if (_wasInCar)
+            if (_wasInCar || _haveTestingData)
             {
 
-                value = BeltTentionerDevice.DeviceMotorSettings.Setup(simSurge, simSway, simHeave, CarSettingsDatabase.Instance.CurrentSettings);
+                value = BeltTentionerDevice.DeviceMotorSettings.Setup(simSurge, simSway, simHeave, CarSettingsDatabase.Instance.CurrentSettings, simRotation);
             }
             else
             {
                 CarSettings settings = CarSettingsDatabase.Instance.CurrentSettings;
                 int rp = settings.RestingPoint;
                 settings.RestingPoint = 0;
-                value = BeltTentionerDevice.DeviceMotorSettings.Setup(0, 0, 1, settings);
+                value = BeltTentionerDevice.DeviceMotorSettings.Setup(0, 0, 1, settings, simRotation);
                 settings.RestingPoint = rp;
                 
             }
             
-            float yValue = value.SendDataToSerial(BeltTentionerDevice, CarSettingsDatabase.Instance.CurrentSettings);
+            bool removeGravity = irCommunicator?.Isconnected ?? false; //we need to remove gravity for iracing
+
+            float yValue = value.SendDataToSerial(BeltTentionerDevice, CarSettingsDatabase.Instance.CurrentSettings, removeGravity, simRotation);
             
 
             float tmp = _lastMotorOutputValues.LeftSurgeOutput;
@@ -1239,15 +1023,9 @@ namespace belttentiontest
             //  simSway = 0;
 
 
-            if (cb_livePrieview != null && cb_livePrieview.Checked)
-            {
-
-                // Store latest force inputs for live preview
-                _lastLongForceInput = _lastLongForceInput * .9f + simSurge * .1f;
-                _lastLatForceInput = _lastLatForceInput * .9f + simSway * .1f;
-                _lastVertForceInput = _lastVertForceInput * .9f + simHeave * .1f;
-                DrawCurveGraph();
-            }
+            _testingForm?.UpdateLivePreview(simSurge, simSway, simHeave);
+            var (leftOut, rightOut) = value.GetLastMotorDataSent();
+            _testingForm?.UpdateMotorOutput(leftOut, rightOut, simRotation);
         }
 
 
@@ -1347,7 +1125,7 @@ namespace belttentiontest
 
         private void numericUpDownGForceToBelt_ValueChanged(object sender, EventArgs e)
         {
-            SetGForceMult((float)numericUpDownGForceToBelt.Value);
+            SetGForceMult(_ttb_brakingStr.Value);
             BeltSettingsChanged();
         }
 
@@ -1369,6 +1147,13 @@ namespace belttentiontest
             {
                 lb_SelectedMotor.SelectedIndex = 0;
             }
+
+
+
+            LoadCarSettings("NA");
+
+            RestoreCollapsedGroupState();
+
             DrawCurveGraph();
 
         }
@@ -1377,6 +1162,7 @@ namespace belttentiontest
         {
 
             SaveCarSettings();
+            SaveCollapsedGroupState();
             Settings.Default.Save();
 
             mmfUpdateTimer?.Stop(); // Stop MMF update timer
@@ -1398,14 +1184,24 @@ namespace belttentiontest
 
         private void SetControlsEnabled(bool enabled)
         {
-            foreach (Control ctl in this.Controls)
+          
+            
+
+            foreach (Control ctl in _scrollPanel.Controls)
             {
                 if (ctl != buttonConnect && ctl != cb_AutoConnect)
                 {
                     if (ctl is not Label && ctl is not OnOffStatusControl && ctl.Tag != "de")
                         ctl.Enabled = enabled;
+                   
+                }
+                else
+                {
+
                 }
             }
+
+           
         }
 
         private void LoadCarSettings(string carName)
@@ -1417,69 +1213,51 @@ namespace belttentiontest
 
     
             CarSettingsDatabase.Instance.LoadCarSettingsFromFile(carName);
- 
+
             var settings = CarSettingsDatabase.Instance.CurrentSettings;
 
    
-            // Apply settings to UI
-
-          //  try
-            {
+         
                 _gForceMult = settings.SurgeStrenght;
                 _maxPower = settings.MaxPower;
                 _curveAmount = settings.SurgeCurveAmount;
-            }
-           // catch (Exception x)
-            {
-           //     Debugger.Log(0, "hi", $"Error loading settings: {x.Message}\n");
-            }
-
-
+                
+                
         
             BeginInvoke(new Action(() =>
             {
 
           
                 lb_carName.Text = carName;
-                try
-                {
-                    numericUpDownGForceToBelt.Value = (decimal)settings.SurgeStrenght;
-                }
-                catch
-                {
-                    numericUpDownGForceToBelt.Value = numericUpDownGForceToBelt.Minimum;
-                }
 
-                numericUpDownMaxPower.Value = settings.MaxPower;
-                numericUpDownCurveAmount.Value = (decimal)settings.SurgeCurveAmount;
-                nud_coneringStrengh.Value = (decimal)settings.SwayStrength;
-                nudVertical.Value = (decimal)settings.HeaveStrength; // NEW
-                if (settings.AbsStrength < 3)
-                    settings.AbsStrength = 3;
-                nud_ABS.Value = (int)settings.AbsStrength; // NEW
-                cb_ABS_Enabled.Checked = settings.AbsEnabled; // NEW
+                _ttb_brakingStr.Value    = settings.SurgeStrenght;
+                _ttb_maxOutput.Value     = settings.MaxPower;
+                _ttb_brakingCurve.Value  = settings.SurgeCurveAmount;
+                _ttb_corneringStr.Value  = settings.SwayStrength;
+                _ttb_verStr.Value        = settings.HeaveStrength;
+                _ttb_ABS.Value           = Math.Max(3f, settings.AbsStrength);
+                cb_ABS_Enabled.Checked   = settings.AbsEnabled;
+                cb_invert_sway.Checked   = settings.InvertSway;
+                _coneringCurveAmount     = settings.SwayCurveAmount;
+                _ttb_corneringCurve.Value = settings.SwayCurveAmount;
+                _ttb_restingPoint.Value  = settings.RestingPoint;
+                cb_invertHeave.Checked   = settings.InvertHeave;
+                cb_invertSurge.Checked   = settings.InvertSurge;
+                _ttb_negativeSway.Value  = settings.NegativeSway;
+                _ttb_pitch.Value         = settings.PitchStrength;
+                _cb_tilt_invertPitch.Checked = settings.InvertPitch;
+                _ttb_roll.Value          = settings.RollStrength;
+                _cb_tilt_invertRoll.Checked  = settings.InvertRoll;
+      
+                _ttb_masterTilt.Value    = settings.MasterTiltStrength;
 
-                cb_invert_sway.Checked = settings.InvertSway; // NEW
-
-                // Set new setting to UI
-                _coneringCurveAmount = settings.SwayCurveAmount;
-                nud_ConeringCurveAmount.Value = (decimal)settings.SwayCurveAmount;
-                percentageUpDownRestingPoint.Value = (decimal)settings.RestingPoint;
-
-
-
-                cb_invertHeave.Checked = settings.InvertHeave; // NEW
-                cb_invertSurge.Checked = settings.InvertSurge; // NEW
-
-                _bntNegativeSway.Checked = settings.NegativeSway;
-           
-
+                _isLoading = false;
             }));
 
          
 
             DrawCurveGraph();
-            _isLoading = false;
+           
         }
 
 
@@ -1518,16 +1296,23 @@ namespace belttentiontest
             if (_isLoading)
                 return;
             var settings = CarSettingsDatabase.Instance.CurrentSettings;
-            settings.SurgeStrenght = (float)numericUpDownGForceToBelt.Value;
-            settings.MaxPower = (int)numericUpDownMaxPower.Value;
-            settings.SurgeCurveAmount = (float)numericUpDownCurveAmount.Value;
-            settings.SwayStrength = (float)nud_coneringStrengh.Value;
-            settings.HeaveStrength = (float)nudVertical.Value; // NEW
-            settings.AbsStrength = (float)nud_ABS.Value; // NEW
-            settings.AbsEnabled = cb_ABS_Enabled.Checked; // NEW
-            settings.InvertSway = cb_invert_sway.Checked; // NEW
-            settings.SwayCurveAmount = (float)nud_ConeringCurveAmount.Value; // NEW
-            settings.RestingPoint = (int)percentageUpDownRestingPoint.Value; // NEW
+            settings.SurgeStrenght    = _ttb_brakingStr.Value;
+            settings.MaxPower         = (int)_ttb_maxOutput.Value;
+            settings.SurgeCurveAmount = _ttb_brakingCurve.Value;
+            settings.SwayStrength     = _ttb_corneringStr.Value;
+            settings.HeaveStrength    = _ttb_verStr.Value;
+            settings.AbsStrength      = _ttb_ABS.Value;
+            settings.AbsEnabled       = cb_ABS_Enabled.Checked;
+            settings.InvertSway       = cb_invert_sway.Checked;
+            settings.SwayCurveAmount  = _ttb_corneringCurve.Value;
+            settings.RestingPoint     = (int)_ttb_restingPoint.Value;
+            settings.NegativeSway     = _ttb_negativeSway.Value;
+            settings.PitchStrength    = _ttb_pitch.Value;
+            settings.InvertPitch      = _cb_tilt_invertPitch.Checked;
+            settings.RollStrength     = _ttb_roll.Value;
+            settings.InvertRoll       = _cb_tilt_invertRoll.Checked;
+         
+            settings.MasterTiltStrength = _ttb_masterTilt.Value;
         }
 
         private void SaveCarSettings()
@@ -1553,29 +1338,25 @@ namespace belttentiontest
 
             var structSettings = new MemoryMapFileFormat
             {
-
-                CarName = this.CarName,
-                LongStrengh = (float)numericUpDownGForceToBelt.Value,
-                MaxPower = _maxPower,
-                CurveAmount = _curveAmount,
-                CorneringStrength = (float)nud_coneringStrengh.Value,
-                VerticalStrength = (float)nudVertical.Value,
-                AbsStrength = (float)nud_ABS.Value,
-                AbsEnabled = (byte)(cb_ABS_Enabled.Checked ? 1 : 0),
-                InvertCornering = (byte)(cb_invert_sway.Checked ? 1 : 0),
-                ConeringCurveAmount = (float)nud_ConeringCurveAmount.Value,
-
-                GForce = _displaySurgeForce,
-                LateralG = _displaySwayForce,
-                VerticalG = _displayHeaveForce,
-
-                ConnectedToSim = irCommunicator != null ? irCommunicator.IsConnected : false,
-                ConnectedToBelt = BeltTentionerDevice.IsConnected,
-                MotorRange = Math.Abs(L_MAX - L_MIN),
-                MotorSwayValue = _lastMotorOutputValues.LeftSwayOutput,
-                MotorSurgeValue = _lastMotorOutputValues.LeftSurgeOutput,
-                MotorHeaveValue = _lastMotorOutputValues.LeftHeaveOutput
-
+                CarName            = this.CarName,
+                LongStrengh        = _ttb_brakingStr.Value,
+                MaxPower           = _maxPower,
+                CurveAmount        = _curveAmount,
+                CorneringStrength  = _ttb_corneringStr.Value,
+                VerticalStrength   = _ttb_verStr.Value,
+                AbsStrength        = _ttb_ABS.Value,
+                AbsEnabled         = (byte)(cb_ABS_Enabled.Checked ? 1 : 0),
+                InvertCornering    = (byte)(cb_invert_sway.Checked ? 1 : 0),
+                ConeringCurveAmount = _ttb_corneringCurve.Value,
+                GForce             = _displaySurgeForce,
+                LateralG           = _displaySwayForce,
+                VerticalG          = _displayHeaveForce,
+                ConnectedToSim     = irCommunicator != null ? irCommunicator.IsConnected : false,
+                ConnectedToBelt    = BeltTentionerDevice.IsConnected,
+                MotorRange         = Math.Abs(L_MAX - L_MIN),
+                MotorSwayValue     = _lastMotorOutputValues.LeftSwayOutput,
+                MotorSurgeValue    = _lastMotorOutputValues.LeftSurgeOutput,
+                MotorHeaveValue    = _lastMotorOutputValues.LeftHeaveOutput
             };
             _mmfWriter?.WriteSettings(structSettings);
         }
@@ -1583,18 +1364,18 @@ namespace belttentiontest
         private void nud_Motor_Start_ValueChanged(object sender, EventArgs e)
         {
             if (lb_SelectedMotor.SelectedIndex == 1)
-                R_MIN = (int)nud_Motor_Start.Value;
+                R_MIN = (int)_ttb_motorStart.Value;
             else
-                L_MIN = (int)nud_Motor_Start.Value;
+                L_MIN = (int)_ttb_motorStart.Value;
             ShowChangesNotSaved();
         }
 
         private void nud_Motor_End_ValueChanged(object sender, EventArgs e)
         {
             if (lb_SelectedMotor.SelectedIndex == 1)
-                R_MAX = (int)nud_Motor_End.Value;
+                R_MAX = (int)_ttb_motorEnd.Value;
             else
-                L_MAX = (int)nud_Motor_End.Value;
+                L_MAX = (int)_ttb_motorEnd.Value;
             ShowChangesNotSaved();
         }
 
@@ -1625,7 +1406,7 @@ namespace belttentiontest
 
 
 
-            lblSettingsSaved.Visible = true;
+            
             lblChangesNotSaved.Visible = false;
             //   await Task.Delay(1500);
             lblSettingsSaved.Visible = false;
@@ -1652,7 +1433,7 @@ namespace belttentiontest
                 return;
             if (settings == null)
                 throw new Exception();
-            settings.HeaveStrength = (float)nudVertical.Value;
+            settings.HeaveStrength = _ttb_verStr.Value;
             BeltSettingsChanged();
         }
 
@@ -1660,7 +1441,7 @@ namespace belttentiontest
         {
             if (!CarSettingsDatabase.Instance.Settings.TryGetValue(CarName, out var settings))
                 return;
-            settings.AbsStrength = (float)nud_ABS.Value;
+            settings.AbsStrength = _ttb_ABS.Value;
             BeltSettingsChanged();
         }
 
@@ -1693,13 +1474,13 @@ namespace belttentiontest
 
         private void cb_AutoConnect_CheckedChanged(object sender, EventArgs e)
         {
-            applicatoinSettings.AutoConnectOnStartup = cb_AutoConnect.Checked;
+            ApplicatoinSettings.AutoConnectOnStartup = cb_AutoConnect.Checked;
             SaveAutoConnectSetting();
         }
 
         private void nud_ConeringCurveAmount_ValueChanged(object sender, EventArgs e)
         {
-            _coneringCurveAmount = (double)nud_ConeringCurveAmount.Value;
+            _coneringCurveAmount = _ttb_corneringCurve.Value;
             BeltSettingsChanged();
         }
 
@@ -1709,6 +1490,83 @@ namespace belttentiontest
             {
                 about.ShowDialog(this);
             }
+        }
+
+        /// <summary>
+        /// Collects every CollapsibleGroupBox in the given container (and nested containers)
+        /// that has Collapsible=true and a non-empty Name.
+        /// </summary>
+        private static IEnumerable<CollapsibleGroupBox> FindCollapsibleBoxes(Control root)
+        {
+            foreach (Control c in root.Controls)
+            {
+                if (c is CollapsibleGroupBox cgb && cgb.Collapsible && !string.IsNullOrEmpty(cgb.Name))
+                    yield return cgb;
+                foreach (var child in FindCollapsibleBoxes(c))
+                    yield return child;
+            }
+        }
+
+        private void SaveCollapsedGroupState()
+        {
+            ApplicatoinSettings.CollapsedGroups = new List<string>();
+            foreach (var cgb in FindCollapsibleBoxes(_scrollPanel))
+            {
+                if (cgb.Collapsed)
+                    ApplicatoinSettings.CollapsedGroups.Add(cgb.Name);
+            }
+            SaveAutoConnectSetting();
+        }
+
+        private void RestoreCollapsedGroupState()
+        {
+            if (ApplicatoinSettings.CollapsedGroups == null || ApplicatoinSettings.CollapsedGroups.Count == 0)
+                return;
+
+            var collapsed = new HashSet<string>(ApplicatoinSettings.CollapsedGroups);
+            foreach (var cgb in FindCollapsibleBoxes(_scrollPanel))
+            {
+                if (collapsed.Contains(cgb.Name))
+                    cgb.Collapsed = true;
+            }
+        }
+
+        private TestingForm? _testingForm;
+        private void ShowTestingForm()
+        {
+            if (_testingForm == null || _testingForm.IsDisposed)
+            {
+                _testingForm = new TestingForm();
+                _testingForm.Show(this);
+            }
+            else
+            {
+                _testingForm.BringToFront();
+            }
+        }
+
+        private DebugLogForm? _debugLogForm;
+        private void ShowDebugLog()
+        {
+            if (_debugLogForm == null || _debugLogForm.IsDisposed)
+            {
+                _debugLogForm = new DebugLogForm(BeltTentionerDevice);
+                _debugLogForm.Show(this);
+            }
+            else
+            {
+                _debugLogForm.BringToFront();
+            }
+        }
+
+        [DllImport("dwmapi.dll")]
+        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            int dark = 1;
+            DwmSetWindowAttribute(this.Handle, 20, ref dark, sizeof(int));
         }
 
         protected override void WndProc(ref Message m)
@@ -1721,7 +1579,7 @@ namespace belttentiontest
 
         private void Form1_Load(object sender, EventArgs e)
         {
-
+         
         }
 
         private void gb_Car_Settings_Enter(object sender, EventArgs e)
@@ -1967,12 +1825,88 @@ namespace belttentiontest
 
         }
 
-        private void _bntNegativeSway_CheckedChanged(object sender, EventArgs e)
+        private void nud_negativeSway_ValueChanged(object sender, EventArgs e)
         {
             if (_isLoading)
                 return;
-            CarSettingsDatabase.Instance.CurrentSettings.NegativeSway = _bntNegativeSway.Checked;
+            CarSettingsDatabase.Instance.CurrentSettings.NegativeSway = _ttb_negativeSway.Value;
             SaveSoon();
+        }
+
+        private void nud_pitch_ValueChanged(object sender, EventArgs e)
+        {
+            if (_isLoading) return;
+            CarSettingsDatabase.Instance.CurrentSettings.PitchStrength = _ttb_pitch.Value;
+            SaveSoon();
+        }
+
+        private void nud_roll_ValueChanged(object sender, EventArgs e)
+        {
+            if (_isLoading) return;
+            CarSettingsDatabase.Instance.CurrentSettings.RollStrength = _ttb_roll.Value;
+            SaveSoon();
+        }
+
+ 
+
+        private void nud_masterTilt_ValueChanged(object sender, EventArgs e)
+        {
+            if (_isLoading) return;
+            CarSettingsDatabase.Instance.CurrentSettings.MasterTiltStrength = _ttb_masterTilt.Value;
+            SaveSoon();
+        }
+
+        private void _cb_tilt_invertPitch_CheckedChanged(object sender, EventArgs e)
+        {
+            if (_isLoading) return;
+            CarSettingsDatabase.Instance.CurrentSettings.InvertPitch = _cb_tilt_invertPitch.Checked;
+            SaveSoon();
+        }
+
+        private void _cb_tilt_invertRoll_CheckedChanged(object sender, EventArgs e)
+        {
+            if (_isLoading) return;
+            CarSettingsDatabase.Instance.CurrentSettings.InvertRoll = _cb_tilt_invertRoll.Checked;
+            SaveSoon();
+        }
+
+   
+
+        private void _scrollPanel_MouseWheel(object? sender, MouseEventArgs e)
+        {
+            int delta = -(e.Delta / 120) * SystemInformation.MouseWheelScrollLines * 20;
+            int newVal = Math.Clamp(_scrollPanel.VerticalScroll.Value + delta,
+                                    _scrollPanel.VerticalScroll.Minimum,
+                                    _scrollPanel.VerticalScroll.Maximum);
+            _scrollPanel.VerticalScroll.Value = newVal;
+            _scrollPanel.PerformLayout();
+        }
+
+        private sealed class DarkMenuColorTable : ProfessionalColorTable
+        {
+            private static readonly Color _bg = Color.FromArgb(18, 18, 30);
+            private static readonly Color _highlight = Color.FromArgb(45, 45, 65);
+            private static readonly Color _border = Color.FromArgb(60, 60, 85);
+            private static readonly Color _text = Color.FromArgb(160, 160, 190);
+
+            public override Color MenuStripGradientBegin => _bg;
+            public override Color MenuStripGradientEnd => _bg;
+            public override Color MenuItemSelected => _highlight;
+            public override Color MenuItemSelectedGradientBegin => _highlight;
+            public override Color MenuItemSelectedGradientEnd => _highlight;
+            public override Color MenuItemBorder => _border;
+            public override Color MenuItemPressedGradientBegin => _highlight;
+            public override Color MenuItemPressedGradientEnd => _highlight;
+            public override Color MenuItemPressedGradientMiddle => _highlight;
+            public override Color ToolStripDropDownBackground => _bg;
+            public override Color ImageMarginGradientBegin => _bg;
+            public override Color ImageMarginGradientMiddle => _bg;
+            public override Color ImageMarginGradientEnd => _bg;
+            public override Color SeparatorDark => _border;
+            public override Color SeparatorLight => _border;
+            public override Color CheckBackground => _highlight;
+            public override Color CheckSelectedBackground => _highlight;
+            public override Color CheckPressedBackground => _highlight;
         }
     }
 }

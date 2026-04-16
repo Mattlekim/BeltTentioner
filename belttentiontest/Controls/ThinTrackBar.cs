@@ -1,15 +1,41 @@
-﻿using System;
+using System;
 using System.Drawing;
 using System.Windows.Forms;
 
 namespace belttentiontest.Controls
 {
+    /// <summary>
+    /// A slim horizontal slider with an integrated dark-themed value text box on its right.
+    /// Dragging the slider or editing the box both update the shared Value and fire ValueChanged.
+    /// DecimalPlaces controls how many decimal digits the box shows (0 = integer).
+    /// </summary>
     public class ThinTrackBar : Control
     {
-        public float Minimum { get; set; } = 1;
-        public float Maximum { get; set; } = 100;
+        // ?? colours ???????????????????????????????????????????????????????
+        private static readonly Color BoxBack    = Color.FromArgb(28, 28, 45);
+        private static readonly Color BoxFore    = Color.FromArgb(160, 160, 190);
+        private static readonly Color DisabledFg = Color.FromArgb(70, 70, 90);
 
-        private float _value = 1;
+        // ?? layout ????????????????????????????????????????????????????????
+        private const int BoxWidth = 46;
+        private const int BoxGap   = 4;
+
+        // ?? child text box ????????????????????????????????????????????????
+        private readonly TextBox _box;
+        private bool _updatingBox;
+
+        // ?? range / value ?????????????????????????????????????????????????
+        public float Minimum { get; set; } = 1f;
+        public float Maximum { get; set; } = 100f;
+
+        private int _decimalPlaces = 0;
+        public int DecimalPlaces
+        {
+            get => _decimalPlaces;
+            set { _decimalPlaces = Math.Max(0, value); RefreshBox(); }
+        }
+
+        private float _value = 1f;
         public float Value
         {
             get => _value;
@@ -17,127 +43,159 @@ namespace belttentiontest.Controls
             {
                 float clamped = Math.Max(Minimum, Math.Min(Maximum, value));
                 if (clamped == _value) return;
-
                 _value = clamped;
                 Invalidate();
+                RefreshBox();
                 ValueChanged?.Invoke(this, EventArgs.Empty);
             }
         }
 
         public event EventHandler ValueChanged;
 
-        public Color TrackColor { get; set; } = Color.Gray;
-        public Color FillColor { get; set; } = Color.DodgerBlue;
+        // ?? appearance ????????????????????????????????????????????????????
+        public Color TrackColor { get; set; } = Color.FromArgb(55, 55, 80);
+        public Color FillColor  { get; set; } = Color.DodgerBlue;
         public Color ThumbColor { get; set; } = Color.White;
 
-        private bool dragging = false;
+        private bool _dragging;
 
-        protected override Size DefaultSize
-        {
-            get { return new Size(100, 20); }
-        }
+        protected override Size DefaultSize => new Size(150, 20);
 
-
+        // ?? constructor ???????????????????????????????????????????????????
         public ThinTrackBar()
         {
             SetStyle(ControlStyles.AllPaintingInWmPaint |
                      ControlStyles.OptimizedDoubleBuffer |
                      ControlStyles.ResizeRedraw |
                      ControlStyles.UserPaint, true);
-
             Height = 20;
+
+            _box = new TextBox
+            {
+                BackColor   = BoxBack,
+                ForeColor   = BoxFore,
+                BorderStyle = BorderStyle.FixedSingle,
+                Font        = new Font("Segoe UI", 8.5f),
+                TextAlign   = HorizontalAlignment.Center,
+                TabStop     = false,
+            };
+            _box.KeyDown   += Box_KeyDown;
+            _box.LostFocus += Box_LostFocus;
+            Controls.Add(_box);
+            PositionBox();
+            RefreshBox();
         }
 
+        // ?? layout ????????????????????????????????????????????????????????
+        private int TrackWidth => Math.Max(0, Width - BoxWidth - BoxGap);
+
+        private void PositionBox()
+        {
+            int bh = Math.Min(Height, 20);
+            _box.SetBounds(TrackWidth + BoxGap, (Height - bh) / 2, BoxWidth, bh);
+        }
+
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            PositionBox();
+        }
+
+        // ?? painting ??????????????????????????????????????????????????????
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
-
             var g = e.Graphics;
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
-            int trackY = Height / 2 - 2;
-            Rectangle trackRect = new Rectangle(0, trackY, Width, 4);
+            int tw   = TrackWidth;
+            int midY = Height / 2;
 
-            // Background track
+            // Track background
             using (var b = new SolidBrush(TrackColor))
-                g.FillRectangle(b, trackRect);
+                g.FillRectangle(b, 0, midY - 2, tw, 4);
 
             // Filled portion
-            float percent = (float)(Value - Minimum) / (Maximum - Minimum);
-            int fillWidth = (int)(percent * Width);
+            float range   = Maximum - Minimum;
+            float percent = range == 0f ? 0f : (_value - Minimum) / range;
+            int   fill    = (int)(percent * tw);
 
-            using (var b = new SolidBrush(FillColor))
-                g.FillRectangle(b, new Rectangle(0, trackY, fillWidth, 4));
+            using (var b = new SolidBrush(Enabled ? FillColor : Color.FromArgb(50, 50, 70)))
+                g.FillRectangle(b, 0, midY - 2, fill, 4);
 
             // Thumb
-
-            int thumbpos = (int)(percent * (Width - 13  ));
-            int thumbX = fillWidth - 6;
-            Rectangle thumbRect = new Rectangle(thumbpos, trackY - 4, 12, 12);
-
-            using (var b = new SolidBrush(ThumbColor))
+            int thumbX    = (int)(percent * Math.Max(0, tw - 12));
+            var thumbRect = new Rectangle(thumbX, midY - 6, 12, 12);
+            using (var b = new SolidBrush(Enabled ? ThumbColor : Color.FromArgb(80, 80, 100)))
                 g.FillEllipse(b, thumbRect);
-
-            using (var p = new Pen(Color.Black, 1))
+            using (var p = new Pen(Color.FromArgb(40, 40, 60), 1))
                 g.DrawEllipse(p, thumbRect);
         }
 
+        // ?? mouse interaction ?????????????????????????????????????????????
         protected override void OnMouseDown(MouseEventArgs e)
         {
             base.OnMouseDown(e);
-            dragging = true;
+            if (!Enabled) return;
+            _dragging = true;
             SetValueFromMouse(e.X);
         }
 
         protected override void OnMouseMove(MouseEventArgs e)
         {
             base.OnMouseMove(e);
-            if (dragging)
-                SetValueFromMouse(e.X);
+            if (_dragging) SetValueFromMouse(e.X);
         }
 
         protected override void OnMouseUp(MouseEventArgs e)
         {
             base.OnMouseUp(e);
-            dragging = false;
+            _dragging = false;
         }
 
         private void SetValueFromMouse(int mouseX)
         {
-            if (Width <= 0) return;
-
-            float percent = Math.Max(0f, Math.Min(1f, (float)mouseX / Width));
-            Value = Minimum + percent * (Maximum - Minimum);
+            int tw = TrackWidth;
+            if (tw <= 0) return;
+            float pct = Math.Max(0f, Math.Min(1f, (float)mouseX / tw));
+            Value = Minimum + pct * (Maximum - Minimum);
         }
 
-        // 🔁 Binding helper (restored)
-        public static void Bind(ThinTrackBar trackBar, NumericUpDown numeric)
+        // ?? text box sync ?????????????????????????????????????????????????
+        private void RefreshBox()
         {
-            // Match ranges
-            numeric.Minimum = (int)trackBar.Minimum;
-            numeric.Maximum = (int)trackBar.Maximum;
+            if (_updatingBox) return;
+            _updatingBox = true;
+            _box.Text = _value.ToString(_decimalPlaces > 0 ? "F" + _decimalPlaces : "F0");
+            _updatingBox = false;
+        }
 
-            // Initial sync
-            trackBar.Value = (int)numeric.Value;
+        private void CommitBox()
+        {
+            if (float.TryParse(_box.Text,
+                    System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.CurrentCulture,
+                    out float parsed))
+                Value = parsed;
+            else
+                RefreshBox();   // revert invalid input
+        }
 
-            bool updating = false;
+        private void Box_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Enter)  { CommitBox();  e.SuppressKeyPress = true; }
+            if (e.KeyCode == Keys.Escape) { RefreshBox(); e.SuppressKeyPress = true; }
+        }
 
-            trackBar.ValueChanged += (s, e) =>
-            {
-                if (updating) return;
-                updating = true;
-                numeric.Value = Math.Max(numeric.Minimum,
-                                  Math.Min(numeric.Maximum, (decimal)trackBar.Value));
-                updating = false;
-            };
+        private void Box_LostFocus(object sender, EventArgs e) => CommitBox();
 
-            numeric.ValueChanged += (s, e) =>
-            {
-                if (updating) return;
-                updating = true;
-                trackBar.Value = (int)numeric.Value;
-                updating = false;
-            };
+        // ?? enabled state ?????????????????????????????????????????????????
+        protected override void OnEnabledChanged(EventArgs e)
+        {
+            base.OnEnabledChanged(e);
+            _box.BackColor = BoxBack;
+            _box.ForeColor = Enabled ? BoxFore : DisabledFg;
+            Invalidate();
         }
     }
 }

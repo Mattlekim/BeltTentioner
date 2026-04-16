@@ -32,7 +32,14 @@ namespace BeltAPI
 
         public int RestingPoint { get; set; } = 0; // NEW: Resting point for the motor
 
-        public bool NegativeSway { get; set; } = false;
+        public float NegativeSway { get; set; } = 0f;
+
+        public float PitchStrength { get; set; } = 10f;
+        public bool InvertPitch { get; set; } = false;
+        public float RollStrength { get; set; } = 10f;
+        public bool InvertRoll { get; set; } = false;
+     
+        public float MasterTiltStrength { get; set; } = 10f;
 
         public CarSettings DeepCopy()
         {
@@ -50,7 +57,13 @@ namespace BeltAPI
                 AbsStrength = this.AbsStrength,
                 AbsEnabled = this.AbsEnabled,
                 RestingPoint = this.RestingPoint,
-                NegativeSway = this.NegativeSway
+                NegativeSway = this.NegativeSway,
+                PitchStrength = this.PitchStrength,
+                InvertPitch = this.InvertPitch,
+                RollStrength = this.RollStrength,
+                InvertRoll = this.InvertRoll,
+         
+                MasterTiltStrength = this.MasterTiltStrength
             };
         }
     }
