@@ -1206,12 +1206,12 @@ namespace belttentiontest
 
         private void LoadCarSettings(string carName)
         {
-
+            // Flush any pending in-memory changes for the previous car before
+            // LoadCarSettingsFromFile replaces the Settings dictionary from disk.
+            CarSettingsDatabase.Instance.SaveCurrentCarSettings(CarName);
 
             _isLoading = true;
-            // carName = null;
 
-    
             CarSettingsDatabase.Instance.LoadCarSettingsFromFile(carName);
 
             var settings = CarSettingsDatabase.Instance.CurrentSettings;
@@ -1270,25 +1270,21 @@ namespace belttentiontest
             if (_isLoading)
                 return;
 
-            if (_timer == null)
-            {
-                _timer = new System.Timers.Timer(2000);
-                _timer.Elapsed += (s, e) =>
-                {
-
-                    SaveCarSettings();
-
-                };
-                _timer.Start();
-                _timer.AutoReset = false;
-            }
-            else
+            if (_timer != null)
             {
                 _timer.Stop();
                 _timer.Close();
                 _timer.Dispose();
                 _timer = null;
             }
+
+            _timer = new System.Timers.Timer(2000);
+            _timer.Elapsed += (s, e) =>
+            {
+                SaveCarSettings();
+            };
+            _timer.AutoReset = false;
+            _timer.Start();
         }
 
         private void UpdateCarsSettings()

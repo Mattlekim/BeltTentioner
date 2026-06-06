@@ -16,6 +16,7 @@ namespace BeltTentionerExample
         TestRight,
         TestMin,
         TestMax,
-        TestSlowMode
+        TestSlowMode,
+        TestNoise
     }
 }

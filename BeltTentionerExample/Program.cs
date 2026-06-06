@@ -24,6 +24,15 @@ _carSettings.NegativeSway = 0f;
 _carSettings.RestingPoint = 0;
 float testValue = 0;
 
+// Random noise test – change these to control how much each axis can jump per tick
+float noiseMaxDeltaSurge = 0.5f;
+float noiseMaxDeltaSway  = 0.5f;
+float noiseMaxDeltaHeave = 0.3f;
+float noiseSurge = 0f;
+float noiseSway  = 0f;
+float noiseHeave = 1f; // heave starts at 1 (idle gravity)
+Random noiseRng  = new Random();
+
 
 
 BeltSerialDevice bsd = new BeltSerialDevice();
@@ -130,6 +139,16 @@ serialSendDataTimer.Elapsed += (s, e) =>
 
             Console.SetCursorPosition(30, 10);
             Console.Write("Setting Motors To Maximum angle");
+            break;
+
+        case BeltTentionerExample.TestState.TestNoise:
+            noiseSurge = Math.Clamp(noiseSurge + (float)(noiseRng.NextDouble() * 2 - 1) * noiseMaxDeltaSurge, 0f, 7f);
+            noiseSway  = Math.Clamp(noiseSway  + (float)(noiseRng.NextDouble() * 2 - 1) * noiseMaxDeltaSway,  -5f, 5f);
+            noiseHeave = Math.Clamp(noiseHeave + (float)(noiseRng.NextDouble() * 2 - 1) * noiseMaxDeltaHeave, -2f, 3f);
+            bmd = bsd.SetupMotorsForData(noiseSurge, noiseSway, noiseHeave, _carSettings);
+            bmd.SendDataToSerial(bsd, _carSettings);
+            Console.SetCursorPosition(30, 10);
+            Console.Write($"Noise  S:{noiseSurge:F2}  Sw:{noiseSway:F2}  H:{noiseHeave:F2}    ");
             break;
 
         case BeltTentionerExample.TestState.TestSlowMode:
@@ -270,8 +289,11 @@ while (alive)
         Console.WriteLine("8: Slow Mode Test");
 
         Console.SetCursorPosition(0, 15);
-        Console.WriteLine("9: Stop Test");
+        Console.WriteLine("N: Noise Test");
+
         Console.SetCursorPosition(0, 16);
+        Console.WriteLine("9: Stop Test");
+        Console.SetCursorPosition(0, 17);
         Console.WriteLine("0: Exit");
 
     }
@@ -322,7 +344,13 @@ while (alive)
             case ConsoleKey.D8:
                 testState = BeltTentionerExample.TestState.TestSlowMode;
                 enableSlowMode = true;
+                break;
 
+            case ConsoleKey.N:
+                testState = BeltTentionerExample.TestState.TestNoise;
+                noiseSurge = 0f;
+                noiseSway  = 0f;
+                noiseHeave = 1f;
                 break;
 
             case ConsoleKey.D9:
