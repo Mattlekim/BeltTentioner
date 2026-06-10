@@ -1,0 +1,372 @@
+<Window x:Class="BeltTensionTest.WPF.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:BeltTensionTest.WPF.ViewModels"
+        xmlns:views="clr-namespace:BeltTensionTest.WPF.Views"
+        Title="Belt Tensioner WPF"
+        Width="420" MinWidth="420"
+        MinHeight="400"
+        Background="#12121E"
+        Foreground="#A0A0BE"
+        FontFamily="Segoe UI"
+        ResizeMode="CanResize"
+        WindowStartupLocation="CenterScreen">
+
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Resources/Styles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- Value converters inline -->
+            <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <DockPanel>
+        <!-- ?? Menu Bar ???????????????????????????????????????????????????? -->
+        <Menu DockPanel.Dock="Top"
+              Background="#12121E"
+              Foreground="#A0A0BE">
+            <MenuItem Header="Settings" Foreground="#A0A0BE">
+                <MenuItem Header="Use iRacing Telemetry"
+                          IsCheckable="True"
+                          IsChecked="{Binding UseIracing}"
+                          Foreground="#A0A0BE"/>
+                <MenuItem Header="Use SimHub Telemetry"
+                          IsCheckable="True"
+                          IsChecked="{Binding UseSimHub}"
+                          Foreground="#A0A0BE"/>
+                <Separator Background="#46466A"/>
+                <MenuItem Header="Open Testing Window..."
+                          Foreground="#A0A0BE"
+                          Click="OpenTestingWindow_Click"/>
+                <MenuItem Header="Show Debug Log..."
+                          Foreground="#A0A0BE"
+                          Click="OpenDebugLog_Click"/>
+                <Separator Background="#46466A"/>
+                <MenuItem Header="Check for Updates..."
+                          Foreground="#A0A0BE"
+                          Command="{Binding CheckUpdatesCommand}"/>
+                <MenuItem Header="About..."
+                          Foreground="#A0A0BE"
+                          Click="About_Click"/>
+            </MenuItem>
+        </Menu>
+
+        <!-- ?? Update Banner ??????????????????????????????????????????????? -->
+        <Border DockPanel.Dock="Top"
+                Background="#3A2A10"
+                BorderBrush="#FFAA20"
+                BorderThickness="0,0,0,1"
+                Padding="10,5"
+                Visibility="{Binding IsUpdateAvailable, Converter={StaticResource BoolToVis}}">
+            <DockPanel>
+                <Button DockPanel.Dock="Right"
+                        Content="Download"
+                        Background="#FFAA20"
+                        Foreground="#12121E"
+                        Padding="10,3"
+                        Command="{Binding OpenUpdateCommand}"
+                        Margin="6,0,0,0"/>
+                <TextBlock VerticalAlignment="Center"
+                           Foreground="#FFCC60">
+                    <Run Text="Update available: "/>
+                    <Run Text="{Binding UpdateTag, Mode=OneWay}"
+                         FontWeight="Bold"/>
+                </TextBlock>
+            </DockPanel>
+        </Border>
+
+        <!-- ?? Main Scrollable Content ????????????????????????????????????? -->
+        <ScrollViewer DockPanel.Dock="Bottom"
+                      VerticalScrollBarVisibility="Auto"
+                      Background="#12121E"
+                      PanningMode="VerticalFirst" Width="390">
+            <StackPanel Margin="10,8" Width="332">
+
+                <!-- ?? Status Row ??????????????????????????????????????????? -->
+                <Border Background="#1C1C2E" CornerRadius="6" Padding="10,8" Margin="0,0,0,6">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- iRacing status -->
+                        <views:StatusIndicatorView Grid.Column="0"
+                                                   Label="iRacing:"
+                                                   IsOn="{Binding IracingIsOn}"
+                                                   HorizontalAlignment="Left"/>
+
+                        <!-- SimHub status -->
+                        <views:StatusIndicatorView Grid.Column="1"
+                                                   Label="SimHub:"
+                                                   IsOn="{Binding SimHubIsOn}"
+                                                   Margin="8,0"/>
+                    </Grid>
+                </Border>
+
+                <!-- ?? Device Connection ???????????????????????????????????? -->
+                <Border Background="#1C1C2E" CornerRadius="6" Padding="10,10" Margin="0,0,0,6">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Device on/off + label -->
+                        <views:StatusIndicatorView Grid.Row="0"
+                                                   Label="{Binding DeviceStatusText}"
+                                                   IsOn="{Binding DeviceIsOn}"
+                                                   FontSize="14"
+                                                   FontWeight="SemiBold"/>
+
+                        <!-- Connect + AutoConnect row -->
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <CheckBox Grid.Column="0"
+                                      Content="Connect On Startup"
+                                      IsChecked="{Binding AutoConnect}"
+                                      VerticalAlignment="Center"/>
+                            <Button Grid.Column="1"
+                                    Content="Connect"
+                                    Command="{Binding ConnectCommand}"
+                                    IsEnabled="{Binding ConnectButtonEnabled}"
+                                    Width="80"/>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <!-- ?? SimHub group ????????????????????????????????????????? -->
+                <GroupBox Header="SimHub"
+                          IsEnabled="{Binding SimHubGroupEnabled}"
+                          Margin="0,0,0,6">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Row="0" Grid.Column="0"
+                                   Text="{Binding SimHubText}"
+                                   Style="{StaticResource LabelStyle}"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1"
+                                   Text="{Binding MenuStateText}"
+                                   Style="{StaticResource LabelStyle}"
+                                   HorizontalAlignment="Right"/>
+                        <StackPanel Grid.Row="1" Grid.ColumnSpan="2"
+                                    Orientation="Horizontal" Margin="0,4,0,0">
+                            <views:StatusIndicatorView Label="Vertical"   IsOn="{Binding SupportVertical}"  Margin="0,0,8,0"/>
+                            <views:StatusIndicatorView Label="Braking"    IsOn="{Binding SupportBrake}"     Margin="0,0,8,0"/>
+                            <views:StatusIndicatorView Label="Cornering"  IsOn="{Binding SupportCornering}"/>
+                        </StackPanel>
+                    </Grid>
+                </GroupBox>
+
+                <!-- ?? Car Settings ??????????????????????????????????????? -->
+                <GroupBox Header="Car Settings" IsEnabled="{Binding ControlsEnabled}" Margin="0,0,0,6">
+                    <StackPanel>
+                        <!-- Car Name -->
+                        <DockPanel Margin="0,0,0,6">
+                            <TextBlock DockPanel.Dock="Left" Text="Car:" Style="{StaticResource LabelStyle}" Width="80"/>
+                            <TextBlock Text="{Binding CarNameDisplay}"
+                                       Foreground="#D0D0F0" FontWeight="SemiBold"
+                                       VerticalAlignment="Center"/>
+                        </DockPanel>
+
+                        <!-- Max Output -->
+                        <views:SliderRow Label="Max Output" Min="1" Max="100"
+                                         Value="{Binding MaxOutput, Mode=TwoWay}"
+                                         FillBrush="#DC3C3C"
+                                         Margin="0,3"/>
+                        <!-- Resting Point -->
+                        <views:SliderRow Label="Resting Pt" Min="0" Max="30"
+                                         Value="{Binding RestingPoint, Mode=TwoWay}"
+                                         FillBrush="#00BFFF"
+                                         Margin="0,3"/>
+
+                        <!-- Braking (Surge) -->
+                        <GroupBox Header="Braking (Surge)"
+                                  Style="{StaticResource BlueBorderGroupStyle}"
+                                  Margin="0,4">
+                            <StackPanel>
+                                <views:SliderRow Label="Curve"    Min="0.1" Max="5"
+                                                 Value="{Binding BrakingCurve, Mode=TwoWay}"
+                                                 FillBrush="#6496FF" Margin="0,3"/>
+                                <views:SliderRow Label="Strength" Min="1"   Max="200"
+                                                 Value="{Binding BrakingStrength, Mode=TwoWay}"
+                                                 FillBrush="#6496FF" Margin="0,3"/>
+                                <CheckBox Content="Invert"
+                                          IsChecked="{Binding InvertSurge}"
+                                          Foreground="#6496FF"
+                                          Margin="0,4,0,2"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <!-- Cornering (Sway) -->
+                        <GroupBox Header="Cornering (Sway)"
+                                  Style="{StaticResource GreenBorderGroupStyle}"
+                                  Margin="0,4">
+                            <StackPanel>
+                                <views:SliderRow Label="Curve"    Min="0.1" Max="10"
+                                                 Value="{Binding CorneringCurve, Mode=TwoWay}"
+                                                 FillBrush="#50C878" Margin="0,3"/>
+                                <views:SliderRow Label="Strength" Min="1"   Max="200"
+                                                 Value="{Binding CorneringStrength, Mode=TwoWay}"
+                                                 FillBrush="#50C878" Margin="0,3"/>
+                                <CheckBox Content="Invert"
+                                          IsChecked="{Binding InvertSway}"
+                                          Foreground="#50C878"
+                                          Margin="0,4,0,2"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <!-- Vertical (Heave) -->
+                        <GroupBox Header="Vertical (Heave)"
+                                  Style="{StaticResource OrangeBorderGroupStyle}"
+                                  Margin="0,4">
+                            <StackPanel>
+                                <views:SliderRow Label="Strength" Min="1" Max="200"
+                                                 Value="{Binding VerticalStrength, Mode=TwoWay}"
+                                                 FillBrush="#FF8040" Margin="0,3"/>
+                                <CheckBox Content="Invert"
+                                          IsChecked="{Binding InvertHeave}"
+                                          Foreground="#FF8040"
+                                          Margin="0,4,0,2"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <!-- Gravity (Tilt) -->
+                        <GroupBox Header="Gravity (Tilt)" Margin="0,4">
+                            <StackPanel>
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="80"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Pitch" Style="{StaticResource LabelStyle}"/>
+                                    <Slider Grid.Column="1" Minimum="1" Maximum="200"
+                                            Value="{Binding PitchStrength, Mode=TwoWay}"
+                                            Tag="#6496FF" Margin="4,0"/>
+                                    <CheckBox Grid.Column="2" Content="Invert"
+                                              IsChecked="{Binding InvertPitch}"
+                                              Margin="4,0,0,0"/>
+                                </Grid>
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="80"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Roll" Style="{StaticResource LabelStyle}"/>
+                                    <Slider Grid.Column="1" Minimum="1" Maximum="200"
+                                            Value="{Binding RollStrength, Mode=TwoWay}"
+                                            Tag="#50C878" Margin="4,0"/>
+                                    <CheckBox Grid.Column="2" Content="Invert"
+                                              IsChecked="{Binding InvertRoll}"
+                                              Margin="4,0,0,0"/>
+                                </Grid>
+                                <views:SliderRow Label="Master" Min="1" Max="200"
+                                                 Value="{Binding MasterTiltStrength, Mode=TwoWay}"
+                                                 FillBrush="#FF8040" Margin="0,3"/>
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- ?? Other (ABS + Negative Sway) ???????????????????????? -->
+                <GroupBox Header="Other" IsEnabled="{Binding ControlsEnabled}" Margin="0,0,0,6">
+                    <StackPanel>
+                        <views:SliderRow Label="Neg. Sway" Min="0" Max="100"
+                                         Value="{Binding NegativeSway, Mode=TwoWay}"
+                                         FillBrush="#50C878" Margin="0,3"/>
+                        <Grid Margin="0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="80"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="ABS Effect" Style="{StaticResource LabelStyle}"/>
+                            <CheckBox  Grid.Column="2" Content="Enabled"
+                                       IsChecked="{Binding AbsEnabled}"
+                                       Margin="8,0,0,0"/>
+                        </Grid>
+                        <views:SliderRow Label="ABS Str." Min="3" Max="30"
+                                         Value="{Binding AbsStrength, Mode=TwoWay}"
+                                         FillBrush="#DC3C3C" Margin="0,3"/>
+                        <Button Content="Test ABS"
+                                Command="{Binding TestAbsCommand}"
+                                HorizontalAlignment="Left"
+                                Width="80" Margin="0,6,0,2"
+                                Background="#DC3C3C"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- ?? Motor Settings ?????????????????????????????????????? -->
+                <GroupBox Header="Motor Settings" IsEnabled="{Binding ControlsEnabled}" Margin="0,0,0,6">
+                    <StackPanel>
+                        <!-- Motor selector -->
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <ListBox Grid.Column="0"
+                                     SelectedIndex="{Binding SelectedMotorIndex}"
+                                     Height="40">
+                                <ListBoxItem Content="Left Motor"/>
+                                <ListBoxItem Content="Right Motor"/>
+                            </ListBox>
+                            <CheckBox Grid.Column="1"
+                                      Content="Dual Motors"
+                                      IsChecked="{Binding DualMotorsEnabled}"
+                                      VerticalAlignment="Center"
+                                      Margin="10,0,0,0"/>
+                        </Grid>
+
+                        <views:SliderRow Label="Start Angle" Min="0" Max="270"
+                                         Value="{Binding MotorStart, Mode=TwoWay}"
+                                         FillBrush="#6496FF" Margin="0,3"/>
+                        <views:SliderRow Label="End Angle" Min="0" Max="270"
+                                         Value="{Binding MotorEnd, Mode=TwoWay}"
+                                         FillBrush="#6496FF" Margin="0,3"/>
+                        <CheckBox Content="Inverted"
+                                  IsChecked="{Binding MotorInverted}"
+                                  Margin="0,6,0,4"/>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       Text="Changes not saved!"
+                                       Foreground="#FF4040"
+                                       FontWeight="Bold"
+                                       VerticalAlignment="Center"
+                                       Visibility="{Binding ShowChangesNotSaved, Converter={StaticResource BoolToVis}}"/>
+                            <Button Grid.Column="1"
+                                    Content="Apply"
+                                    Command="{Binding ApplyMotorSettingsCommand}"
+                                    Style="{StaticResource GreenButtonStyle}"
+                                    Width="70"/>
+                        </Grid>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- Bottom padding -->
+                <Border Height="16"/>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</Window>
