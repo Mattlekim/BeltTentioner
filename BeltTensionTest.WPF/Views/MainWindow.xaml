@@ -321,12 +321,13 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <ListBox Grid.Column="0"
-                                     SelectedIndex="{Binding SelectedMotorIndex}"
-                                     Height="40">
-                                <ListBoxItem Content="Left Motor"/>
-                                <ListBoxItem Content="Right Motor"/>
-                            </ListBox>
+                            <ComboBox Grid.Column="0"
+                                      SelectedIndex="{Binding SelectedMotorIndex}"
+                                      Height="30"
+                                      VerticalAlignment="Center">
+                                <ComboBoxItem Content="Left Motor"/>
+                                <ComboBoxItem Content="Right Motor"/>
+                            </ComboBox>
                             <CheckBox Grid.Column="1"
                                       Content="Dual Motors"
                                       IsChecked="{Binding DualMotorsEnabled}"
