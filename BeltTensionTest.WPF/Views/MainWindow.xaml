@@ -276,9 +276,6 @@
                                               IsChecked="{Binding InvertRoll}"
                                               Margin="4,0,0,0"/>
                                 </Grid>
-                                <views:SliderRow Label="Master" Min="1" Max="200"
-                                                 Value="{Binding MasterTiltStrength, Mode=TwoWay}"
-                                                 FillBrush="#FF8040" Margin="0,3"/>
                             </StackPanel>
                         </GroupBox>
                     </StackPanel>

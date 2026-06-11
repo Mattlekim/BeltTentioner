@@ -14,6 +14,9 @@ namespace BeltTensionTest.WPF.ViewModels
 {
     public class MainViewModel : ViewModelBase, IDisposable
     {
+        // Events for testing window live updates
+        public event Action<float, float, float>? LivePreviewUpdated;
+        public event Action<float, float, BeltAPI.Rotation>? MotorOutputUpdated;
         // ?? Services ?????????????????????????????????????????????????????????
         private readonly SettingsService    _settingsSvc   = new();
         private readonly CarSettingsService _carSettingsSvc = CarSettingsService.Instance;
@@ -427,7 +430,14 @@ namespace BeltTensionTest.WPF.ViewModels
             _iracing.Disconnected      += OnIracingDisconnected;
             _iracing.ConnectionChanged += OnIracingConnectionChanged;
             _iracing.TelemetryUpdated  += UpdateBeltTensionerForces;
-            _iracing.GForceUpdated     += g => Application.Current.Dispatcher.InvokeAsync(() => DisplayGForce = g);
+            _iracing.GForceUpdated     += g =>
+            {
+                var app = Application.Current;
+                if (app == null) return;
+                var d = app.Dispatcher;
+                if (d == null || d.HasShutdownStarted || d.HasShutdownFinished) return;
+                d.InvokeAsync(() => DisplayGForce = g);
+            };
             _iracing.AbsTriggered      += OnAbsTriggered;
             _iracing.CarNameChanged    += OnCarNameChanged;
 
@@ -465,7 +475,6 @@ namespace BeltTensionTest.WPF.ViewModels
                     if (ok) Application.Current.Dispatcher.Invoke(() => OnConnectionSuccess());
                 });
             }
-
             // Silent update check
             _ = Task.Run(async () =>
             {
@@ -479,10 +488,21 @@ namespace BeltTensionTest.WPF.ViewModels
             });
         }
 
+        private void OnGForceUpdated(float g)
+        {
+            var app = Application.Current;
+            if (app == null) return;
+            var d = app.Dispatcher;
+            if (d == null || d.HasShutdownStarted || d.HasShutdownFinished) return;
+            d.InvokeAsync(() => DisplayGForce = g);
+        }
+
+
         // ?? Car Settings Load / Save ????????????????????????????????????????????
         public void LoadCarSettings(string carName)
         {
-            _carSettingsSvc.SaveCurrentCarSettings(_carName);
+            if (carName != _carName)
+                _carSettingsSvc.SaveCurrentCarSettings(_carName);
             _isLoading = true;
             _carSettingsSvc.LoadCarSettingsFromFile(carName);
             _carName = carName;
@@ -629,29 +649,35 @@ namespace BeltTensionTest.WPF.ViewModels
         // ?? iRacing events ?????????????????????????????????????????????????????
         private void OnIracingConnected()
         {
+            // Always reflect SDK connection state in the UI indicator
+            Application.Current.Dispatcher.Invoke(() => IracingIsOn = true);
+
+            // Only apply in-app behaviour when the user enabled iRacing telemetry
             if (!AppSettings.UseIracing) return;
             UpdateCarDriveState(true);
-            Application.Current.Dispatcher.Invoke(() => IracingIsOn = true);
         }
 
         private void OnIracingDisconnected()
         {
+            // Always update UI indicator
+            Application.Current.Dispatcher.Invoke(() => IracingIsOn = false);
+
+            // Only perform additional cleanup when the user had iRacing telemetry enabled
             if (!AppSettings.UseIracing) return;
             _carSettingsSvc.SaveCurrentCarSettings(_carName);
             _carName = "NA";
-            Application.Current.Dispatcher.Invoke(() =>
-            {
-                CarNameDisplay = "NA";
-                IracingIsOn    = false;
-            });
+            Application.Current.Dispatcher.Invoke(() => CarNameDisplay = "NA");
             LoadCarSettings("NA");
             UpdateCarDriveState(false);
         }
 
         private void OnIracingConnectionChanged(bool connected)
         {
-            if (!AppSettings.UseIracing) return;
+            // Always reflect SDK connection state in the UI indicator
             Application.Current.Dispatcher.Invoke(() => IracingIsOn = connected);
+
+            // Only apply in-app behaviour when the user enabled iRacing telemetry
+            if (!AppSettings.UseIracing) return;
         }
 
         private void OnCarNameChanged(string name)
@@ -777,8 +803,16 @@ namespace BeltTensionTest.WPF.ViewModels
             }
 
             bool removeGravity = _iracing.IsConnected;
+
+            // Publish live preview inputs for testing window
+            LivePreviewUpdated?.Invoke(_simSurge, _simSway, _simHeave);
+
             value.SendDataToSerial(Device, _carSettingsSvc.CurrentSettings, removeGravity, _simRotation);
             _lastMotorOutput = value;
+
+            // Publish motor outputs for testing window (left, right, rotation)
+            var last = value.GetLastMotorDataSent();
+            MotorOutputUpdated?.Invoke(last.Item1, last.Item2, _simRotation);
         }
 
         // ?? MMF write ??????????????????????????????????????????????????????????
@@ -906,10 +940,28 @@ namespace BeltTensionTest.WPF.ViewModels
             _saveTimer?.Stop();
             _saveTimer?.Dispose();
             _carSettingsSvc.SaveCurrentCarSettings(_carName);
+            // Unsubscribe events to allow clean shutdown
+            Device.HandshakeComplete    -= OnHandshakeComplete;
+            Device.MessageReceived      -= OnDeviceMessageReceived;
+            Device.OnMotorSettingsRecived -= OnMotorSettingsReceived;
+
+            _iracing.Connected         -= OnIracingConnected;
+            _iracing.Disconnected      -= OnIracingDisconnected;
+            _iracing.ConnectionChanged -= OnIracingConnectionChanged;
+            _iracing.TelemetryUpdated  -= UpdateBeltTensionerForces;
+            _iracing.GForceUpdated     -= OnGForceUpdated;
+            _iracing.AbsTriggered      -= OnAbsTriggered;
+            _iracing.CarNameChanged    -= OnCarNameChanged;
+
+            WpfMessageBridge.BeltMessageReceived -= OnBridgeMessage;
+            WpfMessageBridge.Detach();
+
             Device.Dispose();
             _simHub.Dispose();
             _mmfWriter.Dispose();
-            WpfMessageBridge.Detach();
+
+            // Dispose the singleton iracing service to stop its SDK background work
+            try { _iracing.Dispose(); } catch { }
         }
     }
 }

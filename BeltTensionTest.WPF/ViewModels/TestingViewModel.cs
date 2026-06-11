@@ -32,6 +32,11 @@ namespace BeltTensionTest.WPF.ViewModels
         // Smoothed live inputs (for graph markers)
         private float _lastSurge, _lastSway, _lastHeave;
 
+        // Live scatter/history of input -> motor output for each axis
+        private readonly Queue<(float input, float output)> _surgePoints = new();
+        private readonly Queue<(float input, float output)> _swayPoints  = new();
+        private readonly Queue<(float input, float output)> _heavePoints = new();
+
         private string _statusText = "Idle";
         public string StatusText
         {
@@ -71,6 +76,10 @@ namespace BeltTensionTest.WPF.ViewModels
         public TestingViewModel(MainViewModel main)
         {
             _main = main;
+
+            // Subscribe to live updates from main view model
+            _main.LivePreviewUpdated += UpdateLivePreview;
+            _main.MotorOutputUpdated += UpdateMotorOutput;
 
             StartSurgeCommand = new RelayCommand(() => StartMode(TestMode.Surge));
             StartSwayCommand  = new RelayCommand(() => StartMode(TestMode.Sway));
@@ -138,6 +147,11 @@ namespace BeltTensionTest.WPF.ViewModels
         public (float surge, float sway, float heave) GetSmoothedInputs() => (_lastSurge, _lastSway, _lastHeave);
         public (Queue<float> left, Queue<float> right) GetMotorHistory()  => (_leftHistory, _rightHistory);
 
+        public (List<(float input, float output)> surge, List<(float input, float output)> sway, List<(float input, float output)> heave) GetLiveSamples()
+        {
+            return (new List<(float, float)>(_surgePoints), new List<(float, float)>(_swayPoints), new List<(float, float)>(_heavePoints));
+        }
+
         private void UpdateHighlights()
         {
             SurgeActive = _mode == TestMode.Surge;
@@ -149,5 +163,12 @@ namespace BeltTensionTest.WPF.ViewModels
         private static float GetMax(TestMode m) => m switch { TestMode.Surge => SurgeMax, TestMode.Sway => SwayMax,  TestMode.Heave => HeaveMax, _ => 0 };
 
         public void Dispose() { Stop(); }
+
+        void IDisposable.Dispose()
+        {
+            _timer.Stop();
+            _main.LivePreviewUpdated -= UpdateLivePreview;
+            _main.MotorOutputUpdated -= UpdateMotorOutput;
+        }
     }
 }

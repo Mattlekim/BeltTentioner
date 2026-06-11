@@ -27,20 +27,39 @@ namespace BeltTensionTest.WPF.Views
             _vm.GraphNeedsRedraw      += DrawCurveGraph;
             _vm.MotorGraphNeedsRedraw += DrawMotorGraph;
 
-            SizeChanged += (_, _) => { DrawCurveGraph(); DrawMotorGraph(); };
-            Closed      += (_, _) => { _vm.Dispose(); };
+            // Ensure drawing happens after layout/render so ActualWidth/ActualHeight are valid
+            Loaded += (_, __) =>
+            {
+                Dispatcher.BeginInvoke((Action)(() => { DrawCurveGraph(); DrawMotorGraph(); }), System.Windows.Threading.DispatcherPriority.Render);
+            };
+
+            SizeChanged += (_, _) =>
+            {
+                // schedule drawing on UI thread after resize
+                Dispatcher.BeginInvoke((Action)(() => { DrawCurveGraph(); DrawMotorGraph(); }), System.Windows.Threading.DispatcherPriority.Render);
+            };
+
+            Closed += (_, _) => { _vm.Dispose(); };
         }
 
         // ?? Curve Graph ??????????????????????????????????????????????????????
         private void DrawCurveGraph()
         {
-            var device   = _main.Device;
-            var settings = CarSettingsService.Instance.CurrentSettings;
-            if (device == null || settings == null) return;
+            try
+            {
+                if (!Dispatcher.CheckAccess()) { Dispatcher.Invoke(() => DrawCurveGraph()); return; }
 
-            int w = (int)CurveGraphImage.ActualWidth;
-            int h = (int)CurveGraphImage.ActualHeight;
-            if (w <= 0 || h <= 0) return;
+                var device = _main.Device;
+                var settings = CarSettingsService.Instance.CurrentSettings;
+
+                int w = (int)Math.Max(1, CurveGraphImage.ActualWidth);
+                int h = (int)Math.Max(1, CurveGraphImage.ActualHeight);
+
+                // If control hasn't been measured to a useful size yet, use a sensible default
+                if (w < 80 || h < 40)
+                {
+                    w = 700; h = 260;
+                }
 
             var bgColor    = Color.FromArgb(18, 18, 30);
             var gridColor  = Color.FromArgb(38, 38, 58);
@@ -59,16 +78,28 @@ namespace BeltTensionTest.WPF.Views
             float minV = device.DeviceMotorSettings.LeftMinimumAngle;
             float maxV = device.DeviceMotorSettings.LeftMaximumAngle;
             if (minV > maxV) (minV, maxV) = (maxV, minV);
+
+            // If motor settings are uninitialized (min==max==0) use a sensible fallback so graphs can render
+            const float DefaultMotorRange = 180f;
+            bool useFallbackRange = Math.Abs(maxV - minV) < 0.1f;
+            if (useFallbackRange)
+            {
+                minV = 0f;
+                maxV = DefaultMotorRange;
+            }
+
             float mr = maxV - minV; if (mr == 0) mr = 1;
 
             int MapY(float v) => tp + (int)((1f - (Math.Clamp(v, minV, maxV) - minV) / mr) * (gh - 1));
             float MapXToInput(int px) => (float)(px - lp) / (gw - 1) * 9f - 2f;
             int MapInputToX(float f) => lp + (int)((f + 2f) / 9f * (gw - 1));
 
-            var bmp = new Bitmap(w, h);
-            using var g = Graphics.FromImage(bmp);
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            g.Clear(bgColor);
+                var bmp = new Bitmap(w, h);
+                using var g = Graphics.FromImage(bmp);
+                try
+                {
+                    g.SmoothingMode = SmoothingMode.AntiAlias;
+                    g.Clear(bgColor);
 
             var lf = new Font("Segoe UI", 7.5f);
             var lb = new SolidBrush(labelColor);
@@ -148,7 +179,16 @@ namespace BeltTensionTest.WPF.Views
                     bool inv = settings.InvertSurge; settings.InvertSurge = false;
                     var mo  = device.SetupMotorsForData(Math.Max(inp, 0), 0, 0, settings, ApiRotation.Zero);
                     float raw = mo.CalculateDataForGraph(device, settings, false);
-                    float yv = device.DeviceMotorSettings.ClampToMaxMotorPower(raw + settings.RestingPoint / 100f, 0, settings).Item1;
+                    float toClamp = raw + settings.RestingPoint / 100f;
+                    float yv;
+                    if (!useFallbackRange)
+                        yv = device.DeviceMotorSettings.ClampToMaxMotorPower(toClamp, 0, settings).Item1;
+                    else
+                    {
+                        // scale normalized value into fallback motor range for display
+                        yv = toClamp * (DefaultMotorRange) * (settings.MaxPower / 100f);
+                        yv = Math.Clamp(yv, minV, maxV);
+                    }
                     settings.InvertSurge = inv;
                     return new System.Drawing.Point(lp + px, MapY(yv));
                 });
@@ -161,8 +201,15 @@ namespace BeltTensionTest.WPF.Views
                     bool inv = settings.InvertSway; settings.InvertSway = false;
                     var mo  = device.SetupMotorsForData(0, inp, 0, settings, ApiRotation.Zero);
                     mo.CalculateDataForGraph(device, settings, false);
-                    float yv = device.DeviceMotorSettings.ClampToMaxMotorPower(
-                        mo.RightSwayOutput + settings.RestingPoint / 100f, 0, settings).Item1;
+                    float toClamp2 = mo.RightSwayOutput + settings.RestingPoint / 100f;
+                    float yv;
+                    if (!useFallbackRange)
+                        yv = device.DeviceMotorSettings.ClampToMaxMotorPower(toClamp2, 0, settings).Item1;
+                    else
+                    {
+                        yv = toClamp2 * (DefaultMotorRange) * (settings.MaxPower / 100f);
+                        yv = Math.Clamp(yv, minV, maxV);
+                    }
                     settings.InvertSway = inv;
                     return new System.Drawing.Point(lp + px, MapY(yv));
                 });
@@ -175,7 +222,15 @@ namespace BeltTensionTest.WPF.Views
                     bool inv = settings.InvertHeave; settings.InvertHeave = false;
                     var mo  = device.DeviceMotorSettings.Setup(0, 0, inp, CarSettingsService.Instance.CurrentSettings, ApiRotation.Zero);
                     float raw = mo.CalculateDataForGraph(device, settings, false);
-                    float yv = device.DeviceMotorSettings.ClampToMaxMotorPower(raw + settings.RestingPoint / 100f, 0, settings).Item1;
+                    float toClamp3 = raw + settings.RestingPoint / 100f;
+                    float yv;
+                    if (!useFallbackRange)
+                        yv = device.DeviceMotorSettings.ClampToMaxMotorPower(toClamp3, 0, settings).Item1;
+                    else
+                    {
+                        yv = toClamp3 * (DefaultMotorRange) * (settings.MaxPower / 100f);
+                        yv = Math.Clamp(yv, minV, maxV);
+                    }
                     settings.InvertHeave = inv;
                     return new System.Drawing.Point(lp + px, MapY(yv));
                 });
@@ -184,35 +239,101 @@ namespace BeltTensionTest.WPF.Views
             if (_vm.LivePreview)
             {
                 var (ls, lsw, lh) = _vm.GetSmoothedInputs();
-                void Dot(float inp, Color c)
+                void Dot(float inp, Color c, int axis)
                 {
                     int mx = MapInputToX(inp);
                     if (mx < lp || mx > lp + gw) return;
-                    var mo  = device.SetupMotorsForData(inp, 0, 0, settings, ApiRotation.Zero);
+                    BeltMotorData mo;
+                    // axis: 0=surge,1=sway,2=heave
+                    if (axis == 0) mo = device.SetupMotorsForData(Math.Max(inp, 0), 0, 0, settings, ApiRotation.Zero);
+                    else if (axis == 1) mo = device.SetupMotorsForData(0, Math.Max(inp, 0), 0, settings, ApiRotation.Zero);
+                    else mo = device.SetupMotorsForData(0, 0, inp, settings, ApiRotation.Zero);
+
                     float raw = mo.CalculateDataForGraph(device, settings, false);
-                    float yv = device.DeviceMotorSettings.ClampToMaxMotorPower(raw + settings.RestingPoint / 100f, 0, settings).Item1;
+                    float toClamp4 = raw + settings.RestingPoint / 100f;
+                    float yv;
+                    if (!useFallbackRange)
+                        yv = device.DeviceMotorSettings.ClampToMaxMotorPower(toClamp4, 0, settings).Item1;
+                    else
+                    {
+                        yv = toClamp4 * (DefaultMotorRange) * (settings.MaxPower / 100f);
+                        yv = Math.Clamp(yv, minV, maxV);
+                    }
                     int my = MapY(yv);
                     g.FillEllipse(new SolidBrush(Color.FromArgb(60, c)), mx - 8, my - 8, 16, 16);
                     g.FillEllipse(new SolidBrush(c), mx - 4, my - 4, 8, 8);
                 }
-                if (_vm.ShowBraking)   Dot(Math.Max(ls, 0), surgeColor);
-                if (_vm.ShowCornering) Dot(Math.Max(lsw, 0), swayColor);
-                if (_vm.ShowVertical)  Dot(lh, heaveColor);
+                if (_vm.ShowBraking)   Dot(Math.Max(ls, 0), surgeColor, 0);
+                if (_vm.ShowCornering) Dot(Math.Max(lsw, 0), swayColor, 1);
+                if (_vm.ShowVertical)  Dot(lh, heaveColor, 2);
             }
 
-            CurveGraphImage.Source = BitmapToImageSource(bmp);
-            bmp.Dispose();
+            // Draw live sampled points (input -> output) collected during runtime
+            var samples = _vm.GetLiveSamples();
+            void DrawLive(List<(float input, float output)> list, Color c)
+            {
+                if (list == null || list.Count < 2) return;
+                var pts = new List<System.Drawing.Point>();
+                foreach (var (inp, outv) in list)
+                {
+                    int x = MapInputToX(inp);
+                    int y = MapY(outv);
+                    pts.Add(new System.Drawing.Point(x, y));
+                }
+                using var glow = new Pen(Color.FromArgb(60, c), 6);
+                g.DrawLines(glow, pts.ToArray());
+                using var pen = new Pen(c, 2);
+                g.DrawLines(pen, pts.ToArray());
+
+                // draw last point
+                var last = pts[^1];
+                g.FillEllipse(new SolidBrush(c), last.X - 4, last.Y - 4, 8, 8);
+            }
+
+            if (_vm.ShowBraking)   DrawLive(samples.surge, surgeColor);
+            if (_vm.ShowCornering) DrawLive(samples.sway,  swayColor);
+            if (_vm.ShowVertical)  DrawLive(samples.heave, heaveColor);
+
+                    CurveGraphImage.Source = BitmapToImageSource(bmp);
+                }
+                finally
+                {
+                    bmp.Dispose();
+                }
+                return;
+            }
+            catch (Exception ex)
+            {
+                // If drawing fails for any reason, show a simple fallback image so the UI isn't blank
+                System.Diagnostics.Debug.WriteLine($"DrawCurveGraph failed: {ex}");
+                try
+                {
+                    int fw = 700, fh = 260;
+                    using var fb = new Bitmap(fw, fh);
+                    using var g2 = Graphics.FromImage(fb);
+                    g2.Clear(Color.FromArgb(18, 18, 30));
+                    using var pen = new Pen(Color.FromArgb(70, 70, 100), 2);
+                    g2.DrawLine(pen, 40, 10, 40, fh - 20); // Y axis
+                    g2.DrawLine(pen, 40, fh - 20, fw - 20, fh - 20); // X axis
+                    CurveGraphImage.Source = BitmapToImageSource(fb);
+                }
+                catch { }
+            }
         }
 
         // ?? Motor Graph ??????????????????????????????????????????????????????
         private void DrawMotorGraph()
         {
-            var device = _main.Device;
-            if (device == null) return;
+            try
+            {
+                if (!Dispatcher.CheckAccess()) { Dispatcher.Invoke(() => DrawMotorGraph()); return; }
 
-            int w = (int)MotorGraphImage.ActualWidth;
-            int h = (int)MotorGraphImage.ActualHeight;
-            if (w <= 0 || h <= 0) return;
+                var device = _main.Device;
+                if (device == null) return;
+
+                int w = (int)Math.Max(1, MotorGraphImage.ActualWidth);
+                int h = (int)Math.Max(1, MotorGraphImage.ActualHeight);
+                if (w < 80 || h < 40) { w = 700; h = 180; }
 
             var bgColor    = Color.FromArgb(18, 18, 30);
             var gridColor  = Color.FromArgb(38, 38, 58);
@@ -284,8 +405,26 @@ namespace BeltTensionTest.WPF.Views
             g.FillRectangle(new SolidBrush(rightColor), lp + gw - 60,  tp + 4, 12, 12);
             g.DrawString("Right", lf2, new SolidBrush(rightColor), lp + gw - 45,  tp + 3);
 
-            MotorGraphImage.Source = BitmapToImageSource(bmp);
-            bmp.Dispose();
+                MotorGraphImage.Source = BitmapToImageSource(bmp);
+                bmp.Dispose();
+                return;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"DrawMotorGraph failed: {ex}");
+                try
+                {
+                    int fw = 700, fh = 180;
+                    using var fb = new Bitmap(fw, fh);
+                    using var g2 = Graphics.FromImage(fb);
+                    g2.Clear(Color.FromArgb(18, 18, 30));
+                    using var pen = new Pen(Color.FromArgb(70, 70, 100), 2);
+                    g2.DrawLine(pen, 48, 18, 48, fh - 22);
+                    g2.DrawLine(pen, 48, fh - 22, fw - 12, fh - 22);
+                    MotorGraphImage.Source = BitmapToImageSource(fb);
+                }
+                catch { }
+            }
         }
 
         // Convert GDI bitmap to WPF ImageSource
