@@ -51,5 +51,10 @@ namespace BeltTensionTest.WPF.Views
         {
             new AboutWindow { Owner = this }.ShowDialog();
         }
+
+        private void MenuItem_Click(object sender, RoutedEventArgs e)
+        {
+
+        }
     }
 }

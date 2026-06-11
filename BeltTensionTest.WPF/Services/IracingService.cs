@@ -41,15 +41,24 @@ namespace BeltTensionTest.WPF.Services
 
         private IracingService()
         {
-            try
-            {
-                _sdk = new IRacingSdk();
-                _sdk.OnConnected += OnConnected;
-                _sdk.OnDisconnected += OnDisconnected;
-                _sdk.OnTelemetryData += OnTelemetryData;
-                _sdk.Start();
-            }
-            catch { }
+            
+                Task.Run(async () =>
+                {
+                    await Task.Delay(1000); // Small delay to allow app to initialize before connecting to iRacing
+                    try
+                    {
+                        _sdk = new IRacingSdk();
+                        _sdk.OnConnected += OnConnected;
+                        _sdk.OnDisconnected += OnDisconnected;
+                        _sdk.OnTelemetryData += OnTelemetryData;
+                        _sdk.Start();
+                    }
+                    catch
+                    {
+                        // If we fail to connect, we'll just stay disconnected and try again next time telemetry data is requested.
+                    }
+                });
+            
         }
 
         private void OnConnected()

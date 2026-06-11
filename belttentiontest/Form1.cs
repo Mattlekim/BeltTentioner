@@ -440,6 +440,30 @@ namespace belttentiontest
             debugLogMenuItem.Click += (s, e) => ShowDebugLog();
             var testingMenuItem = new ToolStripMenuItem("Open Testing Form...");
             testingMenuItem.Click += (s, e) => ShowTestingForm();
+            var motorSettingsMenuItem = new ToolStripMenuItem("Motor Settings...");
+            motorSettingsMenuItem.Click += (s, e) =>
+            {
+                try
+                {
+                    if (motorSettingsForm == null || motorSettingsForm.IsDisposed)
+                        motorSettingsForm = new MotorSettingsForm();
+
+                    motorSettingsForm.UpdateFromDevice(BeltTentionerDevice);
+                    motorSettingsForm.Show(this);
+                    motorSettingsForm.BringToFront();
+                }
+                catch { }
+            };
+            var flashNanoMenuItem = new ToolStripMenuItem("Flash Nano");
+            flashNanoMenuItem.Click += (s, e) =>
+            {
+                try
+                {
+                    var f = new FlashNanoForm();
+                    f.Show(this);
+                }
+                catch { }
+            };
             var dropdownColor = Color.FromArgb(160, 160, 190);
             menuUseIracing.ForeColor = dropdownColor;
             menuUseSimHub.ForeColor = dropdownColor;
@@ -447,11 +471,17 @@ namespace belttentiontest
             testingMenuItem.ForeColor = dropdownColor;
             updateMenuItem.ForeColor = dropdownColor;
             aboutMenuItem.ForeColor = dropdownColor;
+            motorSettingsMenuItem.ForeColor = dropdownColor;
+            flashNanoMenuItem.ForeColor = dropdownColor;
             menuSystem.DropDownItems.Add(menuUseIracing);
             menuSystem.DropDownItems.Add(menuUseSimHub);
             menuSystem.DropDownItems.Add(new ToolStripSeparator());
             menuSystem.DropDownItems.Add(debugLogMenuItem);
             menuSystem.DropDownItems.Add(testingMenuItem);
+            // Add motor settings and flashing options
+            menuSystem.DropDownItems.Add(new ToolStripSeparator());
+            menuSystem.DropDownItems.Add(motorSettingsMenuItem);
+            menuSystem.DropDownItems.Add(flashNanoMenuItem);
             menuSystem.DropDownItems.Add(new ToolStripSeparator());
             menuSystem.DropDownItems.Add(updateMenuItem);
             menuSystem.DropDownItems.Add(aboutMenuItem);
@@ -1528,6 +1558,7 @@ namespace belttentiontest
         }
 
         private TestingForm? _testingForm;
+        private MotorSettingsForm? motorSettingsForm;
         private void ShowTestingForm()
         {
             if (_testingForm == null || _testingForm.IsDisposed)

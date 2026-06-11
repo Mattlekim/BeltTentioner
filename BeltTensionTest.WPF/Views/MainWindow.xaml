@@ -28,7 +28,7 @@
         <Menu DockPanel.Dock="Top"
               Background="#12121E"
               Foreground="#A0A0BE">
-            <MenuItem Header="Settings" Foreground="#A0A0BE">
+            <MenuItem Header="Settings" Foreground="#A0A0BE" Click="MenuItem_Click">
                 <MenuItem Header="Use iRacing Telemetry"
                           IsCheckable="True"
                           IsChecked="{Binding UseIracing}"
