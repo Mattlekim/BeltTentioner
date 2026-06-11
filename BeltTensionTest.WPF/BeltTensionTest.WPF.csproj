@@ -31,4 +31,10 @@
     <ProjectReference Include="..\BeltAPI\BeltAPI.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Hex\belt-tentioner.ino.hex">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

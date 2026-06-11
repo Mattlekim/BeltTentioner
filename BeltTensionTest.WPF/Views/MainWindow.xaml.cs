@@ -9,6 +9,7 @@ namespace BeltTensionTest.WPF.Views
         private MainViewModel VM => (MainViewModel)DataContext;
         private TestingWindow? _testingWindow;
         private DebugLogWindow? _debugWindow;
+        private FlashNanoWindow? _flashWindow;
 
         public MainWindow()
         {
@@ -50,6 +51,20 @@ namespace BeltTensionTest.WPF.Views
         private void About_Click(object sender, RoutedEventArgs e)
         {
             new AboutWindow { Owner = this }.ShowDialog();
+        }
+
+        private void OpenFlashNano_Click(object sender, RoutedEventArgs e)
+        {
+            if (_flashWindow == null || !_flashWindow.IsLoaded)
+            {
+                _flashWindow = new FlashNanoWindow();
+                _flashWindow.Owner = this;
+                _flashWindow.Show();
+            }
+            else
+            {
+                _flashWindow.Activate();
+            }
         }
 
         private void MenuItem_Click(object sender, RoutedEventArgs e)

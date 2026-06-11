@@ -44,6 +44,9 @@
                 <MenuItem Header="Show Debug Log..."
                           Foreground="#A0A0BE"
                           Click="OpenDebugLog_Click"/>
+                <MenuItem Header="Flash Nano..."
+                          Foreground="#A0A0BE"
+                          Click="OpenFlashNano_Click"/>
                 <Separator Background="#46466A"/>
                 <MenuItem Header="Check for Updates..."
                           Foreground="#A0A0BE"
