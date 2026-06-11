@@ -10,6 +10,7 @@ namespace BeltTensionTest.WPF.Views
         private TestingWindow? _testingWindow;
         private DebugLogWindow? _debugWindow;
         private FlashNanoWindow? _flashWindow;
+        private MotorSettingsWindow? _motorSettingsWindow;
 
         public MainWindow()
         {
@@ -18,6 +19,20 @@ namespace BeltTensionTest.WPF.Views
 
             Loaded  += (_, _) => Shared.WpfMessageBridge.Attach(this);
             Closing += (_, _) => VM.Dispose();
+        }
+
+        private void OpenMotorSettings_Click(object sender, RoutedEventArgs e)
+        {
+            if (_motorSettingsWindow == null || !_motorSettingsWindow.IsLoaded)
+            {
+                _motorSettingsWindow = new MotorSettingsWindow(DataContext);
+                _motorSettingsWindow.Owner = this;
+                _motorSettingsWindow.Show();
+            }
+            else
+            {
+                _motorSettingsWindow.Activate();
+            }
         }
 
         private void OpenTestingWindow_Click(object sender, RoutedEventArgs e)

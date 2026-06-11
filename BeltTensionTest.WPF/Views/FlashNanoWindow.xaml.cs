@@ -14,6 +14,10 @@ namespace BeltTensionTest.WPF.Views
     public partial class FlashNanoWindow : Window
     {
         private string? _avrdudePath;
+        private readonly int _fTimeOut = 10000; // milliseconds (10 seconds)
+        private System.Windows.Threading.DispatcherTimer? _animTimer;
+        private int _animTick = 0;
+        private Stopwatch? _flashStopwatch;
 
         public FlashNanoWindow()
         {
@@ -22,6 +26,87 @@ namespace BeltTensionTest.WPF.Views
             btnRefresh.Click += (_, _) => RefreshPorts();
             btnFlash.Click += async (_, _) => await FlashSelectedPortAsync();
             btnLocate.Click += (_, _) => LocateAvrdude();
+            // initialize animation timer
+            _animTimer = new System.Windows.Threading.DispatcherTimer();
+            _animTimer.Interval = TimeSpan.FromMilliseconds(300);
+            _animTimer.Tick += (_, _) => UpdateAnimation();
+        }
+
+        private void StartBusyAnimation()
+        {
+            Dispatcher.Invoke(() =>
+            {
+                progressBusy.Visibility = Visibility.Visible;
+                try
+                {
+                    progressBusy.IsIndeterminate = false;
+                    progressBusy.Minimum = 0;
+                    progressBusy.Maximum = _fTimeOut;
+                    progressBusy.Value = 0;
+                }
+                catch { }
+                _animTick = 0;
+                txtStatusAnim.Text = "Working";
+                _flashStopwatch = Stopwatch.StartNew();
+                _animTimer?.Start();
+            });
+        }
+
+        private void StopBusyAnimation()
+        {
+            Dispatcher.Invoke(() =>
+            {
+                _animTimer?.Stop();
+                try { _flashStopwatch?.Stop(); } catch { }
+                _flashStopwatch = null;
+                progressBusy.Visibility = Visibility.Collapsed;
+                txtStatusAnim.Text = string.Empty;
+            });
+        }
+
+        private void UpdateAnimation()
+        {
+            _animTick = (_animTick + 1) % 4;
+            txtStatusAnim.Text = "Working" + new string('.', _animTick);
+            try
+            {
+                if (_flashStopwatch != null)
+                {
+                    var elapsed = (double)Math.Min(_flashStopwatch.ElapsedMilliseconds, _fTimeOut);
+                    progressBusy.Value = elapsed;
+                }
+                else
+                {
+                    // fallback small motion
+                    progressBusy.Value = (progressBusy.Value + 15) % progressBusy.Maximum;
+                }
+            }
+            catch { }
+        }
+
+        private void KillAvrdudeProcesses()
+        {
+            try
+            {
+                // Kill any running avrdude processes left behind
+                var procs = Process.GetProcessesByName("avrdude");
+                foreach (var p in procs)
+                {
+                    try
+                    {
+                        AppendOutput($"Killing leftover avrdude process PID={p.Id}");
+                        p.Kill();
+                    }
+                    catch (Exception ex)
+                    {
+                        AppendOutput($"Failed to kill avrdude PID={p.Id}: {ex.Message}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                AppendOutput("Error enumerating avrdude processes: " + ex.Message);
+            }
         }
 
         private void RefreshPorts()
@@ -89,6 +174,7 @@ namespace BeltTensionTest.WPF.Views
 
             btnFlash.IsEnabled = false;
             btnRefresh.IsEnabled = false;
+            StartBusyAnimation();
 
             try
             {
@@ -110,15 +196,30 @@ namespace BeltTensionTest.WPF.Views
 
                 AppendOutput("Using avrdude: " + avrdude);
 
-                string[] baudAttempts = new[] { "115200", "57600" };
+                // choose baud attempts based on bootloader selection
+                string sel = "Auto";
+                try { sel = (comboBootloader.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Content?.ToString() ?? "Auto"; } catch { }
+                string[] baudAttempts;
+                if (sel.IndexOf("Old", StringComparison.OrdinalIgnoreCase) >= 0)
+                    baudAttempts = new[] { "57600" };
+                else if (sel.IndexOf("New", StringComparison.OrdinalIgnoreCase) >= 0)
+                    baudAttempts = new[] { "115200" };
+                else
+                    baudAttempts = new[] { "115200", "57600" };
                 bool success = false;
                 string lastResult = string.Empty;
                 foreach (var baud in baudAttempts)
                 {
+                    if ((_flashStopwatch?.ElapsedMilliseconds ?? 0) > _fTimeOut)
+                    {
+                        AppendOutput($"Flashing timed out after {_fTimeOut}ms (aborting)");
+                        try { KillAvrdudeProcesses(); } catch { }
+                        break;
+                    }
                     AppendOutput($"Attempting with baud {baud}...");
                     var args = $"-v -p atmega328p -c arduino -P {port} -b {baud} -D -Uflash:w:\"{hexPath}\":i";
                     AppendOutput($"Command: \"{avrdude}\" {args}");
-                    var result = await RunProcessAsync(avrdude, args);
+                    var result = await RunProcessAsync(avrdude, args, _fTimeOut);
                     if (string.IsNullOrWhiteSpace(result))
                         AppendOutput("(no output)");
                     else
@@ -129,13 +230,20 @@ namespace BeltTensionTest.WPF.Views
                         success = true;
                         break;
                     }
+                    if ((_flashStopwatch?.ElapsedMilliseconds ?? 0) > _fTimeOut)
+                    {
+                        AppendOutput($"Flashing timed out after {_fTimeOut}ms (aborting)");
+                        try { KillAvrdudeProcesses(); } catch { }
+                        break;
+                    }
                 }
 
-                if (success)
-                {
-                    AppendOutput("Flash completed successfully.");
-                    MessageBox.Show(this, "Flash completed successfully.", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
+                    if (success)
+                    {
+                        AppendOutput("Flash completed successfully.");
+                        try { KillAvrdudeProcesses(); } catch { }
+                        MessageBox.Show(this, "Flash completed successfully.", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
                 else
                 {
                     AppendOutput("Flash failed. See output for details.");
@@ -153,6 +261,7 @@ namespace BeltTensionTest.WPF.Views
             }
             finally
             {
+                try { StopBusyAnimation(); } catch { }
                 btnFlash.IsEnabled = true;
                 btnRefresh.IsEnabled = true;
             }
@@ -262,9 +371,8 @@ namespace BeltTensionTest.WPF.Views
             e.Handled = true;
         }
 
-        private Task<string> RunProcessAsync(string exePath, string arguments)
+        private async Task<string> RunProcessAsync(string exePath, string arguments, int timeoutMs = 60000)
         {
-            var tcs = new TaskCompletionSource<string>();
             try
             {
                 var psi = new ProcessStartInfo(exePath, arguments)
@@ -275,34 +383,56 @@ namespace BeltTensionTest.WPF.Views
                     CreateNoWindow = true
                 };
 
-                var proc = new Process() { StartInfo = psi, EnableRaisingEvents = true };
+                using var proc = new Process() { StartInfo = psi };
                 var output = new StringBuilder();
+
                 proc.OutputDataReceived += (s, e) => { if (e.Data != null) output.AppendLine(e.Data); };
                 proc.ErrorDataReceived += (s, e) => { if (e.Data != null) output.AppendLine(e.Data); };
-                proc.Exited += (s, e) =>
-                {
-                    try { output.AppendLine($"\nProcess exited with code {proc.ExitCode}"); } catch { }
-                    tcs.TrySetResult(output.ToString());
-                    proc.Dispose();
-                };
 
-                bool started = proc.Start();
+                bool started;
+                try
+                {
+                    started = proc.Start();
+                }
+                catch (Exception ex)
+                {
+                    return "Exception starting process: " + ex.Message + "\n" + ex.StackTrace;
+                }
+
                 if (!started)
                 {
-                    tcs.TrySetResult("Failed to start process");
+                    return "Failed to start process";
                 }
-                else
+
+                try { AppendOutput($"Process started: PID={proc.Id}"); } catch { }
+
+                proc.BeginOutputReadLine();
+                proc.BeginErrorReadLine();
+
+                // Wait for exit with timeout
+                var exited = await Task.Run(() => proc.WaitForExit(timeoutMs));
+                if (!exited)
                 {
-                    proc.BeginOutputReadLine();
-                    proc.BeginErrorReadLine();
+                    try
+                    {
+                        proc.Kill();
+                        AppendOutput("Process killed after timeout");
+                    }
+                    catch { }
                 }
+
+                // allow background readers to flush
+                await Task.Delay(200);
+
+                string exitInfo;
+                try { exitInfo = proc.HasExited ? $"\nProcess exited with code {proc.ExitCode}" : "\nProcess did not exit cleanly"; } catch { exitInfo = "\nProcess exit code unavailable"; }
+                output.AppendLine(exitInfo);
+                return output.ToString();
             }
             catch (Exception ex)
             {
-                tcs.TrySetResult("Exception starting process: " + ex.Message + "\n" + ex.StackTrace);
+                return "Exception running process: " + ex.Message + "\n" + ex.StackTrace;
             }
-
-            return tcs.Task;
         }
     }
 }

@@ -11,6 +11,7 @@ namespace BeltTensionTest.WPF.Services
     {
         private TelemetryMmfReader? _reader;
         private bool _disposed;
+        private DateTime _lastConnectAttempt = DateTime.MinValue;
 
         public bool Connected { get; private set; }
 
@@ -43,6 +44,11 @@ namespace BeltTensionTest.WPF.Services
         {
             try
             {
+                // Throttle connection attempts to once per second to avoid busy-looping when MMF is absent
+                var now = DateTime.UtcNow;
+                if ((now - _lastConnectAttempt) < TimeSpan.FromSeconds(1)) return;
+                _lastConnectAttempt = now;
+
                 _reader = new TelemetryMmfReader();
                 if (_reader.Connected)
                 {

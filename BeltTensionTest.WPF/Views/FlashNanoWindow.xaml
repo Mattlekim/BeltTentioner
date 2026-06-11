@@ -3,29 +3,43 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Flash Nano" Height="360" Width="560" Background="#12121E" Foreground="#A0A0BE">
 
-    <Grid Margin="10">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="8"/>
-            <RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
+	<Grid Margin="10">
+		<Grid.ColumnDefinitions>
+			<ColumnDefinition Width="3*"/>
+			<ColumnDefinition/>
+		</Grid.ColumnDefinitions>
+		<Grid.RowDefinitions>
+			<RowDefinition Height="Auto"/>
+			<RowDefinition Height="8"/>
+			<RowDefinition Height="*"/>
+		</Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0">
-            <StackPanel Orientation="Horizontal">
-                <TextBlock Text="COM Port:" VerticalAlignment="Center" Margin="0,4,8,0"/>
-                <ComboBox x:Name="comboPorts" Width="180" VerticalAlignment="Center"/>
-                <Button x:Name="btnRefresh" Content="Refresh" Width="75" Margin="8,0"/>
-                <Button x:Name="btnFlash" Content="Flash" Width="75" Margin="8,0"/>
-            </StackPanel>
-            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                <Button x:Name="btnLocate" Content="Locate avrdude.exe..." Width="160"/>
-                <TextBlock Margin="8,6,0,0" VerticalAlignment="Center">
-                    <Hyperlink NavigateUri="https://www.arduino.cc/en/software" RequestNavigate="Hyperlink_RequestNavigate">Install Arduino / avrdude</Hyperlink>
-                </TextBlock>
-            </StackPanel>
-        </StackPanel>
+		<StackPanel Grid.Row="0" Grid.ColumnSpan="2" Margin="0,0,0,8" Grid.RowSpan="2">
+			<StackPanel Orientation="Horizontal">
+				<TextBlock Text="COM Port:" VerticalAlignment="Center" Margin="0,4,8,0"/>
+				<ComboBox x:Name="comboPorts" Width="180" VerticalAlignment="Center"/>
+				<Button x:Name="btnRefresh" Content="Refresh" Width="75" Margin="8,0"/>
+				<Button x:Name="btnFlash" Content="Flash" Width="75" Margin="8,0" Background="#FFA2FF64" HorizontalAlignment="Right"/>
+			</StackPanel>
+			<StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+				<TextBlock Text="Bootloader:" VerticalAlignment="Center" Margin="0,4,8,0"/>
+				<ComboBox x:Name="comboBootloader" Width="220" VerticalAlignment="Center">
+					<ComboBoxItem Content="Auto" IsSelected="True" />
+					<ComboBoxItem Content="New (115200 baud)" />
+					<ComboBoxItem Content="Old (57600 baud)" />
+				</ComboBox>
+				<Button x:Name="btnLocate" Content="Locate avrdude.exe..." Width="160" Margin="8,0,0,0" Background="#FFB11313" HorizontalAlignment="Right"/>
+			</StackPanel>
+			<StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+				<ProgressBar x:Name="progressBusy" Width="80" Height="18" Margin="0,0,8,0" IsIndeterminate="True" Visibility="Collapsed"/>
+				<TextBlock x:Name="txtStatusAnim" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="#E0E0FF" />
+				<TextBlock VerticalAlignment="Center">
+                    <Hyperlink NavigateUri="https://www.nongnu.org/avrdude/" RequestNavigate="Hyperlink_RequestNavigate">avrdude project page</Hyperlink>
+				</TextBlock>
+			</StackPanel>
+		</StackPanel>
 
-        <TextBlock Grid.Row="2" Text="Output:" Margin="0,4,0,4"/>
-        <TextBox x:Name="txtOutput" Grid.Row="2" Margin="0,24,0,0" VerticalScrollBarVisibility="Auto" AcceptsReturn="True" TextWrapping="Wrap" IsReadOnly="True" Background="#10101A" Foreground="#E0E0FF"/>
-    </Grid>
+		<TextBlock Grid.Row="2" Text="Output:" Margin="0,4,0,4" Grid.ColumnSpan="2"/>
+		<TextBox x:Name="txtOutput" Grid.Row="2" Margin="0,24,0,0" VerticalScrollBarVisibility="Auto" AcceptsReturn="True" TextWrapping="Wrap" IsReadOnly="True" Background="#10101A" Foreground="#E0E0FF" Grid.ColumnSpan="2"/>
+	</Grid>
 </Window>

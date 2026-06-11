@@ -169,7 +169,13 @@ namespace BeltTensionTest.WPF.ViewModels
                 {
                     AppSettings.UseIracing = value;
                     _iracing.Enabled = value;
-                    if (value) UseSimHub = false;
+                    if (value)
+                    {
+                        UseSimHub = false;
+                        // mark SimHub indicator off when switching to iRacing
+                        SimHubIsOn = false;
+                        SimHubText = "Disabled";
+                    }
                     _settingsSvc.Save(AppSettings);
                 }
             }
@@ -185,7 +191,14 @@ namespace BeltTensionTest.WPF.ViewModels
                 {
                     AppSettings.UseSimHub = value;
                     SimHubGroupEnabled = value;
-                    if (value) UseIracing = false;
+                    if (value)
+                    {
+                        UseIracing = false;
+                        // mark iRacing indicator off when switching to SimHub
+                        IracingIsOn = false;
+                        // reset SimHub text until connected
+                        SimHubText = "Not Connected to SimHub";
+                    }
                     _settingsSvc.Save(AppSettings);
                 }
             }

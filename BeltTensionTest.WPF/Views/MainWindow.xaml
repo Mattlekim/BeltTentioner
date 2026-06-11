@@ -47,6 +47,9 @@
                 <MenuItem Header="Flash Nano..."
                           Foreground="#A0A0BE"
                           Click="OpenFlashNano_Click"/>
+                <MenuItem Header="Motor Settings..."
+                          Foreground="#A0A0BE"
+                          Click="OpenMotorSettings_Click"/>
                 <Separator Background="#46466A"/>
                 <MenuItem Header="Check for Updates..."
                           Foreground="#A0A0BE"
@@ -89,30 +92,8 @@
             <StackPanel Margin="10,8" Width="332">
 
                 <!-- ?? Status Row ??????????????????????????????????????????? -->
-                <Border Background="#1C1C2E" CornerRadius="6" Padding="10,8" Margin="0,0,0,6">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-
-                        <!-- iRacing status -->
-                        <views:StatusIndicatorView Grid.Column="0"
-                                                   Label="iRacing:"
-                                                   IsOn="{Binding IracingIsOn}"
-                                                   HorizontalAlignment="Left"/>
-
-                        <!-- SimHub status -->
-                        <views:StatusIndicatorView Grid.Column="1"
-                                                   Label="SimHub:"
-                                                   IsOn="{Binding SimHubIsOn}"
-                                                   Margin="8,0"/>
-                    </Grid>
-                </Border>
-
                 <!-- ?? Device Connection ???????????????????????????????????? -->
-                <Border Background="#1C1C2E" CornerRadius="6" Padding="10,10" Margin="0,0,0,6">
+                <Border Background="#1C1C2E" CornerRadius="6" Padding="10,10">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
@@ -146,9 +127,33 @@
                     </Grid>
                 </Border>
 
+                <!-- ?? Status Row ??????????????????????????????????????????? -->
+                <Border Background="#1C1C2E" CornerRadius="6" Padding="10,8" Margin="0,0,0,6">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- iRacing status -->
+                        <views:StatusIndicatorView Grid.Column="0"
+                                                   Label="iRacing:"
+                                                   IsOn="{Binding IracingIsOn}"
+                                                   HorizontalAlignment="Left"/>
+
+                        <!-- SimHub status -->
+                        <views:StatusIndicatorView Grid.Column="1"
+                                                   Label="SimHub:"
+                                                   IsOn="{Binding SimHubIsOn}"
+                                                   Margin="8,0"/>
+                    </Grid>
+                </Border>
+
                 <!-- ?? SimHub group ????????????????????????????????????????? -->
                 <GroupBox Header="SimHub"
                           IsEnabled="{Binding SimHubGroupEnabled}"
+                          Visibility="{Binding SimHubIsOn, Converter={StaticResource BoolToVis}}"
                           Margin="0,0,0,6">
                     <Grid>
                         <Grid.RowDefinitions>
@@ -312,58 +317,6 @@
                     </StackPanel>
                 </GroupBox>
 
-                <!-- ?? Motor Settings ?????????????????????????????????????? -->
-                <GroupBox Header="Motor Settings" IsEnabled="{Binding ControlsEnabled}" Margin="0,0,0,6">
-                    <StackPanel>
-                        <!-- Motor selector -->
-                        <Grid Margin="0,0,0,6">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <ComboBox Grid.Column="0"
-                                      SelectedIndex="{Binding SelectedMotorIndex}"
-                                      Height="30"
-                                      VerticalAlignment="Center">
-                                <ComboBoxItem Content="Left Motor"/>
-                                <ComboBoxItem Content="Right Motor"/>
-                            </ComboBox>
-                            <CheckBox Grid.Column="1"
-                                      Content="Dual Motors"
-                                      IsChecked="{Binding DualMotorsEnabled}"
-                                      VerticalAlignment="Center"
-                                      Margin="10,0,0,0"/>
-                        </Grid>
-
-                        <views:SliderRow Label="Start Angle" Min="0" Max="270"
-                                         Value="{Binding MotorStart, Mode=TwoWay}"
-                                         FillBrush="#6496FF" Margin="0,3"/>
-                        <views:SliderRow Label="End Angle" Min="0" Max="270"
-                                         Value="{Binding MotorEnd, Mode=TwoWay}"
-                                         FillBrush="#6496FF" Margin="0,3"/>
-                        <CheckBox Content="Inverted"
-                                  IsChecked="{Binding MotorInverted}"
-                                  Margin="0,6,0,4"/>
-
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0"
-                                       Text="Changes not saved!"
-                                       Foreground="#FF4040"
-                                       FontWeight="Bold"
-                                       VerticalAlignment="Center"
-                                       Visibility="{Binding ShowChangesNotSaved, Converter={StaticResource BoolToVis}}"/>
-                            <Button Grid.Column="1"
-                                    Content="Apply"
-                                    Command="{Binding ApplyMotorSettingsCommand}"
-                                    Style="{StaticResource GreenButtonStyle}"
-                                    Width="70"/>
-                        </Grid>
-                    </StackPanel>
-                </GroupBox>
 
                 <!-- Bottom padding -->
                 <Border Height="16"/>
