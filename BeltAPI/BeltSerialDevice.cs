@@ -22,6 +22,8 @@ namespace BeltAPI
         public event Action<string>? MessageReceived;
         public event Action? HandshakeComplete;
 
+        public event Action<string>? DeviceVersionReceived;
+
         public bool IsConnected => serialPort != null && serialPort.IsOpen;
         public string? PortName => serialPort?.PortName;
 
@@ -88,6 +90,27 @@ namespace BeltAPI
             Disconnect();
         }
 
+        private string GetVersionNumber(string message)
+        {
+            var parts = message.Split(':');
+            if (parts.Length == 2)
+            {
+
+                DeviceVersionReceived?.Invoke(parts[1]);
+                return (parts[1]);
+            }
+
+
+            return string.Empty;
+        }
+
+        public void RequestDeviceVersion(Action<string, string> callback)
+        {
+           SendCustomData("VER");
+            
+           
+        }
+
         private void DecodeSettings(string message)
         {
             Log($"DecodeSettings: {message}");
@@ -148,6 +171,13 @@ namespace BeltAPI
                     {
                         DecodeSettings(line);
                     }
+
+                    if (line.StartsWith("VERSION:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string version = GetVersionNumber(line.Substring(8));
+                        Log($"Device version: {version}");
+                    }
+
                     MessageReceived?.Invoke(line);
                     if (string.Equals(line, "READY", StringComparison.OrdinalIgnoreCase))
                     {
@@ -479,6 +509,32 @@ namespace BeltAPI
 
         }
 
+        public void SendCustomData(string data)
+        {
+
+            if (!isConnected)
+                return;
+            try
+            {
+                var sp = serialPort;
+                if (sp != null && sp.IsOpen)
+                {
+                    sp.Write(data + sp.NewLine);
+                }
+                else
+                {
+                    MessageReceived?.Invoke("DEVICE_UNPLUGGED");
+                    Disconnect();
+                }
+            }
+            catch (Exception ex)
+            {
+                // Device may have been unplugged or port closed
+                MessageReceived?.Invoke("DEVICE_UNPLUGGED");
+                Disconnect();
+            }
+        }
+
         public void SendValue(float value, bool leftMotor)
         {
             if (!isConnected)
@@ -543,6 +599,21 @@ namespace BeltAPI
         }
 
         bool isConnected = false;
+
+        private void AsyncDisconnect()
+        {
+            Log($"AsyncDisconnect called (port: {PortName ?? "none"})");
+            try { ClosePort(); } catch { }
+            isConnected = false;
+        }
+
+        public void ManualDisconnect()
+        {
+            Log($"ManualDisconnect called (port: {PortName ?? "none"})");
+            try { ClosePort(); } catch { }
+            isConnected = false;
+        }
+
         public void Disconnect()
         {
             Log($"Disconnect called (port: {PortName ?? "none"})");

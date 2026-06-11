@@ -49,7 +49,7 @@ namespace BeltTensionTest.WPF.Views
             {
                 if (!Dispatcher.CheckAccess()) { Dispatcher.Invoke(() => DrawCurveGraph()); return; }
 
-                var device = _main.Device;
+                var device = MainViewModel.Device;
                 var settings = CarSettingsService.Instance.CurrentSettings;
 
                 int w = (int)Math.Max(1, CurveGraphImage.ActualWidth);
@@ -328,7 +328,7 @@ namespace BeltTensionTest.WPF.Views
             {
                 if (!Dispatcher.CheckAccess()) { Dispatcher.Invoke(() => DrawMotorGraph()); return; }
 
-                var device = _main.Device;
+                var device = MainViewModel.Device;
                 if (device == null) return;
 
                 int w = (int)Math.Max(1, MotorGraphImage.ActualWidth);

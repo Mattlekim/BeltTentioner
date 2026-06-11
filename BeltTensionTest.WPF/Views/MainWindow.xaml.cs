@@ -53,7 +53,7 @@ namespace BeltTensionTest.WPF.Views
         {
             if (_debugWindow == null || !_debugWindow.IsLoaded)
             {
-                _debugWindow = new DebugLogWindow(VM.Device);
+                _debugWindow = new DebugLogWindow(MainViewModel.Device);
                 _debugWindow.Owner = this;
                 _debugWindow.Show();
             }
@@ -75,6 +75,13 @@ namespace BeltTensionTest.WPF.Views
                 _flashWindow = new FlashNanoWindow();
                 _flashWindow.Owner = this;
                 _flashWindow.Show();
+                MainViewModel.Device.ManualDisconnect();
+                // Update UI status indicators to reflect manual disconnect
+                VM.DeviceIsOn = false;
+                VM.DeviceStatusText = "Device disconnected";
+                VM.ControlsEnabled = false;
+                VM.ConnectButtonEnabled = true;
+
             }
             else
             {

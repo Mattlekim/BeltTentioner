@@ -18,9 +18,13 @@
 			<StackPanel Orientation="Horizontal">
 				<TextBlock Text="COM Port:" VerticalAlignment="Center" Margin="0,4,8,0"/>
 				<ComboBox x:Name="comboPorts" Width="180" VerticalAlignment="Center"/>
-				<Button x:Name="btnRefresh" Content="Refresh" Width="75" Margin="8,0"/>
+               
+                <Button x:Name="btnRefresh" Content="Refresh" Width="75" Margin="8,0"/>
 				<Button x:Name="btnFlash" Content="Flash" Width="75" Margin="8,0" Background="#FFA2FF64" HorizontalAlignment="Right"/>
 			</StackPanel>
+            <StackPanel Orientation="Horizontal">
+                <Label x:Name="lblPortStatus" Content="No device detected" Margin="8,0" VerticalAlignment="Center" Foreground="#FFB11313"/>
+            </StackPanel>
 			<StackPanel Orientation="Horizontal" Margin="0,8,0,0">
 				<TextBlock Text="Bootloader:" VerticalAlignment="Center" Margin="0,4,8,0"/>
 				<ComboBox x:Name="comboBootloader" Width="220" VerticalAlignment="Center">

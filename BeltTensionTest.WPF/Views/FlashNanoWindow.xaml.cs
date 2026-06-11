@@ -9,6 +9,8 @@ using System.Windows;
 using System.Windows.Navigation;
 using Microsoft.Win32;
 
+using BeltTensionTest.WPF.ViewModels;
+
 namespace BeltTensionTest.WPF.Views
 {
     public partial class FlashNanoWindow : Window
@@ -19,6 +21,7 @@ namespace BeltTensionTest.WPF.Views
         private int _animTick = 0;
         private Stopwatch? _flashStopwatch;
 
+
         public FlashNanoWindow()
         {
             InitializeComponent();
@@ -26,10 +29,20 @@ namespace BeltTensionTest.WPF.Views
             btnRefresh.Click += (_, _) => RefreshPorts();
             btnFlash.Click += async (_, _) => await FlashSelectedPortAsync();
             btnLocate.Click += (_, _) => LocateAvrdude();
+            comboPorts.SelectionChanged += ComboPorts_SelectionChanged;
             // initialize animation timer
             _animTimer = new System.Windows.Threading.DispatcherTimer();
             _animTimer.Interval = TimeSpan.FromMilliseconds(300);
             _animTimer.Tick += (_, _) => UpdateAnimation();
+
+
+        }
+
+        protected override void OnClosed(EventArgs e)
+        {
+
+          
+            base.OnClosed(e);
         }
 
         private void StartBusyAnimation()
@@ -117,11 +130,105 @@ namespace BeltTensionTest.WPF.Views
                 comboPorts.ItemsSource = ports;
                 if (ports.Length > 0)
                     comboPorts.SelectedIndex = 0;
+                else
+                    lblPortStatus.Content = "No device detected";
             }
             catch (Exception ex)
             {
                 AppendOutput("Error refreshing ports: " + ex.Message);
             }
+        }
+
+        private async void ComboPorts_SelectionChanged(object? sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            if (comboPorts.SelectedItem == null)
+            {
+                lblPortStatus.Content = "No device detected";
+                lblPortStatus.Foreground = System.Windows.Media.Brushes.IndianRed;
+                return;
+            }
+
+            var port = comboPorts.SelectedItem.ToString();
+            lblPortStatus.Content = "Querying...";
+            lblPortStatus.Foreground = System.Windows.Media.Brushes.Gold;
+
+            await Task.Run(() =>
+            {
+                try
+                {
+                    
+                    
+                    using (var sp = new SerialPort(port, 9600))
+                    {
+                        sp.ReadTimeout = 800;
+                        sp.WriteTimeout = 300;
+                        sp.NewLine = "\n";
+                        sp.Open();
+                        // give some time for device to reset after opening (if needed)
+                        Task.Delay(120).Wait();
+                        // clear
+                        try { sp.DiscardInBuffer(); } catch { }
+                        try { sp.DiscardOutBuffer(); } catch { }
+                        // send version request
+                        sp.WriteLine("VER");
+
+                        // read lines until timeout
+                        var sw = Stopwatch.StartNew();
+                        string? versionLine = null;
+                        bool alive = true;
+                        while (sw.ElapsedMilliseconds < 1500 && alive)
+                        {
+                            try
+                            {
+                                while (sp.BytesToRead > 0)
+                                {
+                                    var line = sp.ReadLine();
+
+                                    if (string.IsNullOrWhiteSpace(line)) continue;
+
+                                    if (line.StartsWith("Wai"))
+                                        sp.WriteLine("VER");
+                                    line = line.Trim();
+                                    if (line.StartsWith("VER:")) { versionLine = line.Substring(4).Trim();
+                                        alive = false;
+                                        break; }
+                                    // also accept plain version lines
+                                    if (line.IndexOf("1.") >= 0 || line.IndexOf("0.") >= 0) { versionLine = line; alive = false; break; }
+                                }
+                            }
+                            catch (TimeoutException) { }
+                            catch { break; }
+                        }
+
+                        if (!string.IsNullOrEmpty(versionLine))
+                        {
+                            Dispatcher.Invoke(() =>
+                            {
+                                lblPortStatus.Content = versionLine;
+                                lblPortStatus.Foreground = System.Windows.Media.Brushes.LimeGreen;
+                            });
+                        }
+                        else
+                        {
+                            Dispatcher.Invoke(() =>
+                            {
+                                lblPortStatus.Content = "No response";
+                                lblPortStatus.Foreground = System.Windows.Media.Brushes.IndianRed;
+                            });
+                        }
+
+                        try { sp.Close(); } catch { }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        lblPortStatus.Content = "Error: " + ex.Message;
+                        lblPortStatus.Foreground = System.Windows.Media.Brushes.IndianRed;
+                    });
+                }
+            });
         }
 
         private void AppendOutput(string text)

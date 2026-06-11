@@ -1,6 +1,13 @@
 #include <Servo.h>
 #include <EEPROM.h>
 
+// Firmware version
+#define FIRMWARE_VERSION "1.0.0"
+#define FIRMWARE_NAME "BBT"
+// Wind power PWM (pin 3) value 0-255
+uint8_t WindPower = 0;
+const int WIND_PIN = 3;
+
 #define LEFT_MOTOR 10
 #define RIGHT_MOTOR 9
 
@@ -78,6 +85,8 @@ void loadSettings() {
 
 void setup() {
   Serial.begin(9600);
+  pinMode(WIND_PIN, OUTPUT);
+  analogWrite(WIND_PIN, WindPower);
 
   digitalWrite(LEFT_MOTOR, LOW);
   digitalWrite(RIGHT_MOTOR, LOW);
@@ -247,8 +256,34 @@ void ProcessSerial() {
           slow = false;  //set motors to normal speed
       }
     }
+
+    // New commands: version request and wind power
+    // Accept simple commands VER or VERSION to return firmware version
+    if (input.equalsIgnoreCase("VER") || input.equalsIgnoreCase("VERSION")) {
+      Serial.print("VER:");
+      Serial.print(FIRMWARE_NAME);
+      Serial.print("-");
+      Serial.println(FIRMWARE_VERSION);
+    }
+
+    // Wind power command: "WP:<0-255>" sets WindPower and updates PWM on WIND_PIN
+    if (input.startsWith("WP:") || input.startsWith("WP")) {
+      String nstr = input.indexOf(':') >= 0 ? input.substring(input.indexOf(':') + 1) : input.substring(2);
+      nstr.trim();
+      if (nstr.length() > 0) {
+        int v = nstr.toInt();
+        if (v < 0) v = 0;
+        if (v > 255) v = 255;
+        WindPower = (uint8_t)v;
+        analogWrite(WIND_PIN, WindPower);
+        lastDataTime = millis();
+        Serial.print("WP_SET:");
+        Serial.println(WindPower);
+      }
+    }
   }
 }
+
 
 float lerp(float a, float b, float amount) {
   if (amount < 0.0f) amount = 0.0f;
@@ -293,6 +328,9 @@ void loop() {
       _fromSlowModeStart_L = L_ABS;
       _fromSlowModeStart_R = R_ABS;
       ResetMotors();
+      // stop wind if no data
+      WindPower = 0;
+      analogWrite(WIND_PIN, 0);
     }
   }
 
