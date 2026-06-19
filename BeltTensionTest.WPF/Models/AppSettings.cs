@@ -12,5 +12,7 @@ namespace BeltTensionTest.WPF.Models
         public bool UseSimHub { get; set; } = false;
         public bool UseIracing { get; set; } = true;
         public List<string> CollapsedGroups { get; set; } = new();
+        // Global resting wind power (stored per-application rather than per-car)
+        public int WindRestingPower { get; set; } = 0;
     }
 }

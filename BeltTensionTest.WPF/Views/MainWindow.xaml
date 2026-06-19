@@ -113,11 +113,11 @@
                                   Content="Connect On Startup"
                                   IsChecked="{Binding AutoConnect}"
                                   VerticalAlignment="Center"/>
-                        <Button Grid.Column="1"
+                        <Button
+                                x:Name="bnt_Connect"
                                 Content="Connect"
                                 Command="{Binding ConnectCommand}"
-                                IsEnabled="{Binding ConnectButtonEnabled}"
-                                Width="80"/>
+                                IsEnabled="True" Click="bnt_Connect_Click" Grid.ColumnSpan="2" Margin="222,0,0,0"/>
                     </Grid>
                 </Grid>
             </Border>
@@ -351,7 +351,9 @@
                                 <TextBlock Text="Wind controls" Style="{StaticResource LabelStyle}" Margin="0,0,0,6"/>
                                 <StackPanel>
                                     <CheckBox Content="Enable for Car" IsChecked="{Binding EnableForCar, Mode=TwoWay}" Margin="0,0,6,6"/>
+                                    <views:SliderRow Label="Resting Power" Min="0" Max="300" Value="{Binding WindRestingPower, Mode=TwoWay}" Margin="0,0,0,6"/>
                                     <views:SliderRow Label="Min Speed" Min="0" Max="300" Value="{Binding WindMinSpeed, Mode=TwoWay}" Margin="0,0,0,6" />
+                                    <views:SliderRow Label="Min Power" Min="0" Max="300" Value="{Binding WindMinPower, Mode=TwoWay}" Margin="0,0,0,6" />
                                     <views:SliderRow Label="Power" Min="0" Max="300" Value="{Binding WindPowerPercentage, Mode=TwoWay}" Margin="0,0,0,6"/>
                                     <views:SliderRow Label="Curve" Min="0.1" Max="5" Value="{Binding WindCurve, Mode=TwoWay}" FillBrush="#50C878" Margin="0,0,0,6"/>
                                 </StackPanel>

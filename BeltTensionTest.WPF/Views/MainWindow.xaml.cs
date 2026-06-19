@@ -19,6 +19,26 @@ namespace BeltTensionTest.WPF.Views
 
             Loaded  += (_, _) => Shared.WpfMessageBridge.Attach(this);
             Closing += (_, _) => VM.Dispose();
+
+            MainViewModel.Device.OnConnencted += () =>
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    bnt_Connect.Content = "Disconnect";
+                    bnt_Connect.Background = System.Windows.Media.Brushes.DarkRed;
+                    bnt_Connect.IsEnabled = true;
+                });
+            };
+
+            MainViewModel.Device.OnDisconnection += () =>
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    bnt_Connect.Content = "Connect";
+                    bnt_Connect.Background = System.Windows.Media.Brushes.DarkGreen;
+                    bnt_Connect.IsEnabled = true;
+                });
+            };
         }
 
         private void OpenMotorSettings_Click(object sender, RoutedEventArgs e)
@@ -94,6 +114,20 @@ namespace BeltTensionTest.WPF.Views
 
         }
 
-       
+        private void bnt_Connect_Click(object sender, RoutedEventArgs e)
+        {
+            if (MainViewModel.Device.IsConnected)
+            {
+                Task.Run(() =>
+                {
+                    Thread.Sleep(100);  
+                    MainViewModel.Device.ManualDisconnect();
+                });
+                
+                return;
+            }
+
+            bnt_Connect.IsEnabled = false;
+        }
     }
 }

@@ -103,6 +103,39 @@ namespace BeltTensionTest.WPF.ViewModels
             }
         }
 
+        private double _windMinPower;
+        public double WindMinPower
+        {
+            get => _windMinPower;
+            set
+            {
+                if (SetField(ref _windMinPower, value))
+                {
+                    OnCarSettingChanged();
+                    GenerateWindGraphImage();
+                }
+            }
+        }
+
+        private double _windRestingPower;
+        public double WindRestingPower
+        {
+            get => _windRestingPower;
+            set
+            {
+                if (SetField(ref _windRestingPower, value))
+                {
+                    // Resting power is an application-level setting
+                    if (AppSettings != null)
+                    {
+                        AppSettings.WindRestingPower = (int)_windRestingPower;
+                        _settingsSvc.Save(AppSettings);
+                    }
+                    GenerateWindGraphImage();
+                }
+            }
+        }
+
         private double _windPowerPercentage;
         public double WindPowerPercentage
         {
@@ -508,7 +541,7 @@ namespace BeltTensionTest.WPF.ViewModels
             _useSimHub   = AppSettings.UseSimHub;
 
             // Commands
-            ConnectCommand          = new AsyncRelayCommand(DoConnectAsync, _ => ConnectButtonEnabled);
+            ConnectCommand          = new AsyncRelayCommand(DoConnectAsync);
             ApplyMotorSettingsCommand = new RelayCommand(DoApplyMotorSettings, _ => ControlsEnabled);
             TestAbsCommand          = new RelayCommand(DoTestAbs);
             CheckUpdatesCommand     = new AsyncRelayCommand(DoCheckUpdatesAsync);
@@ -628,6 +661,9 @@ namespace BeltTensionTest.WPF.ViewModels
             // Wind settings
             _enableForCar = s.EnableForCar;
             _windMinSpeed = (double)s.WindMinSpeed;
+            _windMinPower = (double)s.WindMinPower;
+            // Resting power is stored in app settings (global)
+            _windRestingPower = AppSettings?.WindRestingPower ?? 0;
             _windPowerPercentage = (double)s.WindPowerPercentage;
             _windCurve = s.WindCurve;
 
@@ -652,6 +688,8 @@ namespace BeltTensionTest.WPF.ViewModels
             OnPropertyChanged(nameof(MasterTiltStrength));
             OnPropertyChanged(nameof(EnableForCar));
             OnPropertyChanged(nameof(WindMinSpeed));
+            OnPropertyChanged(nameof(WindMinPower));
+            OnPropertyChanged(nameof(WindRestingPower));
             OnPropertyChanged(nameof(WindPowerPercentage));
             OnPropertyChanged(nameof(WindCurve));
             CarNameDisplay = carName;
@@ -687,6 +725,7 @@ namespace BeltTensionTest.WPF.ViewModels
             // wind settings
             s.EnableForCar = _enableForCar;
             s.WindMinSpeed = (int)_windMinSpeed;
+            s.WindMinPower = (int)_windMinPower;
             s.WindPowerPercentage = (int)_windPowerPercentage;
             s.WindCurve = _windCurve;
             SaveSoon();
@@ -989,20 +1028,34 @@ namespace BeltTensionTest.WPF.ViewModels
 
                 // compute points
                 var pts = new List<System.Drawing.PointF>();
-                // Use same formula as StartWindLoop: pwm = round((pct/100) * (speed / MaxSpeed) * 255), clamped 0..255
+                // Use same formula as StartWindLoop: apply WindMinSpeed and WindCurve, produce PWM 0..255
                 for (int x = 0; x <= gw; x++)
                 {
                     double speed = (double)x / gw * maxSpeed;
                     double pwm = 0.0;
-                    if (maxSpeed > WindMinSpeed && speed >= WindMinSpeed)
+                    if (MaxSpeed > WindMinSpeed)
                     {
-                        double pct = WindPowerPercentage / 100.0;
-                        double norm = (speed / maxSpeed);
-                        pwm = Math.Round(pct * norm * 255.0);
-                        pwm = Math.Clamp(pwm, 0.0, 255.0);
+                        // speed below min -> use resting power
+                        if (speed < WindMinSpeed)
+                        {
+                            double restPct = WindRestingPower / 100.0;
+                            pwm = Math.Round(restPct * 255.0);
+                            pwm = Math.Clamp(pwm, 0.0, 255.0);
+                        }
+                        else
+                        {
+                            double maxPct = WindPowerPercentage / 100.0;
+                            double minPct = WindMinPower / 100.0;
+                            double norm = (speed - WindMinSpeed) / (MaxSpeed - WindMinSpeed);
+                            norm = Math.Clamp(norm, 0.0, 1.0);
+                            double curved = Math.Pow(norm, WindCurve <= 0 ? 1.0 : WindCurve);
+                            double pct = minPct + (maxPct - minPct) * curved;
+                            pwm = Math.Round(pct * 255.0);
+                            pwm = Math.Clamp(pwm, 0.0, 255.0);
+                        }
                     }
                     float px = lp + x;
-                    float py = tp + (float)((1.0 - (pwm / Math.Max(1.0, 255.0))) * (gh));
+                    float py = tp + (float)((1.0 - (pwm / 255.0)) * (gh));
                     pts.Add(new System.Drawing.PointF(px, py));
                 }
 
@@ -1092,6 +1145,8 @@ namespace BeltTensionTest.WPF.ViewModels
             DeviceIsOn           = true;
             ControlsEnabled      = true;
             ConnectButtonEnabled = false;
+
+            
         }
 
         private void DoApplyMotorSettings(object? _)
@@ -1153,19 +1208,33 @@ namespace BeltTensionTest.WPF.ViewModels
                                 speed = IracingService.Instance.Speed;
                             }
                             var pct = WindPowerPercentage; // 0..100
+                            var minPctVal = WindMinPower; // 0..100
                             int val = 0;
-                            if (MaxSpeed > WindMinSpeed && speed >= WindMinSpeed)
+
+                       
+                            if (MaxSpeed > WindMinSpeed)
                             {
-                                double pctNorm = pct / 100.0;
-                                // normalized progress from min speed to max speed
-                                double norm = (speed - WindMinSpeed) / (MaxSpeed - WindMinSpeed);
-                                norm = Math.Clamp(norm, 0.0, 1.0);
-                                // apply curve: WindCurve==1 => linear, >1 => more gradual start
-                                double curved = Math.Pow(norm, WindCurve);
-                                val = (int)System.Math.Round(pctNorm * curved * 255.0);
-                                val = (int)Math.Clamp(val, 0, 255);
+                                if (!_wasInCar)
+                                {
+                                    double restPct = WindRestingPower;
+                                    val = (int)System.Math.Round(restPct);
+                                    val = (int)Math.Clamp(val, 0, 255);
+                                }
+                                else
+                                {
+                                    double maxPct = pct / 100.0;
+                                    double minPct = minPctVal / 100.0;
+                                    // normalized progress from min speed to max speed
+                                    double norm = (speed - WindMinSpeed) / (MaxSpeed - WindMinSpeed);
+                                    norm = Math.Clamp(norm, 0.0, 1.0);
+                                    // apply curve: WindCurve==1 => linear, >1 => more gradual start
+                                    double curved = Math.Pow(norm, WindCurve);
+                                    double interp = minPct + (maxPct - minPct) * curved;
+                                    val = (int)System.Math.Round(interp * 255.0);
+                                    val = (int)Math.Clamp(val, 0, 255);
+                                }
                             }
-                            try { Device.SendWindPower(val); } catch { }
+                            try { Device.SendWindPower((ushort)val); } catch { }
                             await Task.Delay(33, ct).ConfigureAwait(false);
                         }
                     }

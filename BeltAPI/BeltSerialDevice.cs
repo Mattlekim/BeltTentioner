@@ -29,6 +29,9 @@ namespace BeltAPI
         public bool IsConnected => serialPort != null && serialPort.IsOpen;
         public string? PortName => serialPort?.PortName;
 
+        public event Action OnConnencted;
+        public event Action OnDisconnection;
+
         private bool _getSettings = false;
 
         public List<string> _log = new List<string>();
@@ -140,10 +143,18 @@ namespace BeltAPI
             SendPacket(0x10, 0);
         }
 
-        public void SendWindPower(int power)
+        public void SendWindPower(ushort power)
         {
-            power = Math.Clamp(power, 0, 255);
-            SendPacket(0x03, (ushort)power);
+            if  (power > 255)
+                            {
+                power = 255;
+            }
+            //power = 200;
+            if (power < 255)
+            {
+
+            }
+            SendPacket(0x03, power);
         }
 
 
@@ -337,13 +348,14 @@ namespace BeltAPI
         }
 
 
-
+        bool _stopScan = false;
         private async Task AutoConnectLoopAsync(CancellationToken ct)
         {
             try
             {
                 while (!ct.IsCancellationRequested && serialPort == null)
                 {
+                    if (_stopScan) return;
                     string[] ports = SerialPort.GetPortNames();
                     foreach (var p in ports)
                     {
@@ -356,6 +368,8 @@ namespace BeltAPI
                             serialPort = port;
                             serialPort.DataReceived += SerialPort_DataReceived;
                             isConnected = true;
+
+                            OnConnencted?.Invoke();
                             StartSendLoop();
                             HandshakeComplete?.Invoke();
                             return;
@@ -407,6 +421,7 @@ namespace BeltAPI
                 {
                     Log($"Handshake succeeded on {portName}");
                     isConnected = true;
+                    OnConnencted?.Invoke();
                     return trial;
                 }
 
@@ -709,6 +724,7 @@ namespace BeltAPI
             Log($"AsyncDisconnect called (port: {PortName ?? "none"})");
             try { ClosePort(); } catch { }
             isConnected = false;
+            OnDisconnection?.Invoke();
         }
 
         public void ManualDisconnect()
@@ -716,6 +732,8 @@ namespace BeltAPI
             Log($"ManualDisconnect called (port: {PortName ?? "none"})");
             try { ClosePort(); } catch { }
             isConnected = false;
+            OnDisconnection?.Invoke();
+            _stopScan = true;
         }
 
         public void Disconnect()
@@ -723,7 +741,7 @@ namespace BeltAPI
             Log($"Disconnect called (port: {PortName ?? "none"})");
             try { ClosePort(); } catch { }
             isConnected = false;
-
+            OnDisconnection?.Invoke();
             Task.Run(async () =>
             {
              //   Form1.Instance.LabelStatus = "Disconnected. Reconnecting";
@@ -819,6 +837,7 @@ namespace BeltAPI
             {
                 Log($"Connected to {PortName}");
                 isConnected = true;
+                OnConnencted?.Invoke();
                 SendRequestSettings();
                 StartSendLoop();
             }
