@@ -164,7 +164,7 @@
             </GroupBox>
 
             <Border Margin="10,0,10,8" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6" Background="{StaticResource BgBrush}">
-                <TabControl Margin="0" Width="360" BorderThickness="0">
+                <TabControl Width="370" BorderThickness="0">
                     <TabControl.Resources>
                         <!-- Local TabItem style to match app theme and remove white chrome -->
                         <Style TargetType="{x:Type TabItem}">
@@ -346,7 +346,7 @@
                     <TabItem Header="Wind">
                         <ScrollViewer VerticalScrollBarVisibility="Auto"
                                   Background="#12121E"
-                                  PanningMode="VerticalFirst" Width="332">
+                                  PanningMode="VerticalFirst" Margin="17,0,-8,0">
                             <StackPanel Margin="10,8" Width="332">
                                 <TextBlock Text="Wind controls" Style="{StaticResource LabelStyle}" Margin="0,0,0,6"/>
                                 <StackPanel>
@@ -357,8 +357,7 @@
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <views:SliderRow Grid.Column="0" Label="Power Percentage" Min="0" Max="100" Value="{Binding WindPowerPercentage, Mode=TwoWay}"/>
-                                        <Button Grid.Column="1" Content="Send" Width="60" Margin="8,0,0,0" Click="SendWind_Click"/>
+                                        <views:SliderRow Grid.Column="0" Label="Power" Min="0" Max="300" Value="{Binding WindPowerPercentage, Mode=TwoWay}"/>
                                     </Grid>
                                 </StackPanel>
                             </StackPanel>

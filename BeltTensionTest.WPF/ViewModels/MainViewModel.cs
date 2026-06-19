@@ -979,6 +979,7 @@ namespace BeltTensionTest.WPF.ViewModels
 
         private void DoOpenUpdate(object? _) => _updateSvc.OpenReleasePage();
 
+        private float MaxSpeed = 300;
         private void StartWindLoop()
         {
             try
@@ -994,8 +995,13 @@ namespace BeltTensionTest.WPF.ViewModels
                     {
                         while (!ct.IsCancellationRequested)
                         {
+                            float speed = 0;
+                            if (IracingIsOn)
+                            {
+                                speed = IracingService.Instance.Speed;
+                            }
                             var pct = WindPowerPercentage; // 0..100
-                            var val = (int)System.Math.Round((pct / 100.0) * 255.0);
+                            var val = (int)System.Math.Round((pct / 100.0) * (speed / MaxSpeed) * 255.0);
                             try { Device.SendWindPower(val); } catch { }
                             await Task.Delay(33, ct).ConfigureAwait(false);
                         }

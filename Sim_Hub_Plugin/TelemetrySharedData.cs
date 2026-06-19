@@ -18,6 +18,7 @@ namespace SharedResources
         public float Braking;
         public float Cornering;
         public float Vertical;
+        public float Velocity;
 
         public float RotationPitch;
         public float RotationRoll;

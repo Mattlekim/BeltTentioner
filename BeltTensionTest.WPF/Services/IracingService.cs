@@ -18,6 +18,7 @@ namespace BeltTensionTest.WPF.Services
         private bool _dataInitialized;
         private string _oldCarName = string.Empty;
 
+        private IRacingSdkDatum? _datumSpeed;
         private IRacingSdkDatum? _datumAbs;
         private IRacingSdkDatum? _datumReplay;
         private IRacingSdkDatum? _datumLong;
@@ -92,6 +93,7 @@ namespace BeltTensionTest.WPF.Services
                 _datumPitch = _sdk.Data.TelemetryDataProperties["Pitch"];
                 _datumRoll  = _sdk.Data.TelemetryDataProperties["Roll"];
                 _datumYaw   = _sdk.Data.TelemetryDataProperties["Yaw"];
+                _datumSpeed = _sdk.Data.TelemetryDataProperties["Speed"];
                 _dataInitialized = true;
                 return true;
             }
@@ -138,11 +140,14 @@ namespace BeltTensionTest.WPF.Services
             float pitch  = _sdk.Data.GetFloat(_datumPitch);
             float roll   = _sdk.Data.GetFloat(_datumRoll);
             float yaw    = _sdk.Data.GetFloat(_datumYaw);
-
+            speed = _sdk.Data.GetFloat(_datumSpeed);
             TelemetryUpdated?.Invoke(surge, sway, heave, new Rotation(pitch, roll, yaw));
             GForceUpdated?.Invoke(-Math.Clamp(surge, -1000, 0));
             if (abs) AbsTriggered?.Invoke();
         }
+
+        private float speed;
+        public float Speed => speed;    
 
         public void Dispose()
         {
