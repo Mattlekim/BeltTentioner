@@ -130,11 +130,11 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <views:StatusIndicatorView Grid.Column="0" Label="iRacing:" IsOn="{Binding IracingIsOn}"/>
-            <views:StatusIndicatorView
+                    <views:StatusIndicatorView
             Margin="8,0,0,0" Label="SimHub:" IsOn="{Binding SimHubIsOn}" Grid.Column="1"/>
-            </Grid>
+                </Grid>
             </Border>
-                                            <!-- ?? SimHub group ????????????????????????????????????????? -->
+            <!-- ?? SimHub group ????????????????????????????????????????? -->
             <GroupBox Header="SimHub"
                                       IsEnabled="{Binding SimHubGroupEnabled}"
                                       Visibility="{Binding SimHubIsOn, Converter={StaticResource BoolToVis}}">
@@ -351,15 +351,15 @@
                                 <TextBlock Text="Wind controls" Style="{StaticResource LabelStyle}" Margin="0,0,0,6"/>
                                 <StackPanel>
                                     <CheckBox Content="Enable for Car" IsChecked="{Binding EnableForCar, Mode=TwoWay}" Margin="0,0,6,6"/>
-                                    <views:SliderRow Label="Min Speed" Min="0" Max="150" Value="{Binding WindMinSpeed, Mode=TwoWay}" Margin="0,0,0,6" />
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <views:SliderRow Grid.Column="0" Label="Power" Min="0" Max="300" Value="{Binding WindPowerPercentage, Mode=TwoWay}"/>
-                                    </Grid>
+                                    <views:SliderRow Label="Min Speed" Min="0" Max="300" Value="{Binding WindMinSpeed, Mode=TwoWay}" Margin="0,0,0,6" />
+                                    <views:SliderRow Label="Power" Min="0" Max="300" Value="{Binding WindPowerPercentage, Mode=TwoWay}" Margin="0,0,0,6"/>
+                                    <views:SliderRow Label="Curve" Min="0.1" Max="5" Value="{Binding WindCurve, Mode=TwoWay}" FillBrush="#50C878" Margin="0,0,0,6"/>
                                 </StackPanel>
+
+                                <!-- Wind graph -->
+                                <Border Margin="0,8,0,0" Background="#12121E" CornerRadius="4" Padding="6">
+                                    <Image Source="{Binding WindGraphImageSource}" Width="300" Height="140" Stretch="Fill" />
+                                </Border>
                             </StackPanel>
                         </ScrollViewer>
                     </TabItem>

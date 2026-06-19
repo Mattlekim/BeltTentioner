@@ -35,6 +35,7 @@ namespace BeltAPI
         public bool EnableForCar { get; set; } = false;
         public int WindMinSpeed { get; set; } = 0;
         public int WindPowerPercentage { get; set; } = 0;
+        public float WindCurve { get; set; } = 1.0f;
 
         public float NegativeSway { get; set; } = 0f;
 
@@ -72,6 +73,8 @@ namespace BeltAPI
                 EnableForCar = this.EnableForCar,
                 WindMinSpeed = this.WindMinSpeed,
                 WindPowerPercentage = this.WindPowerPercentage
+                ,
+                WindCurve = this.WindCurve
             };
         }
     }

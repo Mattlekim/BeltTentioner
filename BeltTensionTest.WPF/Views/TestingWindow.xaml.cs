@@ -16,12 +16,29 @@ namespace BeltTensionTest.WPF.Views
     {
         private readonly TestingViewModel _vm;
         private readonly MainViewModel    _main;
+        // Cached bitmaps/graphics to avoid per-frame allocations
+        private Bitmap? _curveBmp;
+        private Graphics? _curveG;
+        private Bitmap? _motorBmp;
+        private Graphics? _motorG;
         // Reusable GDI objects to reduce per-frame allocations
         private static readonly Font s_fontSmall = new Font("Segoe UI", 7.5f);
         private static readonly Font s_fontSmallBold = new Font("Segoe UI", 8f, System.Drawing.FontStyle.Bold);
         private static readonly SolidBrush s_labelBrush = new SolidBrush(Color.FromArgb(160, 160, 190));
         private static readonly Pen s_gridPen = new Pen(Color.FromArgb(38, 38, 58), 1);
         private static readonly Pen s_axisPen = new Pen(Color.FromArgb(70, 70, 100), 1);
+        // Cached pens/brushes for common colors used in graphs
+        private static readonly Pen s_dashMaxPen  = new Pen(Color.FromArgb(220, 60, 60), 1) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
+        private static readonly Pen s_dotRestPen  = new Pen(Color.FromArgb(60, 180, 180), 1) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dot };
+        private static readonly SolidBrush s_surgeFill  = new SolidBrush(Color.FromArgb(35, 100, 160, 255));
+        private static readonly Pen       s_surgePen   = new Pen(Color.FromArgb(100, 160, 255), 2);
+        private static readonly Pen       s_surgeGlow  = new Pen(Color.FromArgb(50, 100, 160, 255), 5);
+        private static readonly SolidBrush s_swayFill   = new SolidBrush(Color.FromArgb(35, 80, 200, 120));
+        private static readonly Pen       s_swayPen    = new Pen(Color.FromArgb(80, 200, 120), 2);
+        private static readonly Pen       s_swayGlow   = new Pen(Color.FromArgb(50, 80, 200, 120), 5);
+        private static readonly SolidBrush s_heaveFill  = new SolidBrush(Color.FromArgb(35, 255, 165, 60));
+        private static readonly Pen       s_heavePen   = new Pen(Color.FromArgb(255, 165, 60), 2);
+        private static readonly Pen       s_heaveGlow  = new Pen(Color.FromArgb(50, 255, 165, 60), 5);
 
         public TestingWindow(MainViewModel main)
         {
@@ -45,7 +62,37 @@ namespace BeltTensionTest.WPF.Views
                 Dispatcher.BeginInvoke((Action)(() => { DrawCurveGraph(); DrawMotorGraph(); }), System.Windows.Threading.DispatcherPriority.Render);
             };
 
-            Closed += (_, _) => { _vm.Dispose(); };
+            Closed += (_, _) => { _vm.Dispose(); DisposeGraphics(); };
+        }
+
+        private void EnsureCurveBitmap(int w, int h)
+        {
+            if (_curveBmp == null || _curveBmp.Width != w || _curveBmp.Height != h)
+            {
+                _curveG?.Dispose(); _curveBmp?.Dispose();
+                _curveBmp = new Bitmap(w, h);
+                _curveG = Graphics.FromImage(_curveBmp);
+            }
+        }
+
+        private void EnsureMotorBitmap(int w, int h)
+        {
+            if (_motorBmp == null || _motorBmp.Width != w || _motorBmp.Height != h)
+            {
+                _motorG?.Dispose(); _motorBmp?.Dispose();
+                _motorBmp = new Bitmap(w, h);
+                _motorG = Graphics.FromImage(_motorBmp);
+            }
+        }
+
+        private void DisposeGraphics()
+        {
+            try
+            {
+                _curveG?.Dispose(); _curveBmp?.Dispose(); _curveG = null; _curveBmp = null;
+                _motorG?.Dispose(); _motorBmp?.Dispose(); _motorG = null; _motorBmp = null;
+            }
+            catch { }
         }
 
         // ?? Curve Graph ??????????????????????????????????????????????????????
@@ -101,10 +148,9 @@ namespace BeltTensionTest.WPF.Views
             float MapXToInput(int px) => (float)(px - lp) / (gw - 1) * 9f - 2f;
             int MapInputToX(float f) => lp + (int)((f + 2f) / 9f * (gw - 1));
 
-                var bmp = new Bitmap(w, h);
-                using var g = Graphics.FromImage(bmp);
-                try
-                {
+                EnsureCurveBitmap(w, h);
+                var bmp = _curveBmp!;
+                var g = _curveG!;
                 // favor speed for live updates
                 g.SmoothingMode = SmoothingMode.HighSpeed;
                 g.Clear(bgColor);
@@ -149,14 +195,12 @@ namespace BeltTensionTest.WPF.Views
             // Max power line
             float maxOut = minV + mr * (settings.MaxPower / 100f);
             int   yMax   = MapY(maxOut);
-            using (var mp = new Pen(maxColor, 1) { DashStyle = DashStyle.Dash })
-                g.DrawLine(mp, lp, yMax, lp + gw - 1, yMax);
+            g.DrawLine(s_dashMaxPen, lp, yMax, lp + gw - 1, yMax);
 
             // Resting point line
             float restVal = device.DeviceMotorSettings.ClampToMaxMotorPower(settings.RestingPoint / 100f, 0, settings).Item1;
             int   yRest   = MapY(restVal);
-            using (var rp2 = new Pen(restColor, 1) { DashStyle = DashStyle.Dot })
-                g.DrawLine(rp2, lp, yRest, lp + gw - 1, yRest);
+            g.DrawLine(s_dotRestPen, lp, yRest, lp + gw - 1, yRest);
 
             int baseline = tp + gh - 1;
 
@@ -173,12 +217,25 @@ namespace BeltTensionTest.WPF.Views
                 poly[0] = new System.Drawing.Point(pts[0].X, baseline);
                 for (int i = 0; i < pts.Count; i++) poly[i + 1] = pts[i];
                 poly[^1] = new System.Drawing.Point(pts[^1].X, baseline);
-                using var fb = new SolidBrush(Color.FromArgb(35, col));
-                g.FillPolygon(fb, poly);
-                using var glow = new Pen(Color.FromArgb(50, col), 5);
-                g.DrawLines(glow, pts.ToArray());
-                using var pen = new Pen(col, 2);
-                g.DrawLines(pen, pts.ToArray());
+                // choose precreated brushes/pens based on color reference
+                if (col == surgeColor)
+                {
+                    g.FillPolygon(s_surgeFill, poly);
+                    g.DrawLines(s_surgeGlow, pts.ToArray());
+                    g.DrawLines(s_surgePen, pts.ToArray());
+                }
+                else if (col == swayColor)
+                {
+                    g.FillPolygon(s_swayFill, poly);
+                    g.DrawLines(s_swayGlow, pts.ToArray());
+                    g.DrawLines(s_swayPen, pts.ToArray());
+                }
+                else
+                {
+                    g.FillPolygon(s_heaveFill, poly);
+                    g.DrawLines(s_heaveGlow, pts.ToArray());
+                    g.DrawLines(s_heavePen, pts.ToArray());
+                }
             }
 
             if (_vm.ShowBraking)
@@ -270,8 +327,10 @@ namespace BeltTensionTest.WPF.Views
                         yv = Math.Clamp(yv, minV, maxV);
                     }
                     int my = MapY(yv);
-                    g.FillEllipse(new SolidBrush(Color.FromArgb(60, c)), mx - 8, my - 8, 16, 16);
-                    g.FillEllipse(new SolidBrush(c), mx - 4, my - 4, 8, 8);
+                    using var fillGlow = new SolidBrush(Color.FromArgb(60, c));
+                    using var fillCore = new SolidBrush(c);
+                    g.FillEllipse(fillGlow, mx - 8, my - 8, 16, 16);
+                    g.FillEllipse(fillCore, mx - 4, my - 4, 8, 8);
                 }
                 if (_vm.ShowBraking)   Dot(Math.Max(ls, 0), surgeColor, 0);
                 if (_vm.ShowCornering) Dot(Math.Max(lsw, 0), swayColor, 1);
@@ -297,7 +356,8 @@ namespace BeltTensionTest.WPF.Views
 
                 // draw last point
                 var last = pts[^1];
-                g.FillEllipse(new SolidBrush(c), last.X - 4, last.Y - 4, 8, 8);
+                using var lastBrush = new SolidBrush(c);
+                g.FillEllipse(lastBrush, last.X - 4, last.Y - 4, 8, 8);
             }
 
             if (_vm.ShowBraking)   DrawLive(samples.surge, surgeColor);
@@ -305,11 +365,6 @@ namespace BeltTensionTest.WPF.Views
             if (_vm.ShowVertical)  DrawLive(samples.heave, heaveColor);
 
                     CurveGraphImage.Source = BitmapToImageSource(bmp);
-                }
-                finally
-                {
-                    bmp.Dispose();
-                }
                 return;
             }
             catch (Exception ex)
@@ -364,8 +419,9 @@ namespace BeltTensionTest.WPF.Views
 
             int MapY(float v) => tp + (int)((1f - (Math.Clamp(v, minV, maxV) - minV) / mr) * (gh - 1));
 
-            var bmp = new Bitmap(w, h);
-            using var g = Graphics.FromImage(bmp);
+            EnsureMotorBitmap(w, h);
+            var bmp = _motorBmp!;
+            var g = _motorG!;
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.Clear(bgColor);
 
@@ -418,7 +474,6 @@ namespace BeltTensionTest.WPF.Views
             g.DrawString("Right", lf2, new SolidBrush(rightColor), lp + gw - 45,  tp + 3);
 
                 MotorGraphImage.Source = BitmapToImageSource(bmp);
-                bmp.Dispose();
                 return;
             }
             catch (Exception ex)

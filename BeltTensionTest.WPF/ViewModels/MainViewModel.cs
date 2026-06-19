@@ -4,11 +4,18 @@ using BeltTensionTest.WPF.Models;
 using BeltTensionTest.WPF.Services;
 using BeltTensionTest.WPF.Shared;
 using System;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Windows.Interop;
+using System.Windows.Media.Imaging;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
+using System.Windows.Media;
 
 namespace BeltTensionTest.WPF.ViewModels
 {
@@ -62,6 +69,12 @@ namespace BeltTensionTest.WPF.ViewModels
         private CancellationTokenSource? _windCts;
         private Task? _windTask;
 
+        // Wind graph display: scatter of (speed, power%)
+        private PointCollection _windScatterPoints = new PointCollection();
+        public PointCollection WindScatterPoints { get => _windScatterPoints; set => SetField(ref _windScatterPoints, value); }
+
+     
+
         private bool _enableForCar;
         public bool EnableForCar
         {
@@ -76,19 +89,50 @@ namespace BeltTensionTest.WPF.ViewModels
             }
         }
 
-        private int _windMinSpeed;
-        public int WindMinSpeed
+        private double _windMinSpeed;
+        public double WindMinSpeed
         {
             get => _windMinSpeed;
-            set { if (SetField(ref _windMinSpeed, value)) OnCarSettingChanged(); }
+            set
+            {
+                if (SetField(ref _windMinSpeed, value))
+                {
+                    OnCarSettingChanged();
+                    GenerateWindGraphImage();
+                }
+            }
         }
 
-        private int _windPowerPercentage;
-        public int WindPowerPercentage
+        private double _windPowerPercentage;
+        public double WindPowerPercentage
         {
             get => _windPowerPercentage;
-            set { if (SetField(ref _windPowerPercentage, value)) OnCarSettingChanged(); }
+            set
+            {
+                if (SetField(ref _windPowerPercentage, value))
+                {
+                    OnCarSettingChanged();
+                    GenerateWindGraphImage();
+                }
+            }
         }
+
+        private float _windCurve = 1f;
+        public float WindCurve
+        {
+            get => _windCurve;
+            set
+            {
+                if (SetField(ref _windCurve, value))
+                {
+                    OnCarSettingChanged();
+                    GenerateWindGraphImage();
+                }
+            }
+        }
+
+        private BitmapSource? _windGraphImageSource;
+        public BitmapSource? WindGraphImageSource { get => _windGraphImageSource; set => SetField(ref _windGraphImageSource, value); }
 
         // ?? Bindable Properties ????????????????????????????????????????????????
         private string _deviceStatusText = "Not connected";
@@ -510,8 +554,13 @@ namespace BeltTensionTest.WPF.ViewModels
             _mmfTimer.Start();
             _simHubTimer.Start();
 
+            // Placeholder for keeping the timer
+            // _windDisplayTimer.Start();
+
             // Initial car settings
             LoadCarSettings("NA");
+            // initial wind graph
+            GenerateWindGraphImage();
 
             // Auto connect
             if (AppSettings.AutoConnectOnStartup)
@@ -578,8 +627,9 @@ namespace BeltTensionTest.WPF.ViewModels
             _masterTiltStrength = s.MasterTiltStrength;
             // Wind settings
             _enableForCar = s.EnableForCar;
-            _windMinSpeed = s.WindMinSpeed;
-            _windPowerPercentage = s.WindPowerPercentage;
+            _windMinSpeed = (double)s.WindMinSpeed;
+            _windPowerPercentage = (double)s.WindPowerPercentage;
+            _windCurve = s.WindCurve;
 
             // Notify all bound properties
             OnPropertyChanged(nameof(BrakingStrength));
@@ -603,6 +653,7 @@ namespace BeltTensionTest.WPF.ViewModels
             OnPropertyChanged(nameof(EnableForCar));
             OnPropertyChanged(nameof(WindMinSpeed));
             OnPropertyChanged(nameof(WindPowerPercentage));
+            OnPropertyChanged(nameof(WindCurve));
             CarNameDisplay = carName;
 
             // Start wind loop if enabled for this car
@@ -635,8 +686,9 @@ namespace BeltTensionTest.WPF.ViewModels
             s.MasterTiltStrength = _masterTiltStrength;
             // wind settings
             s.EnableForCar = _enableForCar;
-            s.WindMinSpeed = _windMinSpeed;
-            s.WindPowerPercentage = _windPowerPercentage;
+            s.WindMinSpeed = (int)_windMinSpeed;
+            s.WindPowerPercentage = (int)_windPowerPercentage;
+            s.WindCurve = _windCurve;
             SaveSoon();
         }
 
@@ -883,6 +935,106 @@ namespace BeltTensionTest.WPF.ViewModels
             MotorOutputUpdated?.Invoke(last.Item1, last.Item2, _simRotation);
         }
 
+        // Generate a simple wind power vs speed graph based on current sliders.
+        // Formula: for speed < WindMinSpeed -> 0, otherwise linear ramp up to WindPowerPercentage
+        // across displayed max speed (defaults to 150 matching slider max).
+        private void GenerateWindGraphImage(int width = 320, int height = 140)
+        {
+            try
+            {
+                int w = Math.Max(100, width);
+                int h = Math.Max(60, height);
+                using var bmp = new System.Drawing.Bitmap(w, h);
+                using var g = System.Drawing.Graphics.FromImage(bmp);
+                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                // background
+                g.Clear(System.Drawing.Color.FromArgb(18, 18, 30));
+
+                int lp = 36, rp = 12, tp = 8, bp = 24;
+                int gw = w - lp - rp;
+                int gh = h - tp - bp;
+                if (gw <= 0 || gh <= 0) return;
+
+                // axes
+                using var axisPen = new System.Drawing.Pen(System.Drawing.Color.FromArgb(70, 70, 100), 1);
+                g.DrawLine(axisPen, lp, tp, lp, tp + gh);
+                g.DrawLine(axisPen, lp, tp + gh, lp + gw, tp + gh);
+
+                // grid horizontal
+                using var gridPen = new System.Drawing.Pen(System.Drawing.Color.FromArgb(38, 38, 58), 1);
+                for (int i = 0; i <= 4; i++)
+                    g.DrawLine(gridPen, lp, tp + i * gh / 4, lp + gw, tp + i * gh / 4);
+
+                // labels (min/max)
+                using var lblBrush = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(160, 160, 190));
+                using var lblFont = new System.Drawing.Font("Segoe UI", 8f);
+                // Y labels: 0 .. 255 (PWM)
+                double maxYVal = 255.0;
+                for (int i = 0; i <= 4; i++)
+                {
+                    double val = maxYVal - i * (maxYVal / 4.0);
+                    var sz = g.MeasureString(((int)val).ToString(), lblFont);
+                    g.DrawString(((int)val).ToString(), lblFont, lblBrush, lp - sz.Width - 6, tp + i * gh / 4 - sz.Height / 2);
+                }
+
+                // X labels: 0 .. maxSpeed (use 300)
+                int maxSpeed = 300;
+                for (int i = 0; i <= 4; i++)
+                {
+                    int sp = i * maxSpeed / 4;
+                    var sx = lp + i * gw / 4;
+                    var sz = g.MeasureString(sp.ToString(), lblFont);
+                    g.DrawString(sp.ToString(), lblFont, lblBrush, sx - sz.Width/2, tp + gh + 4);
+                }
+
+                // compute points
+                var pts = new List<System.Drawing.PointF>();
+                // Use same formula as StartWindLoop: pwm = round((pct/100) * (speed / MaxSpeed) * 255), clamped 0..255
+                for (int x = 0; x <= gw; x++)
+                {
+                    double speed = (double)x / gw * maxSpeed;
+                    double pwm = 0.0;
+                    if (maxSpeed > WindMinSpeed && speed >= WindMinSpeed)
+                    {
+                        double pct = WindPowerPercentage / 100.0;
+                        double norm = (speed / maxSpeed);
+                        pwm = Math.Round(pct * norm * 255.0);
+                        pwm = Math.Clamp(pwm, 0.0, 255.0);
+                    }
+                    float px = lp + x;
+                    float py = tp + (float)((1.0 - (pwm / Math.Max(1.0, 255.0))) * (gh));
+                    pts.Add(new System.Drawing.PointF(px, py));
+                }
+
+                // fill under curve
+                if (pts.Count >= 2)
+                {
+                    var poly = new List<System.Drawing.PointF> { new System.Drawing.PointF(pts[0].X, tp + gh) };
+                    poly.AddRange(pts);
+                    poly.Add(new System.Drawing.PointF(pts[^1].X, tp + gh));
+                    using var fillBrush = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(35, 80, 160, 255));
+                    g.FillPolygon(fillBrush, poly.ToArray());
+                    using var glow = new System.Drawing.Pen(System.Drawing.Color.FromArgb(50, 80, 160, 255), 4);
+                    g.DrawLines(glow, pts.ToArray());
+                    using var linePen = new System.Drawing.Pen(System.Drawing.Color.FromArgb(100, 160, 255), 2);
+                    g.DrawLines(linePen, pts.ToArray());
+                }
+
+                // Convert to BitmapSource
+                var handle = bmp.GetHbitmap();
+                try
+                {
+                    var src = Imaging.CreateBitmapSourceFromHBitmap(handle, IntPtr.Zero, System.Windows.Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+                    WindGraphImageSource = src;
+                }
+                finally { DeleteObject(handle); }
+            }
+            catch { }
+        }
+
+        [DllImport("gdi32.dll")]
+        private static extern bool DeleteObject(IntPtr hObject);
+
         // ?? MMF write ??????????????????????????????????????????????????????????
         private void WriteMmf()
         {
@@ -1001,7 +1153,18 @@ namespace BeltTensionTest.WPF.ViewModels
                                 speed = IracingService.Instance.Speed;
                             }
                             var pct = WindPowerPercentage; // 0..100
-                            var val = (int)System.Math.Round((pct / 100.0) * (speed / MaxSpeed) * 255.0);
+                            int val = 0;
+                            if (MaxSpeed > WindMinSpeed && speed >= WindMinSpeed)
+                            {
+                                double pctNorm = pct / 100.0;
+                                // normalized progress from min speed to max speed
+                                double norm = (speed - WindMinSpeed) / (MaxSpeed - WindMinSpeed);
+                                norm = Math.Clamp(norm, 0.0, 1.0);
+                                // apply curve: WindCurve==1 => linear, >1 => more gradual start
+                                double curved = Math.Pow(norm, WindCurve);
+                                val = (int)System.Math.Round(pctNorm * curved * 255.0);
+                                val = (int)Math.Clamp(val, 0, 255);
+                            }
                             try { Device.SendWindPower(val); } catch { }
                             await Task.Delay(33, ct).ConfigureAwait(false);
                         }
@@ -1034,6 +1197,8 @@ namespace BeltTensionTest.WPF.ViewModels
             catch { }
         }
 
+       
+
         // ?? Windows Message Bridge ?????????????????????????????????????????????
         private void OnBridgeMessage(BeltMessage msg)
         {
@@ -1060,6 +1225,7 @@ namespace BeltTensionTest.WPF.ViewModels
             _feedbackTimer.Stop();
             _mmfTimer.Stop();
             _simHubTimer.Stop();
+            
             _saveTimer?.Stop();
             _saveTimer?.Dispose();
             _carSettingsSvc.SaveCurrentCarSettings(_carName);
