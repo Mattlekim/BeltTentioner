@@ -58,6 +58,38 @@ namespace BeltTensionTest.WPF.ViewModels
 
         private System.Timers.Timer? _saveTimer;
 
+        // Wind background loop
+        private CancellationTokenSource? _windCts;
+        private Task? _windTask;
+
+        private bool _enableForCar;
+        public bool EnableForCar
+        {
+            get => _enableForCar;
+            set
+            {
+                if (SetField(ref _enableForCar, value))
+                {
+                    OnCarSettingChanged();
+                    if (value) StartWindLoop(); else StopWindLoop();
+                }
+            }
+        }
+
+        private int _windMinSpeed;
+        public int WindMinSpeed
+        {
+            get => _windMinSpeed;
+            set { if (SetField(ref _windMinSpeed, value)) OnCarSettingChanged(); }
+        }
+
+        private int _windPowerPercentage;
+        public int WindPowerPercentage
+        {
+            get => _windPowerPercentage;
+            set { if (SetField(ref _windPowerPercentage, value)) OnCarSettingChanged(); }
+        }
+
         // ?? Bindable Properties ????????????????????????????????????????????????
         private string _deviceStatusText = "Not connected";
         public string DeviceStatusText
@@ -544,6 +576,10 @@ namespace BeltTensionTest.WPF.ViewModels
             _rollStrength      = s.RollStrength;
             _invertRoll        = s.InvertRoll;
             _masterTiltStrength = s.MasterTiltStrength;
+            // Wind settings
+            _enableForCar = s.EnableForCar;
+            _windMinSpeed = s.WindMinSpeed;
+            _windPowerPercentage = s.WindPowerPercentage;
 
             // Notify all bound properties
             OnPropertyChanged(nameof(BrakingStrength));
@@ -564,7 +600,13 @@ namespace BeltTensionTest.WPF.ViewModels
             OnPropertyChanged(nameof(RollStrength));
             OnPropertyChanged(nameof(InvertRoll));
             OnPropertyChanged(nameof(MasterTiltStrength));
+            OnPropertyChanged(nameof(EnableForCar));
+            OnPropertyChanged(nameof(WindMinSpeed));
+            OnPropertyChanged(nameof(WindPowerPercentage));
             CarNameDisplay = carName;
+
+            // Start wind loop if enabled for this car
+            if (_enableForCar) StartWindLoop();
 
             _isLoading = false;
         }
@@ -591,6 +633,10 @@ namespace BeltTensionTest.WPF.ViewModels
             s.RollStrength      = _rollStrength;
             s.InvertRoll        = _invertRoll;
             s.MasterTiltStrength = _masterTiltStrength;
+            // wind settings
+            s.EnableForCar = _enableForCar;
+            s.WindMinSpeed = _windMinSpeed;
+            s.WindPowerPercentage = _windPowerPercentage;
             SaveSoon();
         }
 
@@ -816,7 +862,11 @@ namespace BeltTensionTest.WPF.ViewModels
                 var s  = _carSettingsSvc.CurrentSettings;
                 int rp = s.RestingPoint;
                 s.RestingPoint = 0;
-                value = Device.DeviceMotorSettings.Setup(0, 0, 1, s, _simRotation);
+
+                int gravity = 1;
+                if (!IracingIsOn || SimHubIsOn)
+                    gravity = 0;
+                value = Device.DeviceMotorSettings.Setup(0, 0, gravity, s, _simRotation);
                 s.RestingPoint = rp;
             }
 
@@ -928,6 +978,55 @@ namespace BeltTensionTest.WPF.ViewModels
         }
 
         private void DoOpenUpdate(object? _) => _updateSvc.OpenReleasePage();
+
+        private void StartWindLoop()
+        {
+            try
+            {
+                if (_windTask != null && _windCts != null && !_windCts.IsCancellationRequested)
+                    return; // already running
+
+                _windCts = new CancellationTokenSource();
+                var ct = _windCts.Token;
+                _windTask = Task.Run(async () =>
+                {
+                    try
+                    {
+                        while (!ct.IsCancellationRequested)
+                        {
+                            var pct = WindPowerPercentage; // 0..100
+                            var val = (int)System.Math.Round((pct / 100.0) * 255.0);
+                            try { Device.SendWindPower(val); } catch { }
+                            await Task.Delay(33, ct).ConfigureAwait(false);
+                        }
+                    }
+                    catch (OperationCanceledException) { }
+                    catch { }
+                }, ct);
+            }
+            catch { }
+        }
+
+        private void StopWindLoop()
+        {
+            try
+            {
+                // ensure we send zero once when disabling
+                try { Device.SendWindPower(0); } catch { }
+
+                try
+                {
+                    _windCts?.Cancel();
+                }
+                catch { }
+
+                try { _windTask?.Wait(500); } catch { }
+                _windTask = null;
+                try { _windCts?.Dispose(); } catch { }
+                _windCts = null;
+            }
+            catch { }
+        }
 
         // ?? Windows Message Bridge ?????????????????????????????????????????????
         private void OnBridgeMessage(BeltMessage msg)

@@ -16,6 +16,12 @@ namespace BeltTensionTest.WPF.Views
     {
         private readonly TestingViewModel _vm;
         private readonly MainViewModel    _main;
+        // Reusable GDI objects to reduce per-frame allocations
+        private static readonly Font s_fontSmall = new Font("Segoe UI", 7.5f);
+        private static readonly Font s_fontSmallBold = new Font("Segoe UI", 8f, System.Drawing.FontStyle.Bold);
+        private static readonly SolidBrush s_labelBrush = new SolidBrush(Color.FromArgb(160, 160, 190));
+        private static readonly Pen s_gridPen = new Pen(Color.FromArgb(38, 38, 58), 1);
+        private static readonly Pen s_axisPen = new Pen(Color.FromArgb(70, 70, 100), 1);
 
         public TestingWindow(MainViewModel main)
         {
@@ -45,6 +51,7 @@ namespace BeltTensionTest.WPF.Views
         // ?? Curve Graph ??????????????????????????????????????????????????????
         private void DrawCurveGraph()
         {
+
             try
             {
                 if (!Dispatcher.CheckAccess()) { Dispatcher.Invoke(() => DrawCurveGraph()); return; }
@@ -98,24 +105,27 @@ namespace BeltTensionTest.WPF.Views
                 using var g = Graphics.FromImage(bmp);
                 try
                 {
-                    g.SmoothingMode = SmoothingMode.AntiAlias;
-                    g.Clear(bgColor);
+                // favor speed for live updates
+                g.SmoothingMode = SmoothingMode.HighSpeed;
+                g.Clear(bgColor);
 
-            var lf = new Font("Segoe UI", 7.5f);
-            var lb = new SolidBrush(labelColor);
+            // reuse shared GDI objects to cut allocations
+            var lf = s_fontSmall;
+            var lb = s_labelBrush;
 
-            using (var gp = new Pen(gridColor, 1))
+            // grid
+            var gp = s_gridPen;
+            for (int i = 0; i <= 4; i++)
+                g.DrawLine(gp, lp, tp + i * (gh - 1) / 4, lp + gw - 1, tp + i * (gh - 1) / 4);
+            for (int gVal = -2; gVal <= 7; gVal++)
             {
-                for (int i = 0; i <= 4; i++)
-                    g.DrawLine(gp, lp, tp + i * (gh - 1) / 4, lp + gw - 1, tp + i * (gh - 1) / 4);
-                for (int gVal = -2; gVal <= 7; gVal++)
-                {
-                    int x = MapInputToX(gVal);
-                    if (x >= lp && x <= lp + gw - 1)
-                        g.DrawLine(gp, x, tp, x, tp + gh - 1);
-                }
+                int x = MapInputToX(gVal);
+                if (x >= lp && x <= lp + gw - 1)
+                    g.DrawLine(gp, x, tp, x, tp + gh - 1);
             }
-            using var ap = new Pen(axisColor, 1);
+
+            // axes
+            var ap = s_axisPen;
             g.DrawLine(ap, lp, tp, lp, tp + gh - 1);
             g.DrawLine(ap, lp, tp + gh - 1, lp + gw - 1, tp + gh - 1);
 
@@ -134,7 +144,7 @@ namespace BeltTensionTest.WPF.Views
             var ySz  = g.MeasureString(yLbl, lf);
             g.DrawString(yLbl, lf, lb, -ySz.Width / 2, -ySz.Height / 2);
             g.ResetTransform();
-            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.SmoothingMode = SmoothingMode.HighSpeed;
 
             // Max power line
             float maxOut = minV + mr * (settings.MaxPower / 100f);
@@ -324,6 +334,7 @@ namespace BeltTensionTest.WPF.Views
         // ?? Motor Graph ??????????????????????????????????????????????????????
         private void DrawMotorGraph()
         {
+
             try
             {
                 if (!Dispatcher.CheckAccess()) { Dispatcher.Invoke(() => DrawMotorGraph()); return; }
@@ -358,12 +369,13 @@ namespace BeltTensionTest.WPF.Views
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.Clear(bgColor);
 
-            var lf = new Font("Segoe UI", 7.5f);
-            var lb = new SolidBrush(labelColor);
+            var lf = s_fontSmall;
+            var lb = s_labelBrush;
 
-            using (var gp = new Pen(gridColor, 1))
-                for (int i = 0; i <= 4; i++)
-                    g.DrawLine(gp, lp, tp + i * (gh - 1) / 4, lp + gw - 1, tp + i * (gh - 1) / 4);
+            // grid
+            var gp = s_gridPen;
+            for (int i = 0; i <= 4; i++)
+                g.DrawLine(gp, lp, tp + i * (gh - 1) / 4, lp + gw - 1, tp + i * (gh - 1) / 4);
 
             for (int i = 0; i <= 4; i++)
             {
@@ -373,7 +385,7 @@ namespace BeltTensionTest.WPF.Views
                 g.DrawString(val.ToString("F0"), lf, lb, lp - sz.Width - 2, y - sz.Height / 2);
             }
 
-            using var ap = new Pen(axisColor, 1);
+            var ap = s_axisPen;
             g.DrawLine(ap, lp, tp, lp, tp + gh - 1);
             g.DrawLine(ap, lp, tp + gh - 1, lp + gw - 1, tp + gh - 1);
 

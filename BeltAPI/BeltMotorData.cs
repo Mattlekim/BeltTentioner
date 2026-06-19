@@ -199,7 +199,7 @@ namespace BeltAPI
         /// <returns></returns>
         public float SendDataToSerial(BeltSerialDevice device, CarSettings carSettings, bool removeGravity = false, Rotation carRotation = default)
         {
-            
+        
             CalculateForces(device, carSettings, removeGravity, carRotation);
 
             float signalLeft = (lSurgeOutput * SurgeWeight) + (lSwayOutput * SwayWeight) + (lHeaveOutput * HeaveWeight); //add all forces

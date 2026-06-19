@@ -31,6 +31,10 @@ namespace BeltAPI
 
 
         public int RestingPoint { get; set; } = 0; // NEW: Resting point for the motor
+        // Wind settings
+        public bool EnableForCar { get; set; } = false;
+        public int WindMinSpeed { get; set; } = 0;
+        public int WindPowerPercentage { get; set; } = 0;
 
         public float NegativeSway { get; set; } = 0f;
 
@@ -64,6 +68,10 @@ namespace BeltAPI
                 InvertRoll = this.InvertRoll,
          
                 MasterTiltStrength = this.MasterTiltStrength
+                ,
+                EnableForCar = this.EnableForCar,
+                WindMinSpeed = this.WindMinSpeed,
+                WindPowerPercentage = this.WindPowerPercentage
             };
         }
     }

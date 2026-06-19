@@ -30,6 +30,7 @@ namespace BeltTensionTest.WPF.Views
             for (int i = _lastCount; i < log.Count; i++)
                 LogListBox.Items.Add(log[i]);
             _lastCount = log.Count;
+            _device._log.Clear();
             LogListBox.ScrollIntoView(LogListBox.Items[LogListBox.Items.Count - 1]);
             StatusLabel.Text = $"{_lastCount} entries";
         }

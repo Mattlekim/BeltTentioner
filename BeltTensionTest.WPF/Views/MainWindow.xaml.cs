@@ -93,5 +93,17 @@ namespace BeltTensionTest.WPF.Views
         {
 
         }
+
+        private void SendWind_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // read from view model (percentage 0-100)
+                var pct = VM.WindPowerPercentage;
+                var val = (int)System.Math.Round((pct / 100.0) * 255.0);
+                MainViewModel.Device.SendWindPower(val);
+            }
+            catch { }
+        }
     }
 }

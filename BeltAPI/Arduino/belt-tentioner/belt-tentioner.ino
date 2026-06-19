@@ -96,6 +96,10 @@ void setup() {
 
   ResetMotors();
 
+  // Fast PWM mode on Timer2
+  TCCR2A = _BV(WGM20) | _BV(WGM21) | _BV(COM2B1);  
+  TCCR2B = _BV(CS20);  // prescaler = 1 → 31.37 kHz
+
   Serial.println("Waiting for handshake... Send 'HELLO' to begin.");
 }
 
@@ -154,132 +158,117 @@ void DisconectServos() {
 
 
 void ProcessSerial() {
-  while (Serial.available() > 0) {
-    String input = Serial.readStringUntil('\n');
-    input.trim();
-    if (input.length() == 0) continue;
 
+  // --- 1) BINARY HANDSHAKE (must be checked BEFORE packet loop) ---
+  if (Serial.available() >= 3) {
+    uint8_t key = Serial.peek();   // look but don't consume yet
 
+    if (key == 0x00) {
+      // Now consume the handshake bytes
+      key = Serial.read();
+      uint8_t lo = Serial.read();
+      uint8_t hi = Serial.read();
 
-    if (input.equalsIgnoreCase("HELLO")) {
+      // You can validate lo/hi if you want, but not required
       if (!handshakeComplete) {
         handshakeComplete = true;
         SetUPServos();
         Serial.println("READY");
-
         _isConnected = true;
         _isDisconecting = false;
       }
 
-    } else if (input.equalsIgnoreCase("SETTINGS")) {
-      handshakeComplete = true;
+      return;  // handshake handled, exit immediately
+    }
+  }
 
+  // --- 2) NORMAL BINARY PACKETS ---
+  while (Serial.available() >= 3) {
+    uint8_t key = Serial.read();
+    uint8_t lo = Serial.read();
+    uint8_t hi = Serial.read();
 
-      Serial.print("S");
+    int16_t value = (hi << 8) | lo;
 
-      Serial.print(L_MIN);
-      Serial.print("\t");
+    lastDataTime = millis();
 
-      Serial.print(L_MAX);
-      Serial.print("\t");
-
-      Serial.print(R_MIN);
-      Serial.print("\t");
-
-      Serial.print(R_MAX);
-      Serial.print("\t");
-
-      Serial.print(L_INVERT);
-      Serial.print("\t");
-
-      Serial.print(R_INVERT);
-      Serial.print("\t");
-
-      Serial.print(DUAL_MOTORS);
-      Serial.println();
-
-    } else if (input.startsWith("SN:")) {
-      String inputLine = input.substring(3);
-      String parts[7];
-      int count = 0;
-
-      int start = 0;
-      int idx = inputLine.indexOf("-");  // literal backslash + t
-      while (idx != -1 && count < 6) {
-        parts[count++] = inputLine.substring(start, idx);
-        start = idx + 1;  // skip over "\t"
-        idx = inputLine.indexOf("-", start);
-      }
-      parts[count++] = inputLine.substring(start);
-
-      // Now parse
-      L_MIN = parts[0].toInt();
-      L_MAX = parts[1].toInt();
-      R_MIN = parts[2].toInt();
-      R_MAX = parts[3].toInt();
-      L_INVERT = parts[4].toInt() != 0;
-      R_INVERT = parts[5].toInt() != 0;
-      DUAL_MOTORS = parts[6].toInt() != 0;
-
-
-      saveSettings();
-    } else if (input.startsWith("ABS")) {
-      String numberPart = input.substring(3);  // skip "ABS"
-      ABS_STRENGTH = numberPart.toInt();
-      ABS_ACTIVATED = true;
-      lastDataTime = millis();
-      ABS_RUNNING_FRAME = 0;
-    } else {
-      int separatorIndex = input.indexOf(':');
-      if (separatorIndex > 0) {
-        String key = input.substring(0, separatorIndex);
-        String valueStr = input.substring(separatorIndex + 1);
-        float value = valueStr.toFloat();
-        if (key == "L" && value >= L_MIN && value <= L_MAX) {
+    switch (key) {
+      case 0x01:
+        if (value >= L_MIN && value <= L_MAX)
           L_TARGET = value;
-          lastDataTime = millis();
-        }
+        break;
 
-        if (key == "R" && value >= R_MIN && value <= R_MAX) {
+      case 0x02:
+        if (value >= R_MIN && value <= R_MAX)
           R_TARGET = value;
-          lastDataTime = millis();
-        }
+        break;
 
-        if (key == "S") {
-          slow = true;  //slow motors down
-          _fromSlowModeStart_L = L_ABS;
-          _fromSlowModeStart_R = R_ABS;
-          slowTimeout = LENGHTOFSLOWTIMEOUT;
-        }
-
-        if (key == "F")
-          slow = false;  //set motors to normal speed
-      }
-    }
-
-    // New commands: version request and wind power
-    // Accept simple commands VER or VERSION to return firmware version
-    if (input.equalsIgnoreCase("VER") || input.equalsIgnoreCase("VERSION")) {
-      Serial.print("VER:");
-      Serial.print(FIRMWARE_NAME);
-      Serial.print("-");
-      Serial.println(FIRMWARE_VERSION);
-    }
-
-    // Wind power command: "WP:<0-255>" sets WindPower and updates PWM on WIND_PIN
-    if (input.startsWith("WP:") || input.startsWith("WP")) {
-      String nstr = input.indexOf(':') >= 0 ? input.substring(input.indexOf(':') + 1) : input.substring(2);
-      nstr.trim();
-      if (nstr.length() > 0) {
-        int v = nstr.toInt();
-        if (v < 0) v = 0;
-        if (v > 255) v = 255;
-        WindPower = (uint8_t)v;
+      case 0x03:
+        value = constrain(value, 0, 255);
+        WindPower = (uint8_t)value;
         analogWrite(WIND_PIN, WindPower);
-        lastDataTime = millis();
-        Serial.print("WP_SET:");
-        Serial.println(WindPower);
+        break;
+
+      case 0x04:
+        ABS_STRENGTH = value;
+        ABS_ACTIVATED = true;
+        ABS_RUNNING_FRAME = 0;
+        break;
+
+      case 0x05:
+        slow = true;
+        _fromSlowModeStart_L = L_ABS;
+        _fromSlowModeStart_R = R_ABS;
+        slowTimeout = LENGHTOFSLOWTIMEOUT;
+        break;
+
+      case 0x06:
+        slow = false;
+        break;
+
+      case 0x10:
+        Serial.print("VER:");
+        Serial.print(FIRMWARE_NAME);
+        Serial.print("-");
+        Serial.println(FIRMWARE_VERSION);
+        break;
+
+      case 0x11:
+        Serial.print("S");
+        Serial.print(L_MIN); Serial.print("\t");
+        Serial.print(L_MAX); Serial.print("\t");
+        Serial.print(R_MIN); Serial.print("\t");
+        Serial.print(R_MAX); Serial.print("\t");
+        Serial.print(L_INVERT); Serial.print("\t");
+        Serial.print(R_INVERT); Serial.print("\t");
+        Serial.print(DUAL_MOTORS);
+        Serial.println();
+        break;
+
+      case 0x12:
+      {
+        static uint8_t snIndex = 0;
+
+        switch (snIndex) {
+          case 0: L_MIN = value; break;
+          case 1: L_MAX = value; break;
+          case 2: R_MIN = value; break;
+          case 3: R_MAX = value; break;
+          case 4: L_INVERT = (value != 0); break;
+          case 5: R_INVERT = (value != 0); break;
+          case 6: DUAL_MOTORS = (value != 0); break;
+        }
+
+        snIndex++;
+        if (snIndex >= 7) {
+          snIndex = 0;
+          saveSettings();
+        }
       }
+      break;
+
+      default:
+        break;
     }
   }
 }

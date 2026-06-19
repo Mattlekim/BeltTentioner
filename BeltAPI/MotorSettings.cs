@@ -52,6 +52,22 @@ namespace BeltAPI
 
         }
 
+
+      /*  public (float, float) ScaleToMaxMotorPower(float lValue, float rValue, CarSettings settings)
+        {
+            float sFactor = (settings.MaxPower / 100f);
+
+            float lRange = Math.Abs(LeftMaximumAngle - LeftMinimumAngle); //get range
+
+            lValue = lValue * lRange * sFactor; //scale to range
+
+            float rRange = Math.Abs(RightMaximumAngle - RightMinimumAngle); //get range
+
+            rValue = rValue * rRange * sFactor; //scale to range 
+
+            return (lValue, rValue);
+        }
+      */
         public (float, float) ClampToMaxMotorPower(float lValue, float rValue, CarSettings settings)
         {
 
@@ -66,8 +82,8 @@ namespace BeltAPI
             rValue = rValue * rRange * sFactor; //scale to range 
 
             //clamp values to make sure they are within the motor limits
-            lValue = Math.Clamp(lValue, LeftMinimumAngle, LeftMaximumAngle);
-            rValue = Math.Clamp(rValue, RightMinimumAngle, RightMaximumAngle);
+          //lValue = Math.Clamp(lValue, LeftMinimumAngle, LeftMaximumAngle);
+           // rValue = Math.Clamp(rValue, RightMinimumAngle, RightMaximumAngle);
 
             return (lValue, rValue);
         }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Ports;
@@ -18,6 +18,8 @@ namespace BeltAPI
 
         private CancellationTokenSource? sendLoopCts;
         private Task? sendLoopTask;
+        // lock for queued send values
+        private readonly object _sendLock = new object();
 
         public event Action<string>? MessageReceived;
         public event Action? HandshakeComplete;
@@ -49,6 +51,33 @@ namespace BeltAPI
 
         public bool DuelMotors { get; private set; } = false;
 
+        private void SendPacket(byte key, ushort value)
+        {
+            var sp = serialPort;
+            if (sp == null || !sp.IsOpen)
+                return;
+
+            byte[] packet = new byte[3];
+            packet[0] = key;
+            packet[1] = (byte)(value & 0xFF);   // low byte
+            packet[2] = (byte)(value >> 8);     // high byte
+
+            sp.Write(packet, 0, 3);
+        }
+
+        private void SendPacket(SerialPort sp, byte key, ushort value)
+        {
+            if (sp == null || !sp.IsOpen)
+                return;
+
+            byte[] packet = new byte[3];
+            packet[0] = key;
+            packet[1] = (byte)(value & 0xFF);   // low byte
+            packet[2] = (byte)(value >> 8);     // high byte
+
+            sp.Write(packet, 0, 3);
+        }
+
         public void Dispose()
         {
            
@@ -61,6 +90,8 @@ namespace BeltAPI
             {
                 if (serialPort != null)
                 {
+                    // stop any background send loop when closing the port
+                    try { StopSendLoop(); } catch { }
                     try { serialPort.DataReceived -= SerialPort_DataReceived; } catch { }
                     try { serialPort?.Close(); } catch { }
                     try { serialPort?.Dispose(); } catch { }
@@ -106,10 +137,17 @@ namespace BeltAPI
 
         public void RequestDeviceVersion(Action<string, string> callback)
         {
-           SendCustomData("VER");
-            
-           
+            SendPacket(0x10, 0);
         }
+
+        public void SendWindPower(int power)
+        {
+            power = Math.Clamp(power, 0, 255);
+            SendPacket(0x03, (ushort)power);
+        }
+
+
+
 
         private void DecodeSettings(string message)
         {
@@ -120,11 +158,11 @@ namespace BeltAPI
             {
                 Log($"Settings decoded: lmin={parsedSettings.Value.lmin} lmax={parsedSettings.Value.lmax} rmin={parsedSettings.Value.rmin} rmax={parsedSettings.Value.rmax} linvert={parsedSettings.Value.linvert} rinvert={parsedSettings.Value.rinvert} both={parsedSettings.Value.both}");
 
-                _motorSettings.LeftMaximumAngle = Math.Clamp(parsedSettings.Value.lmin, 0, MAXPOSIBLEMOTORANGLE);
+                _motorSettings.LeftMinimumAngle = Math.Clamp(parsedSettings.Value.lmin, 0, MAXPOSIBLEMOTORANGLE);
                 _motorSettings.LeftMaximumAngle = Math.Clamp(parsedSettings.Value.lmax, 0, MAXPOSIBLEMOTORANGLE);
                 _motorSettings.LeftInverted = parsedSettings.Value.linvert;
 
-                _motorSettings.RightMaximumAngle = Math.Clamp(parsedSettings.Value.rmin, 0, MAXPOSIBLEMOTORANGLE);
+                _motorSettings.RightMinimumAngle = Math.Clamp(parsedSettings.Value.rmin, 0, MAXPOSIBLEMOTORANGLE);
                 _motorSettings.RightMaximumAngle = Math.Clamp(parsedSettings.Value.rmax, 0, MAXPOSIBLEMOTORANGLE);
                 _motorSettings.RightInverted = parsedSettings.Value.rinvert;
 
@@ -193,66 +231,57 @@ namespace BeltAPI
             }
         }
 
-        // Send the handshake (HELLO) and wait up to waitMs for READY. Returns true on success.
-        private async Task<bool> SendHandshakeAsync(SerialPort sp, CancellationToken ct, int preWriteDelayMs = 2000, int waitMs = 3000)
+      private async Task<bool> SendHandshakeAsync(SerialPort sp, CancellationToken ct, int preWriteDelayMs = 2000, int waitMs = 3000)
+{
+    try
+    {
+        try { sp.DiscardInBuffer(); } catch { }
+
+        if (preWriteDelayMs > 0)
+        {
+            try { await Task.Delay(preWriteDelayMs, ct).ConfigureAwait(false); }
+            catch (OperationCanceledException) { }
+        }
+
+        // --- NEW BINARY HANDSHAKE ---
+        // key = 0x00
+        // lo  = 0x48 ('H')
+        // hi  = 0x01 (protocol version)
+        try
+        {
+            SendPacket(sp, 0x00, 0x0148);   // sends [00][48][01]
+            Log($"Sent binary HELLO on {sp.PortName}");
+        }
+        catch { }
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        while (!ct.IsCancellationRequested && sw.ElapsedMilliseconds < waitMs)
         {
             try
             {
-                try { sp.DiscardInBuffer(); } catch { }
-
-                if (preWriteDelayMs > 0)
+                var available = sp.BytesToRead;
+                if (available > 0)
                 {
-                    try { await Task.Delay(preWriteDelayMs, ct).ConfigureAwait(false); } catch (OperationCanceledException) { }
-                }
-
-                try { sp.Write("HELLO\n"); Log($"Sent HELLO on {sp.PortName}"); } catch { }
-
-                var sw = System.Diagnostics.Stopwatch.StartNew();
-                while (!ct.IsCancellationRequested && sw.ElapsedMilliseconds < waitMs)
-                {
-                    try
+                    var s = sp.ReadExisting();
+                    if (!string.IsNullOrEmpty(s) &&
+                        s.IndexOf("READY", StringComparison.OrdinalIgnoreCase) >= 0)
                     {
-                        var available = sp.BytesToRead;
-                        if (available > 0)
-                        {
-                            var s = sp.ReadExisting();
-                            if (!string.IsNullOrEmpty(s) && s.IndexOf("READY", StringComparison.OrdinalIgnoreCase) >= 0)
-                            {
-                                return true;
-                            }
-                        }
+                        return true;
                     }
-                    catch { }
-
-                    try { await Task.Delay(100, ct).ConfigureAwait(false); } catch (OperationCanceledException) { break; }
                 }
             }
             catch { }
 
-            return false;
+            try { await Task.Delay(100, ct).ConfigureAwait(false); }
+            catch (OperationCanceledException) { break; }
         }
+    }
+    catch { }
 
-        // Send a target value over the given port
-        private async Task SendTargetAsync(SerialPort sp, int target, CancellationToken ct)
-        {
-            try
-            {
-                if (sp == null || !sp.IsOpen) return;
-                var line = $"T:{target}{sp.NewLine}";
-                var bytes = Encoding.ASCII.GetBytes(line);
-                try
-                {
-                    await sp.BaseStream.WriteAsync(bytes, 0, bytes.Length, ct).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException) { }
-                catch
-                {
-                    // fallback to synchronous write if BaseStream fails
-                    try { sp.Write(line); } catch { }
-                }
-            }
-            catch { }
-        }
+    return false;
+}
+
+       
 
         // Keep a simple auto-connect entry point (optional caller can use it)
         public async Task StartAutoConnectAsync(CancellationToken ct)
@@ -326,6 +355,8 @@ namespace BeltAPI
                         {
                             serialPort = port;
                             serialPort.DataReceived += SerialPort_DataReceived;
+                            isConnected = true;
+                            StartSendLoop();
                             HandshakeComplete?.Invoke();
                             return;
                         }
@@ -391,7 +422,6 @@ namespace BeltAPI
             }
         }
 
-      
 
 
         public void SendRequestSettings()
@@ -401,22 +431,28 @@ namespace BeltAPI
 
             Log("Sending SETTINGS request");
             _getSettings = true;
-            string msg = $"SETTINGS";
+
             try
             {
                 var sp = serialPort;
                 if (sp != null && sp.IsOpen)
                 {
-                    sp.WriteLine(msg);
+                    // SETTINGS request → key 0x11, value ignored
+                    SendPacket(0x11, 0);
+                }
+                else
+                {
+                    MessageReceived?.Invoke("DEVICE_UNPLUGGED");
+                    Disconnect();
                 }
             }
-            catch (Exception ex)
+            catch
             {
-                // Device may have been unplugged or port closed
                 MessageReceived?.Invoke("DEVICE_UNPLUGGED");
                 Disconnect();
             }
         }
+
 
         public void SendUpdatedSettings(int lmin, int lmax, int rmin, int rmax, bool linvert, bool rinvert, bool both)
         {
@@ -435,15 +471,23 @@ namespace BeltAPI
 
             DuelMotors = both;
 
-            string msg = $"SN:{lmin}-{lmax}-{rmin}-{rmax}-{(linvert ? 1 : 0)}-{(rinvert ? 1 : 0)}-{(both ? 1 : 0)}";
             try
             {
                 var sp = serialPort;
                 if (sp != null && sp.IsOpen)
                 {
-                    Log($"TX settings: {msg}");
-                    sp.WriteLine(msg);
-                    LogToFile("Sent settings: " + msg);
+                    Log("TX settings (binary)");
+
+                    // Send 7 packets in order
+                    SendPacket(0x12, (ushort)lmin);
+                    SendPacket(0x12, (ushort)lmax);
+                    SendPacket(0x12, (ushort)rmin);
+                    SendPacket(0x12, (ushort)rmax);
+                    SendPacket(0x12, (ushort)(linvert ? 1 : 0));
+                    SendPacket(0x12, (ushort)(rinvert ? 1 : 0));
+                    SendPacket(0x12, (ushort)(both ? 1 : 0));
+
+                    LogToFile($"Sent settings (binary): {lmin}-{lmax}-{rmin}-{rmax}-{(linvert ? 1 : 0)}-{(rinvert ? 1 : 0)}-{(both ? 1 : 0)}");
                 }
                 else
                 {
@@ -451,28 +495,29 @@ namespace BeltAPI
                     Disconnect();
                 }
             }
-            catch (Exception ex)
+            catch
             {
-                // Device may have been unplugged or port closed
                 MessageReceived?.Invoke("DEVICE_UNPLUGGED");
                 Disconnect();
             }
         }
 
+
         public void SendABS(float value)
         {
             if (!isConnected)
                 return;
+
             try
             {
                 var sp = serialPort;
                 if (sp != null && sp.IsOpen)
                 {
-                    value = Math.Clamp(value, 0, 30);
-                    var line = string.Empty;
-                    line = $"ABS{value}{sp.NewLine}";
-                    Log($"TX: ABS{value}");
-                    sp.Write(line);
+                    value = Math.Clamp(value, 0, 255);
+                    ushort v = (ushort)value;
+
+                    Log($"TX: ABS({value})");
+                    SendPacket(0x04, v);   // 0x04 = ABS key
                 }
                 else
                 {
@@ -480,13 +525,13 @@ namespace BeltAPI
                     Disconnect();
                 }
             }
-            catch (Exception ex)
+            catch
             {
-                // Device may have been unplugged or port closed
                 MessageReceived?.Invoke("DEVICE_UNPLUGGED");
                 Disconnect();
             }
         }
+
 
         public void SendSlowMode()
         {
@@ -535,41 +580,33 @@ namespace BeltAPI
             }
         }
 
-        public void SendValue(float value, bool leftMotor)
-        {
-            if (!isConnected)
-                return;
-            try
-            {
-                var sp = serialPort;
-                if (sp != null && sp.IsOpen)
-                {
-                    value = Math.Clamp(value, 0, MAXPOSIBLEMOTORANGLE);
-                    var line = string.Empty;
-                    if (leftMotor)
-                        line = $"L:{value}{sp.NewLine}";
-                    else
-                        line = $"R:{value}{sp.NewLine}";
-                    sp.Write(line);
-                }
-                else
-                {
-                    MessageReceived?.Invoke("DEVICE_UNPLUGGED");
-                    Disconnect();
-                }
-            }
-            catch (Exception ex)
-            {
-                // Device may have been unplugged or port closed
-                MessageReceived?.Invoke("DEVICE_UNPLUGGED");
-                Disconnect();
-            }
-         }
+        private float lValueToSend, rValueToSend;
+        private bool _haveValueToSend = false;
 
+        /// <summary>
+        /// Immediate send API (keeps last queued values and attempts to write now).
+        /// </summary>
         public void SendValue(float lvalue, float rvalue)
         {
+            // record last values
+          //  lock (_sendLock)
+            {
+                lValueToSend = lvalue;
+                rValueToSend = rvalue;
+                _haveValueToSend = true;
+            }
+
+      //      // perform immediate write
+        //    WriteValues(lvalue, rvalue);
+        }
+
+        // Internal write routine that performs the actual serial writes (no flag changes)
+        private void WriteValues(float lvalue, float rvalue)
+        {
             if (!isConnected)
                 return;
+            
+
             try
             {
                 var sp = serialPort;
@@ -577,12 +614,23 @@ namespace BeltAPI
                 {
                     lvalue = Math.Clamp(lvalue, 0, MAXPOSIBLEMOTORANGLE);
                     rvalue = Math.Clamp(rvalue, 0, MAXPOSIBLEMOTORANGLE);
-                    var line = string.Empty;
-                  
-                    line = $"L:{lvalue}{sp.NewLine}";
-                    sp.Write(line);
-                    line = $"R:{rvalue}{sp.NewLine}";
-                    sp.Write(line);
+
+                    ushort lv = (ushort)lvalue;
+                    ushort rv = (ushort)rvalue;
+
+                    // LEFT packet
+                    byte[] leftPacket = new byte[3];
+                    leftPacket[0] = 0x01;               // key
+                    leftPacket[1] = (byte)(lv & 0xFF);  // low byte
+                    leftPacket[2] = (byte)(lv >> 8);    // high byte
+                    sp.Write(leftPacket, 0, 3);
+
+                    // RIGHT packet
+                    byte[] rightPacket = new byte[3];
+                    rightPacket[0] = 0x02;               // key
+                    rightPacket[1] = (byte)(rv & 0xFF);  // low byte
+                    rightPacket[2] = (byte)(rv >> 8);    // high byte
+                    sp.Write(rightPacket, 0, 3);
                 }
                 else
                 {
@@ -590,13 +638,69 @@ namespace BeltAPI
                     Disconnect();
                 }
             }
-            catch (Exception ex)
+            catch
             {
-                // Device may have been unplugged or port closed
                 MessageReceived?.Invoke("DEVICE_UNPLUGGED");
                 Disconnect();
             }
         }
+
+  
+        private void StartSendLoop()
+        {
+                if (sendLoopCts != null) return;
+                sendLoopCts = new CancellationTokenSource();
+                var ct = sendLoopCts.Token;
+                sendLoopTask = Task.Run(async () =>
+                {
+                    const int intervalMs = 1000 / 60; // ~60 Hz
+                    
+                while (!ct.IsCancellationRequested)
+                        {
+                            // If have a queued value, grab and clear it under lock
+                            bool have = false;
+                            float lv = 0, rv = 0;
+                            lock (_sendLock)
+                            {
+                                if (_haveValueToSend)
+                                {
+                                    have = true;
+                                    lv = lValueToSend;
+                                    rv = rValueToSend;
+                                    _haveValueToSend = false;
+                                }
+                            }
+                            if (have)
+                            {
+                                try { WriteValues(lv, rv); } catch { }
+                            }
+
+                            try { await Task.Delay(intervalMs, ct).ConfigureAwait(false); }
+                            catch (OperationCanceledException) { break; }
+                        }
+                    
+                 
+                }, ct);
+            }
+         
+        
+
+        private void StopSendLoop()
+        {
+            try
+            {
+                if (sendLoopCts != null)
+                {
+                    try { sendLoopCts.Cancel(); } catch { }
+                    try { sendLoopTask?.Wait(200); } catch { }
+                    try { sendLoopTask = null; } catch { }
+                    try { sendLoopCts.Dispose(); } catch { }
+                    sendLoopCts = null;
+                }
+            }
+            catch { }
+        }
+
 
         bool isConnected = false;
 
@@ -700,63 +804,6 @@ namespace BeltAPI
 
        
 
-        // Synchronous version of TryOpenAndHandshakeSimpleAsync
-        private SerialPort? TryOpenAndHandshakeSimple(string portName)
-        {
-            SerialPort trial = new SerialPort(portName, 9600)
-            {
-                NewLine = "\n",
-                ReadTimeout = 200,
-                WriteTimeout = 500,
-                DtrEnable = true,
-                RtsEnable = true
-            };
-
-            try
-            {
-                trial.Open();
-                trial.ErrorReceived += SerialPort_ErrorReceived;
-            }
-            catch
-            {
-                try { trial.Dispose(); } catch { }
-                return null;
-            }
-
-            try
-            {
-                // Send handshake synchronously
-                trial.DiscardInBuffer();
-                Thread.Sleep(2000);
-                try { trial.Write("HELLO\n"); } catch { }
-                var sw = System.Diagnostics.Stopwatch.StartNew();
-                while (sw.ElapsedMilliseconds < 3000)
-                {
-                    try
-                    {
-                        var available = trial.BytesToRead;
-                        if (available > 0)
-                        {
-                            var s = trial.ReadExisting();
-                            if (!string.IsNullOrEmpty(s) && s.IndexOf("READY", StringComparison.OrdinalIgnoreCase) >= 0)
-                            {
-                                isConnected = true;
-                                return trial;
-                            }
-                        }
-                    }
-                    catch { }
-                    Thread.Sleep(100);
-                }
-                try { trial.Close(); trial.Dispose(); } catch { }
-                return null;
-            }
-            catch
-            {
-                try { trial.Close(); trial.Dispose(); } catch { }
-                return null;
-            }
-        }
 
         public async Task<bool> ConnectAsync(CancellationToken ct)
         {
@@ -773,6 +820,7 @@ namespace BeltAPI
                 Log($"Connected to {PortName}");
                 isConnected = true;
                 SendRequestSettings();
+                StartSendLoop();
             }
             else
             {
