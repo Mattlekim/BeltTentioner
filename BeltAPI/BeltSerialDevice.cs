@@ -555,9 +555,9 @@ namespace BeltAPI
                 var sp = serialPort;
                 if (sp != null && sp.IsOpen)
                 {
-                    var line = $"S:0{sp.NewLine}";
-                    Log("TX: S:0 (slow mode)");
-                    sp.Write(line);
+                    // Send binary slow-mode command (key 0x05). The device expects a 3-byte packet.
+                    Log("TX: slow mode (binary)");
+                    SendPacket(0x05, 0);
                 }
             }
             catch (Exception ex)
@@ -571,6 +571,7 @@ namespace BeltAPI
 
         public void SendCustomData(string data)
         {
+   
 
             if (!isConnected)
                 return;

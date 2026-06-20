@@ -557,6 +557,7 @@ namespace BeltTensionTest.WPF.ViewModels
             _iracing.Disconnected      += OnIracingDisconnected;
             _iracing.ConnectionChanged += OnIracingConnectionChanged;
             _iracing.TelemetryUpdated  += UpdateBeltTensionerForces;
+            _iracing.OnDriverInCarChange += UpdateCarDriveState;
             _iracing.GForceUpdated     += g =>
             {
                 var app = Application.Current;
@@ -804,16 +805,19 @@ namespace BeltTensionTest.WPF.ViewModels
         // ?? iRacing events ?????????????????????????????????????????????????????
         private void OnIracingConnected()
         {
+          
             // Always reflect SDK connection state in the UI indicator
             Application.Current.Dispatcher.Invoke(() => IracingIsOn = true);
 
+           
             // Only apply in-app behaviour when the user enabled iRacing telemetry
             if (!AppSettings.UseIracing) return;
-            UpdateCarDriveState(true);
+            UpdateCarDriveState(_iracing.isInCar);
         }
 
         private void OnIracingDisconnected()
         {
+            
             // Always update UI indicator
             Application.Current.Dispatcher.Invoke(() => IracingIsOn = false);
 
@@ -885,12 +889,14 @@ namespace BeltTensionTest.WPF.ViewModels
             if (!_simHub.Connected)
             {
                 SimHubIsOn       = false;
+                _simHubConnected = false;
                 SimHubGroupEnabled = false;
                 SimHubText       = "Not Connected to SimHub";
                 return;
             }
 
             SimHubIsOn = true;
+            _simHubConnected = true;
 
             if (data.Paused != _simhubPaused)
             {
@@ -966,7 +972,7 @@ namespace BeltTensionTest.WPF.ViewModels
             // Publish live preview inputs for testing window
             LivePreviewUpdated?.Invoke(_simSurge, _simSway, _simHeave);
 
-            value.SendDataToSerial(Device, _carSettingsSvc.CurrentSettings, removeGravity, _simRotation);
+            value.SendDataToSerial(Device, _carSettingsSvc.CurrentSettings, _wasInCar, removeGravity, _simRotation);
             _lastMotorOutput = value;
 
             // Publish motor outputs for testing window (left, right, rotation)
@@ -1232,6 +1238,7 @@ namespace BeltTensionTest.WPF.ViewModels
                                     double interp = minPct + (maxPct - minPct) * curved;
                                     val = (int)System.Math.Round(interp * 255.0);
                                     val = (int)Math.Clamp(val, 0, 255);
+                                   // val = 100;
                                 }
                             }
                             try { Device.SendWindPower((ushort)val); } catch { }

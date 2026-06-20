@@ -75,7 +75,11 @@
                     Command="{Binding StopCommand}"
                     Background="#DC3C3C"
                     Width="80"/>
-        </StackPanel>
+			<Button Content="Slow"
+				
+				Background="#FF401313"
+				Width="80" Click="Button_Click"/>
+		</StackPanel>
 
         <!-- Status -->
         <TextBlock Grid.Row="1"

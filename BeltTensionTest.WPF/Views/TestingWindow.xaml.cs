@@ -512,5 +512,10 @@ namespace BeltTensionTest.WPF.Views
 
         [System.Runtime.InteropServices.DllImport("gdi32.dll")]
         private static extern bool DeleteObject(IntPtr hObject);
+
+        private void Button_Click(object sender, RoutedEventArgs e)
+        {
+            MainViewModel.Device.SendSlowMode();
+        }
     }
 }

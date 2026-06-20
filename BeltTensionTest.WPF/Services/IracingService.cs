@@ -99,7 +99,10 @@ namespace BeltTensionTest.WPF.Services
             }
             catch { return false; }
         }
+        bool isReplay = false;
+        bool _wasReplay = false;
 
+        public event Action<bool> OnDriverInCarChange;
         private void OnTelemetryData()
         {
             if (!Enabled) return;
@@ -125,7 +128,11 @@ namespace BeltTensionTest.WPF.Services
             }
             catch { }
 
-            bool isReplay = _sdk!.Data.GetBool(_datumReplay);
+            _wasReplay = isReplay;
+            isReplay = _sdk!.Data.GetBool(_datumReplay);
+
+            if (isReplay != _wasReplay)
+                OnDriverInCarChange?.Invoke(isInCar);
             if (isReplay)
             {
                 TelemetryUpdated?.Invoke(0, 0, 0, Rotation.Zero);
@@ -147,8 +154,8 @@ namespace BeltTensionTest.WPF.Services
         }
 
         private float speed;
-        public float Speed => speed;    
-
+        public float Speed => speed;
+        public bool isInCar => !isReplay;
         public void Dispose()
         {
             try

@@ -82,8 +82,8 @@ namespace BeltAPI
             rValue = rValue * rRange * sFactor; //scale to range 
 
             //clamp values to make sure they are within the motor limits
-          //lValue = Math.Clamp(lValue, LeftMinimumAngle, LeftMaximumAngle);
-           // rValue = Math.Clamp(rValue, RightMinimumAngle, RightMaximumAngle);
+          lValue = Math.Clamp(lValue, LeftMinimumAngle, LeftMaximumAngle);
+            rValue = Math.Clamp(rValue, RightMinimumAngle, RightMaximumAngle);
 
             return (lValue, rValue);
         }

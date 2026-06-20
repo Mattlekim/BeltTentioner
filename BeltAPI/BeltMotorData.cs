@@ -171,18 +171,7 @@ namespace BeltAPI
             return signalLeft;
         }
 
-        public float CalculateDataToSerail(BeltSerialDevice device, CarSettings carSettings, Rotation carRotation = default)
-        {
-            CalculateForces(device, carSettings, true, carRotation);
-
-            float signalLeft = (lSurgeOutput * SurgeWeight) + (lSwayOutput * SwayWeight) + (lHeaveOutput * HeaveWeight); //add all forces
-
-            float restingPointValue = (RestingPoint / 100f) ;
-
-            (signalLeft, _) = device.DeviceMotorSettings.ClampToMaxMotorPower(signalLeft + restingPointValue, 0, carSettings); //make sure its within range of motor
-   
-            return signalLeft;
-        }
+ 
 
 
         private (float, float) _lastMotorDataSent;
@@ -197,7 +186,7 @@ namespace BeltAPI
         /// </summary>
         /// <param name="settings"></param>
         /// <returns></returns>
-        public float SendDataToSerial(BeltSerialDevice device, CarSettings carSettings, bool removeGravity = false, Rotation carRotation = default)
+        public float SendDataToSerial(BeltSerialDevice device, CarSettings carSettings, bool inCar, bool removeGravity = false, Rotation carRotation = default)
         {
         
             CalculateForces(device, carSettings, removeGravity, carRotation);
@@ -207,15 +196,18 @@ namespace BeltAPI
 
             float restingPointValue = (RestingPoint / 100f);
 
-            (signalLeft, signalRight) = device.DeviceMotorSettings.ClampToMaxMotorPower(signalLeft+ restingPointValue, signalRight+ restingPointValue, carSettings); //make sure its within range of motor
+            if (!inCar)
+                restingPointValue = 0; //if not in car dont add resting point
+
+            (signalLeft, signalRight) = device.DeviceMotorSettings.ClampToMaxMotorPower(signalLeft + restingPointValue, signalRight+ restingPointValue, carSettings); //make sure its within range of motor
 
             if (device.DeviceMotorSettings.LeftInverted)
                 signalLeft = device.DeviceMotorSettings.LeftMaximumAngle - signalLeft;
             if (device.DeviceMotorSettings.RightInverted)
                 signalRight = device.DeviceMotorSettings.RightMaximumAngle - signalRight;
 
-            signalLeft = (float)Math.Round(signalLeft, 1);
-            signalRight = (float)Math.Round(signalRight, 1);
+            signalLeft = (int)(signalLeft);
+            signalRight = (int)(signalRight);
 
             _lastMotorDataSent = (signalLeft, signalRight);
 

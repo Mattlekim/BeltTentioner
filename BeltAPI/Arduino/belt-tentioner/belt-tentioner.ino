@@ -11,8 +11,8 @@ const int WIND_PIN = 3;
 #define LEFT_MOTOR 10
 #define RIGHT_MOTOR 9
 
-float L_TARGET = 0;
-float R_TARGET = 0;
+int L_TARGET = 0;
+int R_TARGET = 0;
 bool handshakeComplete = false;
 
 
@@ -34,8 +34,8 @@ bool slow = true;
 int ABS_STRENGTH = 20;
 bool ABS_ACTIVATED = true;
 float ABS_FRQ = 2;
-float abs_frame = 0;
-float L_ABS, R_ABS;
+int_fast16_t abs_frame = 0;
+
 
 float _fromSlowModeStart_L = 0;
 float _fromSlowModeStart_R = 0;
@@ -44,7 +44,7 @@ byte ABS_RUNNING_FRAME = 0;
 bool _isConnected = false;
 bool _isDisconecting = false;
 
-#define LENGHTOFSLOWTIMEOUT 2000
+#define LENGHTOFSLOWTIMEOUT 3000
 long slowTimeout = 0;
 // Save settings to EEPROM
 void saveSettings() {
@@ -82,60 +82,6 @@ void loadSettings() {
   EEPROM.get(addr, DUAL_MOTORS);
 }
 
-
-void setup() {
-  Serial.begin(9600);
-  pinMode(WIND_PIN, OUTPUT);
-  analogWrite(WIND_PIN, WindPower);
-
-  digitalWrite(LEFT_MOTOR, LOW);
-  digitalWrite(RIGHT_MOTOR, LOW);
-
-
-  loadSettings();
-
-  ResetMotors();
-
-  // Fast PWM mode on Timer2
-  TCCR2A = _BV(WGM20) | _BV(WGM21) | _BV(COM2B1);  
-  TCCR2B = _BV(CS20);  // prescaler = 1 → 31.37 kHz
-
-  Serial.println("Waiting for handshake... Send 'HELLO' to begin.");
-}
-
-int outputFrames = 0;
-
-
-unsigned long lastUpdate = 0;  // when the last update happened
-
-
-long TotalElapsed = 0;
-
-void SetUPServos() {
-  ServoLeft.attach(LEFT_MOTOR);
-  ServoRight.attach(RIGHT_MOTOR);
-  if (L_INVERT)
-    L_TARGET = L_MAX;
-  else
-    L_TARGET = L_MIN;
-
-  if (R_INVERT)
-    R_TARGET = R_MAX;
-  else
-    R_TARGET = R_MIN;
-
-
-  // Map 0–180 range to 1000–2000 µs pulse width
-  int pulseL = map((int)L_TARGET, 0, 180, 500, 2500);
-  int pulseR = map((int)R_TARGET, 0, 180, 500, 2500);
-
-  ServoLeft.writeMicroseconds(pulseL);
-
-  if (DUAL_MOTORS)
-    ServoRight.writeMicroseconds(pulseR);
-}
-
-
 void ResetMotors() {
 
   ABS_ACTIVATED = false;
@@ -150,6 +96,59 @@ void ResetMotors() {
     R_TARGET = R_MIN;
 }
 
+int last_TargetL, last_TargetR;
+
+void SetUPServos() {
+  ServoLeft.attach(LEFT_MOTOR);
+  ServoRight.attach(RIGHT_MOTOR);
+  ResetMotors();
+  last_TargetL = L_TARGET;
+  last_TargetR = R_TARGET;
+
+  // Map 0–180 range to 1000–2000 µs pulse width
+  int pulseL = map((int)L_TARGET, 0, 180, 500, 2500);
+  int pulseR = map((int)R_TARGET, 0, 180, 500, 2500);
+
+  ServoLeft.writeMicroseconds(pulseL);
+
+  if (DUAL_MOTORS)
+    ServoRight.writeMicroseconds(pulseR);
+}
+
+void EnableSlowMode() {
+  slow = true;
+  slowTimeout = LENGHTOFSLOWTIMEOUT;
+
+   Serial.println("Slow Mode Started");
+}
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(WIND_PIN, OUTPUT);
+  analogWrite(WIND_PIN, WindPower);
+
+
+
+  loadSettings();
+
+ // SetUPServos();
+  EnableSlowMode();
+
+  Serial.println("Waiting for handshake... Send 'HELLO' to begin.");
+}
+
+int outputFrames = 0;
+
+
+unsigned long lastUpdate = 0;  // when the last update happened
+
+
+long TotalElapsed = 0;
+
+
+
+
+
 void DisconectServos() {
   ResetMotors();
   ServoLeft.detach();
@@ -157,33 +156,40 @@ void DisconectServos() {
 }
 
 
+
+
 void ProcessSerial() {
 
-  // --- 1) BINARY HANDSHAKE (must be checked BEFORE packet loop) ---
-  if (Serial.available() >= 3) {
-    uint8_t key = Serial.peek();   // look but don't consume yet
+  // --- 1) Handshake (only before handshakeComplete) ---
+  if (!handshakeComplete && Serial.available() >= 3) {
+
+    uint8_t key = Serial.peek();  // look at first byte
 
     if (key == 0x00) {
-      // Now consume the handshake bytes
-      key = Serial.read();
-      uint8_t lo = Serial.read();
-      uint8_t hi = Serial.read();
+      // Consume handshake bytes
+      Serial.read();               // key
+      uint8_t lo = Serial.read();  // unused
+      uint8_t hi = Serial.read();  // unused
 
-      // You can validate lo/hi if you want, but not required
-      if (!handshakeComplete) {
-        handshakeComplete = true;
-        SetUPServos();
-        Serial.println("READY");
-        _isConnected = true;
-        _isDisconecting = false;
-      }
+      handshakeComplete = true;
+      SetUPServos();
+      EnableSlowMode();
+      Serial.println("READY");
 
-      return;  // handshake handled, exit immediately
+      _isConnected = true;
+      _isDisconecting = false;
+      lastDataTime = millis();
+      return;  // handshake handled
     }
   }
 
-  // --- 2) NORMAL BINARY PACKETS ---
+  // If handshake not done, do not parse packets
+  if (!handshakeComplete)
+    return;
+
+  // --- 2) Normal packets ---
   while (Serial.available() >= 3) {
+
     uint8_t key = Serial.read();
     uint8_t lo = Serial.read();
     uint8_t hi = Serial.read();
@@ -193,6 +199,7 @@ void ProcessSerial() {
     lastDataTime = millis();
 
     switch (key) {
+
       case 0x01:
         if (value >= L_MIN && value <= L_MAX)
           L_TARGET = value;
@@ -205,8 +212,8 @@ void ProcessSerial() {
 
       case 0x03:
         value = constrain(value, 0, 255);
-        WindPower = (uint8_t)value;
-        analogWrite(WIND_PIN, WindPower);
+        WindPower = value;
+        analogWrite(WIND_PIN, value);
         break;
 
       case 0x04:
@@ -216,10 +223,7 @@ void ProcessSerial() {
         break;
 
       case 0x05:
-        slow = true;
-        _fromSlowModeStart_L = L_ABS;
-        _fromSlowModeStart_R = R_ABS;
-        slowTimeout = LENGHTOFSLOWTIMEOUT;
+        EnableSlowMode();
         break;
 
       case 0x06:
@@ -235,39 +239,42 @@ void ProcessSerial() {
 
       case 0x11:
         Serial.print("S");
-        Serial.print(L_MIN); Serial.print("\t");
-        Serial.print(L_MAX); Serial.print("\t");
-        Serial.print(R_MIN); Serial.print("\t");
-        Serial.print(R_MAX); Serial.print("\t");
-        Serial.print(L_INVERT); Serial.print("\t");
-        Serial.print(R_INVERT); Serial.print("\t");
+        Serial.print(L_MIN);
+        Serial.print("\t");
+        Serial.print(L_MAX);
+        Serial.print("\t");
+        Serial.print(R_MIN);
+        Serial.print("\t");
+        Serial.print(R_MAX);
+        Serial.print("\t");
+        Serial.print(L_INVERT);
+        Serial.print("\t");
+        Serial.print(R_INVERT);
+        Serial.print("\t");
         Serial.print(DUAL_MOTORS);
         Serial.println();
         break;
 
       case 0x12:
-      {
-        static uint8_t snIndex = 0;
+        {
+          static uint8_t snIndex = 0;
 
-        switch (snIndex) {
-          case 0: L_MIN = value; break;
-          case 1: L_MAX = value; break;
-          case 2: R_MIN = value; break;
-          case 3: R_MAX = value; break;
-          case 4: L_INVERT = (value != 0); break;
-          case 5: R_INVERT = (value != 0); break;
-          case 6: DUAL_MOTORS = (value != 0); break;
+          switch (snIndex) {
+            case 0: L_MIN = value; break;
+            case 1: L_MAX = value; break;
+            case 2: R_MIN = value; break;
+            case 3: R_MAX = value; break;
+            case 4: L_INVERT = (value != 0); break;
+            case 5: R_INVERT = (value != 0); break;
+            case 6: DUAL_MOTORS = (value != 0); break;
+          }
+
+          snIndex++;
+          if (snIndex >= 7) {
+            snIndex = 0;
+            saveSettings();
+          }
         }
-
-        snIndex++;
-        if (snIndex >= 7) {
-          snIndex = 0;
-          saveSettings();
-        }
-      }
-      break;
-
-      default:
         break;
     }
   }
@@ -281,112 +288,121 @@ float lerp(float a, float b, float amount) {
   return a + (b - a) * amount;
 }
 
-int lastLPos, lastRPos;
+
+
+
+int signInt(int x) {
+  return (x > 0) - (x < 0);
+}
+
 
 void loop() {
+
+  last_TargetL = L_TARGET;
+  last_TargetR = R_TARGET;
+
+
   unsigned long now = millis();  // current time in ms
                                  // time since last update
   unsigned long elapsed = now - lastUpdate;
   lastUpdate = now;
   TotalElapsed += elapsed;
-
-  if (slow) {
-    slowTimeout -= elapsed;
-    if (slowTimeout <= 0) {
-      slow = false;
-      slowTimeout = 0;
-
-      if (_isDisconecting) {
-        _isDisconecting = false;
-        _isConnected = false;
-      }
-    }
-  }
-
+ 
   ProcessSerial();
 
   if (!handshakeComplete) return;
 
   if (!_isConnected) return;
 
-  if (millis() - lastDataTime > 5000) {
-    if (!_isDisconecting) {
+  if (!_isDisconecting) {
+    if (millis() - lastDataTime > 5000) {
+
       _isDisconecting = true;
-      slow = true;
-      slowTimeout = LENGHTOFSLOWTIMEOUT;
-      _fromSlowModeStart_L = L_ABS;
-      _fromSlowModeStart_R = R_ABS;
-      ResetMotors();
-      // stop wind if no data
+
+      // 1. Reset targets FIRST
+     
+
+      EnableSlowMode();
+    slowTimeout = 5000;
+      // 5. Stop wind
       WindPower = 0;
       analogWrite(WIND_PIN, 0);
     }
   }
 
+  if (_isDisconecting)
+   ResetMotors();
 
-  L_ABS = 0;
-  R_ABS = 0;
-
+  int abs_l = 0, abs_r = 0;
   if (!_isDisconecting) {
+
+    //abs code
     if (ABS_ACTIVATED) {
       ABS_RUNNING_FRAME++;
       if (ABS_RUNNING_FRAME > 3)
         ABS_ACTIVATED = false;
       if (abs_frame > ABS_FRQ) {
         if (L_INVERT)
-          L_ABS = -ABS_STRENGTH;
+          abs_l = -ABS_STRENGTH;
         else
-          L_ABS = ABS_STRENGTH;
+          abs_l = ABS_STRENGTH;
 
 
       } else {
         if (R_INVERT)
-          R_ABS = -ABS_STRENGTH;
+          abs_r = -ABS_STRENGTH;
         else
-          R_ABS = ABS_STRENGTH;
+          abs_r = ABS_STRENGTH;
       }
     }
-    // L_ABS = 0;
-    L_ABS += L_TARGET;
-    R_ABS += R_TARGET;
+
+
     abs_frame++;
     if (abs_frame >= ABS_FRQ * 2)
       abs_frame = 0;
-    if (L_ABS > L_MAX)
-      L_ABS = L_MAX;
-
-    if (L_ABS < L_MIN)
-      L_ABS = L_MIN;
-
-    if (R_ABS > R_MAX)
-      R_ABS = R_MAX;
-
-    if (R_ABS < R_MIN)
-      R_ABS = R_MIN;
   }
+
+
+ 
+
+  if (slow) {
+    slowTimeout -= elapsed;
+    if (slowTimeout <= 0) {
+      slow = false;
+      slowTimeout = 0;
+      Serial.println("Slow Mode Stopeed");
+
+      if (_isDisconecting)
+      {
+        _isConnected = false;
+        _isDisconecting = false;
+      }
+    }
+
+    int maxSlewRate = 1;
+
+    int diff_l = L_TARGET - last_TargetL;
+    int diff_r = R_TARGET - last_TargetR;
+
+    if (abs(diff_l) > maxSlewRate)
+      diff_l = maxSlewRate * signInt(diff_l);
+
+    if (abs(diff_r) > maxSlewRate)
+      diff_r = maxSlewRate * signInt(diff_r);
+
+    L_TARGET = last_TargetL + diff_l;
+    R_TARGET = last_TargetR + diff_r;
+  }
+
+
+
 
   // Map 0–180 range to 1000–2000 µs pulse width
-  int pulseL = 0;
-  int pulseR = 0;
+  int pulseL = map(L_TARGET + abs_l, 0, 180, 500, 2500);
+  int pulseR = map(R_TARGET + abs_r, 0, 180, 500, 2500);
 
 
-  //slow = true;
-  if (slow)  //slow down motors moving to new position. do this for when powering up or powering down
-  {
 
-    float a = (float)slowTimeout / (float)LENGHTOFSLOWTIMEOUT;
-
-    pulseL = lerp(L_TARGET, _fromSlowModeStart_L, a);
-    pulseR = lerp(R_TARGET, _fromSlowModeStart_R, a);
-
-    pulseL = map((int)pulseL, 0, 180, 500, 2500);
-    pulseR = map((int)pulseR, 0, 180, 500, 2500);
-
-
-  } else {
-    pulseL = map((int)L_ABS, 0, 180, 500, 2500);
-    pulseR = map((int)R_ABS, 0, 180, 500, 2500);
-  }
 
   ServoLeft.writeMicroseconds(pulseL);
 
