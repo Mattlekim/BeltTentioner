@@ -16,6 +16,9 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
 using System.Windows.Media;
+using System.Linq;
+using System.Collections.Generic;
+using BeltTensionTest.WPF.Views;
 
 namespace BeltTensionTest.WPF.ViewModels
 {
@@ -636,7 +639,54 @@ namespace BeltTensionTest.WPF.ViewModels
         {
             if (carName != _carName)
                 _carSettingsSvc.SaveCurrentCarSettings(_carName);
+
             _isLoading = true;
+
+            // Load the disk dictionary so we can check if the requested car exists
+            _carSettingsSvc.LoadFromDisk();
+
+            if (!_carSettingsSvc.Settings.ContainsKey(carName))
+            {
+                // Show a dialog allowing the user to pick an existing save to assign to this car.
+                var available = _carSettingsSvc.GetAvailableCarNames()
+                    .Where(n => !string.Equals(n, carName, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                string? chosenSource = null;
+
+                var app = Application.Current;
+                if (app != null)
+                {
+                    var d = app.Dispatcher;
+                    if (d != null && !d.HasShutdownStarted && !d.HasShutdownFinished)
+                    {
+                        d.Invoke(() =>
+                        {
+                            var dlg = new SelectCarSaveWindow(available, carName);
+                            var res = dlg.ShowDialog();
+                            if (res == true)
+                                chosenSource = dlg.SelectedCarName;
+                        });
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(chosenSource))
+                {
+                    // Copy chosen save into new car profile and persist
+                    _carSettingsSvc.CopySettings(chosenSource, carName);
+                }
+                else
+                {
+                    // If user cancelled or no selection made, fall back to previous behaviour
+                    if (_carSettingsSvc.Settings.TryGetValue("NA", out var naSettings))
+                        _carSettingsSvc.Settings[carName] = naSettings?.DeepCopy() ?? new CarSettings();
+                    else
+                        _carSettingsSvc.Settings[carName] = new CarSettings();
+                    _carSettingsSvc.SaveCurrentCarSettings(null);
+                }
+            }
+
+            // Finally load the car settings into CurrentSettings (this will set CurrentSettings)
             _carSettingsSvc.LoadCarSettingsFromFile(carName);
             _carName = carName;
 

@@ -201,10 +201,10 @@ namespace BeltAPI
 
             (signalLeft, signalRight) = device.DeviceMotorSettings.ClampToMaxMotorPower(signalLeft + restingPointValue, signalRight+ restingPointValue, carSettings); //make sure its within range of motor
 
-            if (device.DeviceMotorSettings.LeftInverted)
-                signalLeft = device.DeviceMotorSettings.LeftMaximumAngle - signalLeft;
-            if (device.DeviceMotorSettings.RightInverted)
-                signalRight = device.DeviceMotorSettings.RightMaximumAngle - signalRight;
+         //   if (device.DeviceMotorSettings.LeftInverted)
+           //     signalLeft = device.DeviceMotorSettings.LeftMaximumAngle - signalLeft;
+            //if (device.DeviceMotorSettings.RightInverted)
+              //  signalRight = device.DeviceMotorSettings.RightMaximumAngle - signalRight;
 
             signalLeft = (int)(signalLeft);
             signalRight = (int)(signalRight);

@@ -343,7 +343,8 @@
                         </ScrollViewer>
                     </TabItem>
 
-                    <TabItem Header="Wind">
+                    <TabItem Header="Other
+                             ">
                         <ScrollViewer VerticalScrollBarVisibility="Auto"
                                   Background="#12121E"
                                   PanningMode="VerticalFirst" Margin="17,0,-8,0">
