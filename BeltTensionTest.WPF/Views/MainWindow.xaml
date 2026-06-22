@@ -29,6 +29,10 @@
               Background="#12121E"
               Foreground="#A0A0BE">
             <MenuItem Header="Settings" Foreground="#A0A0BE" Click="MenuItem_Click">
+                <MenuItem Header="Preferences..."
+                          Foreground="#A0A0BE"
+                          Click="OpenPreferences_Click"/>
+                <Separator Background="#46466A"/>
                 <MenuItem Header="Use iRacing Telemetry"
                           IsCheckable="True"
                           IsChecked="{Binding UseIracing}"

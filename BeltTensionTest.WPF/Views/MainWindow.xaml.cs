@@ -1,6 +1,9 @@
 using BeltTensionTest.WPF.ViewModels;
 using System.Windows;
 using System.Windows.Interop;
+using System.ComponentModel;
+using System.Threading;
+using System;
 
 namespace BeltTensionTest.WPF.Views
 {
@@ -11,6 +14,8 @@ namespace BeltTensionTest.WPF.Views
         private DebugLogWindow? _debugWindow;
         private FlashNanoWindow? _flashWindow;
         private MotorSettingsWindow? _motorSettingsWindow;
+        private TrayIcon? _trayIcon;
+        private bool _isExitRequested = false;
 
         public MainWindow()
         {
@@ -18,7 +23,7 @@ namespace BeltTensionTest.WPF.Views
             DataContext = new MainViewModel();
 
             Loaded  += (_, _) => Shared.WpfMessageBridge.Attach(this);
-            Closing += (_, _) => VM.Dispose();
+            Closing += MainWindow_Closing;
 
             MainViewModel.Device.OnConnencted += () =>
             {
@@ -39,6 +44,13 @@ namespace BeltTensionTest.WPF.Views
                     bnt_Connect.IsEnabled = true;
                 });
             };
+        }
+
+        private void OpenPreferences_Click(object sender, RoutedEventArgs e)
+        {
+            var dlg = new SettingsWindow(VM);
+            dlg.Owner = this;
+            dlg.ShowDialog();
         }
 
         private void OpenMotorSettings_Click(object sender, RoutedEventArgs e)
@@ -112,6 +124,43 @@ namespace BeltTensionTest.WPF.Views
         private void MenuItem_Click(object sender, RoutedEventArgs e)
         {
 
+        }
+
+        private void MainWindow_Closing(object? sender, CancelEventArgs e)
+        {
+            // If minimize-to-taskbar is enabled, cancel close and hide window to tray
+            if (VM?.AppSettings?.MinimizeToTaskbarOnClose == true && !_isExitRequested)
+            {
+                e.Cancel = true;
+                Hide();
+                ShowTrayIcon();
+                return;
+            }
+
+            // Dispose viewmodel when actually exiting
+            try { VM?.Dispose(); } catch { }
+            RemoveTrayIcon();
+        }
+
+        private void ShowTrayIcon()
+        {
+            if (_trayIcon != null) return;
+            _trayIcon = new TrayIcon("Belt Tensioner",
+                onOpen: () => Application.Current.Dispatcher.Invoke(() =>
+                {
+                    Show(); WindowState = WindowState.Normal; Activate();
+                }),
+                onExit: () => Application.Current.Dispatcher.Invoke(() =>
+                {
+                    _isExitRequested = true; Close();
+                }));
+        }
+
+        private void RemoveTrayIcon()
+        {
+            if (_trayIcon == null) return;
+            try { _trayIcon.Dispose(); } catch { }
+            _trayIcon = null;
         }
 
         private void bnt_Connect_Click(object sender, RoutedEventArgs e)
