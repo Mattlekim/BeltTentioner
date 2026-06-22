@@ -32,12 +32,7 @@ namespace BeltTensionTest.WPF.Views
         {
             try
             {
-                int angle = (int)sr_TestAngle.Value;
-                int sel = cb_MotorSelect?.SelectedIndex ?? 0;
-                if (sel == 1)
-                    MainViewModel.OverideMotorAnglesForTesting = 2;
-                else
-                    MainViewModel.OverideMotorAnglesForTesting = 1;
+                MainViewModel.OverideMotorAnglesForTesting = true;
             }
             catch (Exception) { }
         }
@@ -46,9 +41,14 @@ namespace BeltTensionTest.WPF.Views
         {   
             try
             {
-                MainViewModel.OverideMotorAnglesForTesting = 0;
+                MainViewModel.OverideMotorAnglesForTesting = false;
             }
             catch (Exception) { }
+        }
+
+        private void cb_MotorSelect_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            cb_Test.IsChecked = false;
         }
     }
 }

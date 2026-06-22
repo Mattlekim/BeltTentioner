@@ -47,7 +47,7 @@ namespace BeltTensionTest.WPF.ViewModels
 
         public static BeltAPI.BeltSerialDevice Device { get; } = new BeltAPI.BeltSerialDevice();
 
-        public static byte OverideMotorAnglesForTesting { get; set; } = 0;
+        public static bool OverideMotorAnglesForTesting { get; set; } = false;
         
 
         private string _carName = "NA";
@@ -990,19 +990,15 @@ namespace BeltTensionTest.WPF.ViewModels
         // ?? Belt feedback loop ?????????????????????????????????????????????????
         private void UpdateBeltFeedback()
         {
-            if (OverideMotorAnglesForTesting != 0)
+            if (OverideMotorAnglesForTesting)
             {
-                if (OverideMotorAnglesForTesting == 1) //left motor test
+                if (SelectedMotorIndex == 0) //left motor test
                 {
-                    if (L_INVERT)
-                        Device.SendLeftAngle(180 - MotorSettingsWindow.TestingAngle);
-                    else
+                    
                         Device.SendLeftAngle( MotorSettingsWindow.TestingAngle);
                 }
-                else if (OverideMotorAnglesForTesting == 2) // right motor test
-                    if (R_INVERT)
-                        Device.SendRightAngle(180 - MotorSettingsWindow.TestingAngle);
-                    else
+                else if (SelectedMotorIndex == 1) // right motor test
+                   
                         Device.SendRightAngle(MotorSettingsWindow.TestingAngle);
 
                 return;

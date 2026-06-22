@@ -11,7 +11,7 @@ namespace BeltTensionTest.WPF.Services
     {
         private const string RepoOwner = "Mattlekim";
         private const string RepoName  = "BeltTentioner";
-        public const  string AppVersion = "1.0.47";
+        public const  string AppVersion = "2.0.5";
 
         public class UpdateInfo
         {

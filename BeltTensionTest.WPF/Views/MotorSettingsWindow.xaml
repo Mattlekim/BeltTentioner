@@ -25,7 +25,8 @@
                 <ComboBox x:Name="cb_MotorSelect" Grid.Column="0"
                           SelectedIndex="{Binding SelectedMotorIndex}"
                           Height="30"
-                          VerticalAlignment="Center">
+                          VerticalAlignment="Center"
+                          SelectionChanged="cb_MotorSelect_SelectionChanged">
                     <ComboBoxItem Content="Left Motor"/>
                     <ComboBoxItem Content="Right Motor"/>
                 </ComboBox>
@@ -36,10 +37,10 @@
                           Margin="10,0,0,0"/>
             </Grid>
 
-            <views:SliderRow Label="Start Angle" Min="0" Max="270"
+            <views:SliderRow Label="Start Angle" Min="0" Max="180"
                              Value="{Binding MotorStart, Mode=TwoWay}"
                              FillBrush="#6496FF" Margin="0,3"/>
-            <views:SliderRow Label="End Angle" Min="0" Max="270"
+            <views:SliderRow Label="End Angle" Min="0" Max="180"
                              Value="{Binding MotorEnd, Mode=TwoWay}"
                              FillBrush="#6496FF" Margin="0,3"/>
             <CheckBox Content="Inverted"
