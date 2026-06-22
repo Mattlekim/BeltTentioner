@@ -15,7 +15,10 @@ namespace BeltTensionTest.WPF.Services
 
         public SettingsService()
         {
-            _filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
+            // Persist settings in the user's AppData folder to avoid permission issues when writing
+            var appdata = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            var dir = Path.Combine(appdata, "BeltTensioner");
+            _filePath = Path.Combine(dir, FileName);
         }
 
         public AppSettings Load()
@@ -39,12 +42,22 @@ namespace BeltTensionTest.WPF.Services
 
         public void Save(AppSettings settings)
         {
+            var opts = new JsonSerializerOptions { WriteIndented = true };
+            // Ensure directory exists
             try
             {
-                var opts = new JsonSerializerOptions { WriteIndented = true };
+                var dir = Path.GetDirectoryName(_filePath);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                    Directory.CreateDirectory(dir);
                 File.WriteAllText(_filePath, JsonSerializer.Serialize(settings, opts));
             }
-            catch { }
+            catch (Exception)
+            {
+                // Let caller decide how to handle failures; keep behavior silent here.
+            }
         }
+
+        // Expose file path for diagnostics
+        public string FilePath => _filePath;
     }
 }

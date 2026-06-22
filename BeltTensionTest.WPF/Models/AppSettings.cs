@@ -18,5 +18,9 @@ namespace BeltTensionTest.WPF.Models
         public bool StartWithWindows { get; set; } = false;
         // When the window is closed, minimize to the taskbar (tray) instead of exiting
         public bool MinimizeToTaskbarOnClose { get; set; } = false;
+        // Keybinding gestures (stored as strings like "Ctrl+F")
+        public string ToggleFanKey { get; set; } = string.Empty;
+        public string IncreaseWindRestingKey { get; set; } = string.Empty;
+        public string DecreaseWindRestingKey { get; set; } = string.Empty;
     }
 }

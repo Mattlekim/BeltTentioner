@@ -23,6 +23,8 @@ namespace BeltTensionTest.WPF.Views
             DataContext = new MainViewModel();
 
             Loaded  += (_, _) => Shared.WpfMessageBridge.Attach(this);
+            // Capture key presses when window has focus
+            PreviewKeyDown += MainWindow_PreviewKeyDown;
             Closing += MainWindow_Closing;
 
             MainViewModel.Device.OnConnencted += () =>
@@ -44,6 +46,75 @@ namespace BeltTensionTest.WPF.Views
                     bnt_Connect.IsEnabled = true;
                 });
             };
+        }
+
+        private void MainWindow_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            var app = Application.Current;
+            if (app == null) return;
+            var vm = VM;
+            if (vm == null || vm.AppSettings == null) return;
+
+            var key = e.Key == System.Windows.Input.Key.System ? e.SystemKey : e.Key;
+            var mods = System.Windows.Input.Keyboard.Modifiers;
+
+            // Build canonical gesture string for the current key event (e.g. "Ctrl+G" or "G")
+            string BuildCurrentGesture()
+            {
+                string cur = string.Empty;
+                if ((mods & System.Windows.Input.ModifierKeys.Control) != 0) cur += "Ctrl+";
+                if ((mods & System.Windows.Input.ModifierKeys.Alt) != 0) cur += "Alt+";
+                if ((mods & System.Windows.Input.ModifierKeys.Shift) != 0) cur += "Shift+";
+                if ((mods & System.Windows.Input.ModifierKeys.Windows) != 0) cur += "Win+";
+                cur += key.ToString();
+                return cur;
+            }
+
+            bool Match(string gestureStr)
+            {
+                if (string.IsNullOrWhiteSpace(gestureStr)) return false;
+                try
+                {
+                    var stored = gestureStr.Trim();
+                    var current = BuildCurrentGesture();
+                    return string.Equals(stored, current, StringComparison.OrdinalIgnoreCase);
+                }
+                catch { return false; }
+            }
+
+            // Build current gesture once
+            var currentGesture = BuildCurrentGesture();
+
+            // Debug output and brief UI feedback to help diagnose mapping issues
+            try { System.Diagnostics.Debug.WriteLine($"Hotkey pressed: {currentGesture}"); } catch { }
+            vm.MenuStateText = $"Key: {currentGesture}";
+
+            // Toggle fan
+            if (Match(vm.AppSettings.ToggleFanKey))
+            {
+                vm.EnableForCar = !vm.EnableForCar;
+                vm.MenuStateText = $"Hotkey triggered: ToggleFan ({currentGesture})";
+                e.Handled = true;
+                return;
+            }
+
+            // Increase resting power
+            if (Match(vm.AppSettings.IncreaseWindRestingKey))
+            {
+                vm.WindRestingPower = vm.WindRestingPower + 1; // increment by 1
+                vm.MenuStateText = $"Hotkey triggered: IncreaseRest ({currentGesture})";
+                e.Handled = true;
+                return;
+            }
+
+            // Decrease resting power
+            if (Match(vm.AppSettings.DecreaseWindRestingKey))
+            {
+                vm.WindRestingPower = vm.WindRestingPower - 1; // decrement by 1
+                vm.MenuStateText = $"Hotkey triggered: DecreaseRest ({currentGesture})";
+                e.Handled = true;
+                return;
+            }
         }
 
         private void OpenPreferences_Click(object sender, RoutedEventArgs e)
