@@ -518,6 +518,64 @@ namespace BeltAPI
         }
 
 
+        public void SendLeftAngle(int angle)
+        {
+            if (!isConnected)
+                return;
+
+            try
+            {
+                var sp = serialPort;
+                if (sp != null && sp.IsOpen)
+                {
+                  
+                    ushort v = (ushort)angle;
+
+                    Log($"TX: ABS({angle})");
+                    SendPacket(0x01, v);   // 0x04 = ABS key
+                }
+                else
+                {
+                    MessageReceived?.Invoke("DEVICE_UNPLUGGED");
+                    Disconnect();
+                }
+            }
+            catch
+            {
+                MessageReceived?.Invoke("DEVICE_UNPLUGGED");
+                Disconnect();
+            }
+        }
+
+        public void SendRightAngle(int angle)
+        {
+            if (!isConnected)
+                return;
+
+            try
+            {
+                var sp = serialPort;
+                if (sp != null && sp.IsOpen)
+                {
+                   
+                    ushort v = (ushort)angle;
+
+                    Log($"TX: ABS({angle})");
+                    SendPacket(0x02, v);   // 0x04 = ABS key
+                }
+                else
+                {
+                    MessageReceived?.Invoke("DEVICE_UNPLUGGED");
+                    Disconnect();
+                }
+            }
+            catch
+            {
+                MessageReceived?.Invoke("DEVICE_UNPLUGGED");
+                Disconnect();
+            }
+        }   
+
         public void SendABS(float value)
         {
             if (!isConnected)

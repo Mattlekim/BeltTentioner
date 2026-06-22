@@ -73,17 +73,33 @@ void loadSettings() {
   EEPROM.get(addr, DUAL_MOTORS);
 }
 
-void ResetMotors() {
-  ABS_ACTIVATED = false;
-  L_TARGET = L_MIN;
-  R_TARGET = R_MIN;
-}
-
 int last_TargetL, last_TargetR;
 
+
+void ResetMotors() {
+  ABS_ACTIVATED = false;
+
+
+  if (L_INVERT)
+    L_TARGET = L_MAX;
+  else
+    L_TARGET = L_MIN;
+  
+
+  if (R_INVERT)
+    R_TARGET = R_MAX;
+  else
+    R_TARGET = R_MIN;
+
+
+  last_TargetL = L_TARGET;
+  last_TargetR = R_TARGET;
+}
+
+
 void SetUPServos() {
- 
-   ServoLeft.attach(LEFT_MOTOR);
+
+  ServoLeft.attach(LEFT_MOTOR);
   ServoRight.attach(RIGHT_MOTOR);
   ResetMotors();
   last_TargetL = L_TARGET;
@@ -95,8 +111,6 @@ void SetUPServos() {
   ServoLeft.writeMicroseconds(pulseL);
   if (DUAL_MOTORS)
     ServoRight.writeMicroseconds(pulseR);
-
-  
 }
 
 void EnableSlowMode() {
@@ -164,7 +178,7 @@ void ProcessSerial() {
       case 0x01:
         if (value >= L_MIN && value <= L_MAX) {
           if (L_INVERT)
-           L_TARGET = L_MIN + (L_MAX - value);
+            L_TARGET = L_MIN + (L_MAX - value);
           else
             L_TARGET = value;
         }
@@ -247,21 +261,21 @@ void ProcessSerial() {
         break;
 
 
-        case 0x13:
+      case 0x13:
         {
-            if (value >= R_MIN && value <= R_MAX) {
-                int pulse = map(value, 0, 180, 500, 2500);
-                 ServoLeft.writeMicroseconds(pulse);
-            }
+          if (value >= R_MIN && value <= R_MAX) {
+            int pulse = map(value, 0, 180, 500, 2500);
+            ServoLeft.writeMicroseconds(pulse);
+          }
         }
         break;
 
-        case 0x14:
+      case 0x14:
         {
-            if (value >= R_MIN && value <= R_MAX) {
-                int pulse = map(value, 0, 180, 500, 2500);
-                 ServoRight.writeMicroseconds(pulse);
-            }
+          if (value >= R_MIN && value <= R_MAX) {
+            int pulse = map(value, 0, 180, 500, 2500);
+            ServoRight.writeMicroseconds(pulse);
+          }
         }
         break;
     }

@@ -47,7 +47,8 @@ namespace BeltTensionTest.WPF.ViewModels
 
         public static BeltAPI.BeltSerialDevice Device { get; } = new BeltAPI.BeltSerialDevice();
 
-   
+        public static byte OverideMotorAnglesForTesting { get; set; } = 0;
+        
 
         private string _carName = "NA";
         private bool _motorSettingsLoaded;
@@ -989,6 +990,25 @@ namespace BeltTensionTest.WPF.ViewModels
         // ?? Belt feedback loop ?????????????????????????????????????????????????
         private void UpdateBeltFeedback()
         {
+            if (OverideMotorAnglesForTesting != 0)
+            {
+                if (OverideMotorAnglesForTesting == 1) //left motor test
+                {
+                    if (L_INVERT)
+                        Device.SendLeftAngle(180 - MotorSettingsWindow.TestingAngle);
+                    else
+                        Device.SendLeftAngle( MotorSettingsWindow.TestingAngle);
+                }
+                else if (OverideMotorAnglesForTesting == 2) // right motor test
+                    if (R_INVERT)
+                        Device.SendRightAngle(180 - MotorSettingsWindow.TestingAngle);
+                    else
+                        Device.SendRightAngle(MotorSettingsWindow.TestingAngle);
+
+                return;
+            }
+
+
             if (_carSettingsSvc.CurrentSettings == null) return;
             if (!_haveTestingData && !_iracing.IsConnected && !_simHubConnected)
             {
@@ -1207,9 +1227,14 @@ namespace BeltTensionTest.WPF.ViewModels
 
         private void DoApplyMotorSettings(object? _)
         {
+            if (MotorStart >= MotorEnd) { MessageBox.Show("Motor start angle must be less than end angle.", "Invalid Settings", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+
             if (_selectedMotorIndex == 1) { R_MIN = MotorStart; R_MAX = MotorEnd; R_INVERT = MotorInverted; }
             else                          { L_MIN = MotorStart; L_MAX = MotorEnd; L_INVERT = MotorInverted; }
             _dualMotors = DualMotorsEnabled;
+
+            
+
             Device.SendUpdatedSettings(L_MIN, L_MAX, R_MIN, R_MAX, L_INVERT, R_INVERT, _dualMotors);
             ShowChangesNotSaved = false;
             _motorSettingsLoaded = true;

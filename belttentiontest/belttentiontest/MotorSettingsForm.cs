@@ -11,9 +11,11 @@ namespace belttentiontest
         private ListBox lb_SelectedMotor;
         private ThinTrackBar ttb_motorStart;
         private ThinTrackBar ttb_motorEnd;
+        private ThinTrackBar ttb_testAngle;
         private ModernCheckBox ck_Inverted;
         private ModernCheckBox cb_duelMotors;
         private Button bnt_Apply;
+        private Button bnt_Test;
         private Label lblChangesNotSaved;
 
         private BeltSerialDevice? device;
@@ -34,6 +36,10 @@ namespace belttentiontest
             ttb_motorStart = new ThinTrackBar() { Location = new Point(130, 12), Size = new Size(200, 20), Minimum = 0F, Maximum = 180F };
             ttb_motorEnd = new ThinTrackBar() { Location = new Point(130, 44), Size = new Size(200, 20), Minimum = 0F, Maximum = 180F };
 
+            ttb_testAngle = new ThinTrackBar() { Location = new Point(130, 110), Size = new Size(200, 20), Minimum = 0F, Maximum = 180F };
+
+            var lblTest = new Label() { Text = "Test Angle", Location = new Point(102, 112), AutoSize = true };
+
             var lblStart = new Label() { Text = "Start", Location = new Point(102, 14), AutoSize = true };
             var lblEnd = new Label() { Text = "End", Location = new Point(102, 46), AutoSize = true };
 
@@ -43,15 +49,21 @@ namespace belttentiontest
             bnt_Apply = new Button() { Text = "Apply", Location = new Point(245, 140), Size = new Size(85, 28) };
             bnt_Apply.Click += Bnt_Apply_Click;
 
+            bnt_Test = new Button() { Text = "Test", Location = new Point(150, 140), Size = new Size(85, 28) };
+            bnt_Test.Click += Bnt_Test_Click;
+
             lblChangesNotSaved = new Label() { Text = "Changes not saved", ForeColor = Color.OrangeRed, Location = new Point(12, 140), AutoSize = true, Visible = false };
 
             Controls.Add(lb_SelectedMotor);
             Controls.Add(ttb_motorStart);
             Controls.Add(ttb_motorEnd);
+            Controls.Add(ttb_testAngle);
+            Controls.Add(lblTest);
             Controls.Add(lblStart);
             Controls.Add(lblEnd);
             Controls.Add(ck_Inverted);
             Controls.Add(cb_duelMotors);
+            Controls.Add(bnt_Test);
             Controls.Add(bnt_Apply);
             Controls.Add(lblChangesNotSaved);
 
@@ -59,6 +71,7 @@ namespace belttentiontest
             ttb_motorEnd.ValueChanged += (s, e) => lblChangesNotSaved.Visible = true;
             ck_Inverted.CheckedChanged += (s, e) => lblChangesNotSaved.Visible = true;
             cb_duelMotors.CheckedChanged += (s, e) => lblChangesNotSaved.Visible = true;
+            ttb_testAngle.ValueChanged += (s, e) => { /* no-op: reserved for future use */ };
         }
 
         private void Lb_SelectedMotor_SelectedIndexChanged(object? sender, EventArgs e)
@@ -71,6 +84,26 @@ namespace belttentiontest
                 ttb_motorEnd.Value = ms.RightMaximumAngle;
                 ck_Inverted.Checked = ms.RightInverted;
             }
+
+        private void Bnt_Test_Click(object? sender, EventArgs e)
+        {
+            if (device == null) return;
+
+            int angle = (int)ttb_testAngle.Value;
+
+            try
+            {
+                if (lb_SelectedMotor.SelectedIndex == 1)
+                {
+                    device.SendRightTestAngle(angle);
+                }
+                else
+                {
+                    device.SendLeftTestAngle(angle);
+                }
+            }
+            catch { }
+        }
             else
             {
                 ttb_motorStart.Value = ms.LeftMinimumAngle;
