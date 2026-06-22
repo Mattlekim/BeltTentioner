@@ -807,7 +807,7 @@ namespace BeltTensionTest.WPF.ViewModels
             int lastestFirmwareHash = BeltSerialDevice.GetVersionHash(UpdateService.FIRMWARE_VERSION);
             if (lastestFirmwareHash > Device.VersionHash)
             {
-                MessageBox.Show("To update firmware go to settings flash nano.", "New Firmware Avalible!");
+                MessageBox.Show("To update firmware go to settings, flash nano.", "New Firmware Available!");
             }
         }
 

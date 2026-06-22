@@ -102,10 +102,14 @@
 
                 <!-- Graph checkboxes -->
                 <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="8,6">
-                    <CheckBox Content="Braking"   IsChecked="{Binding ShowBraking}"   Foreground="#6496FF" Margin="0,0,12,0"/>
-                    <CheckBox Content="Cornering" IsChecked="{Binding ShowCornering}" Foreground="#50C878" Margin="0,0,12,0"/>
-                    <CheckBox Content="Vertical"  IsChecked="{Binding ShowVertical}"  Foreground="#FF8040" Margin="0,0,12,0"/>
-                    <CheckBox Content="Live Preview" IsChecked="{Binding LivePreview}" Margin="0,0,0,0"/>
+                    <CheckBox Content="Braking"   IsChecked="{Binding ShowBraking}"   Foreground="#6496FF" Margin="0,0,12,0"
+                              ToolTip="Show braking curve on the graph."/>
+                    <CheckBox Content="Cornering" IsChecked="{Binding ShowCornering}" Foreground="#50C878" Margin="0,0,12,0"
+                              ToolTip="Show cornering curve on the graph."/>
+                    <CheckBox Content="Vertical"  IsChecked="{Binding ShowVertical}"  Foreground="#FF8040" Margin="0,0,12,0"
+                              ToolTip="Show vertical/heave curve on the graph."/>
+                    <CheckBox Content="Live Preview" IsChecked="{Binding LivePreview}" Margin="0,0,0,0"
+                              ToolTip="Enable live preview drawing while testing."/>
                 </StackPanel>
 
                 <!-- Canvas for curve graph (drawn in code-behind) -->

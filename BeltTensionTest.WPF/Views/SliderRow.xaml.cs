@@ -25,6 +25,43 @@ namespace BeltTensionTest.WPF.Views
         public double Value    { get => (double)GetValue(ValueProperty);  set => SetValue(ValueProperty,     value); }
         public Brush  FillBrush { get => (Brush)GetValue(FillBrushProperty); set => SetValue(FillBrushProperty, value); }
 
-        public SliderRow() => InitializeComponent();
+        public SliderRow()
+        {
+            InitializeComponent();
+            Loaded += (s, e) => UpdateTooltips();
+
+            // Watch for Label property changes so tooltips stay in sync
+            var descriptor = System.ComponentModel.DependencyPropertyDescriptor.FromProperty(LabelProperty, typeof(SliderRow));
+            if (descriptor != null)
+                descriptor.AddValueChanged(this, (s, e) => UpdateTooltips());
+        }
+
+        private void UpdateTooltips()
+        {
+            var slider = FindChild<Slider>(this);
+            var textbox = FindChild<TextBox>(this);
+            if (slider != null)
+            {
+                slider.ToolTip = string.IsNullOrWhiteSpace(Label) ? null : $"Sets the {Label} value.";
+            }
+            if (textbox != null)
+            {
+                textbox.ToolTip = string.IsNullOrWhiteSpace(Label) ? null : $"Current {Label} value";
+            }
+        }
+
+        private static T? FindChild<T>(DependencyObject parent) where T : DependencyObject
+        {
+            if (parent == null) return null;
+            int count = VisualTreeHelper.GetChildrenCount(parent);
+            for (int i = 0; i < count; i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+                if (child is T t) return t;
+                var result = FindChild<T>(child);
+                if (result != null) return result;
+            }
+            return null;
+        }
     }
 }

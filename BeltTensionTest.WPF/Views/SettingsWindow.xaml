@@ -54,8 +54,10 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <StackPanel Grid.Row="0" Orientation="Vertical" Margin="0,0,0,8">
-                        <CheckBox x:Name="chk_StartWithWindows" Content="Start with Windows" Foreground="#A0A0BE" Margin="0,4"/>
-                        <CheckBox x:Name="chk_MinimizeToTaskbar" Content="Minimize to taskbar when closed" Foreground="#A0A0BE" Margin="0,4"/>
+                        <CheckBox x:Name="chk_StartWithWindows" Content="Start with Windows" Foreground="#A0A0BE" Margin="0,4"
+                                  ToolTip="Start the application automatically when Windows starts."/>
+                        <CheckBox x:Name="chk_MinimizeToTaskbar" Content="Minimize to taskbar when closed" Foreground="#A0A0BE" Margin="0,4"
+                                  ToolTip="When closed, minimize the app to the taskbar instead of exiting."/>
                     </StackPanel>
                     <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
                         <Button x:Name="btn_Ok" Content="OK" Width="80" Margin="0,0,8,0" Click="Ok_Click" Background="#FFAA20" Foreground="#12121E"/>

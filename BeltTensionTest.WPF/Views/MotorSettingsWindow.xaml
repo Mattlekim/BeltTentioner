@@ -34,7 +34,8 @@
                           Content="Dual Motors"
                           IsChecked="{Binding DualMotorsEnabled}"
                           VerticalAlignment="Center"
-                          Margin="10,0,0,0"/>
+                          Margin="10,0,0,0"
+                          ToolTip="Enable control of both motors (left and right)."/>
             </Grid>
 
             <views:SliderRow Label="Start Angle" Min="0" Max="180"
@@ -45,7 +46,8 @@
                              FillBrush="#6496FF" Margin="0,3"/>
             <CheckBox Content="Inverted"
                       IsChecked="{Binding MotorInverted}"
-                      Margin="0,6,0,4"/>
+                      Margin="0,6,0,4"
+                      ToolTip="Invert motor rotation direction."/>
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -78,7 +80,8 @@
                           Foreground="Black"
                           Width="80"
                           VerticalAlignment="Center"
-                          Margin="15,0,0,0"/>
+                          Margin="15,0,0,0"
+                          ToolTip="Enable motor test mode; move motor to the test angle while checked."/>
             </StackPanel>
             
         </StackPanel>
