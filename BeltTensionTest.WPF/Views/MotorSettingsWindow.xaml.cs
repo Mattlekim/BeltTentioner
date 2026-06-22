@@ -20,7 +20,7 @@ namespace BeltTensionTest.WPF.Views
         }
         private static SliderRow SR_TestAngle;
 
-        public MotorSettingsWindow(object viewModel)
+        public MotorSettingsWindow(object viewModel) 
         {
             InitializeComponent();
             DataContext = viewModel;

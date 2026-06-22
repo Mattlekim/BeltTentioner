@@ -803,6 +803,12 @@ namespace BeltTensionTest.WPF.ViewModels
                 ControlsEnabled  = true;
                 ConnectButtonEnabled = false;
             });
+
+            int lastestFirmwareHash = BeltSerialDevice.GetVersionHash(UpdateService.FIRMWARE_VERSION);
+            if (lastestFirmwareHash > Device.VersionHash)
+            {
+                MessageBox.Show("To update firmware go to settings flash nano.", "New Firmware Avalible!");
+            }
         }
 
         private void OnDeviceMessageReceived(string msg)

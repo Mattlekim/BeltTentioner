@@ -25,6 +25,10 @@ namespace BeltTensionTest.WPF.Views
         public FlashNanoWindow()
         {
             InitializeComponent();
+
+            MainViewModel.Device.ManualDisconnect();
+
+            //MainViewModel.Device.OnConnencted
             Loaded += (_, _) => RefreshPorts();
             btnRefresh.Click += (_, _) => RefreshPorts();
             btnFlash.Click += async (_, _) => await FlashSelectedPortAsync();
@@ -36,12 +40,11 @@ namespace BeltTensionTest.WPF.Views
             _animTimer.Tick += (_, _) => UpdateAnimation();
 
 
+          
         }
 
         protected override void OnClosed(EventArgs e)
         {
-
-          
             base.OnClosed(e);
         }
 
@@ -122,6 +125,8 @@ namespace BeltTensionTest.WPF.Views
             }
         }
 
+     
+
         private void RefreshPorts()
         {
             try
@@ -129,7 +134,11 @@ namespace BeltTensionTest.WPF.Views
                 var ports = SerialPort.GetPortNames().OrderBy(p => p).ToArray();
                 comboPorts.ItemsSource = ports;
                 if (ports.Length > 0)
+                {
                     comboPorts.SelectedIndex = 0;
+                    Thread.Sleep(100); // give time for selection changed to fire
+                    MainViewModel.Device.RequestDeviceVersion();
+                }
                 else
                     lblPortStatus.Content = "No device detected";
             }
@@ -137,6 +146,20 @@ namespace BeltTensionTest.WPF.Views
             {
                 AppendOutput("Error refreshing ports: " + ex.Message);
             }
+        }
+
+        private void SendPacket(SerialPort sp, byte key, ushort value)
+        {
+            
+            if (sp == null || !sp.IsOpen)
+                return;
+
+            byte[] packet = new byte[3];
+            packet[0] = key;
+            packet[1] = (byte)(value & 0xFF);   // low byte
+            packet[2] = (byte)(value >> 8);     // high byte
+
+            sp.Write(packet, 0, 3);
         }
 
         private async void ComboPorts_SelectionChanged(object? sender, System.Windows.Controls.SelectionChangedEventArgs e)
@@ -187,7 +210,7 @@ namespace BeltTensionTest.WPF.Views
                                     if (string.IsNullOrWhiteSpace(line)) continue;
 
                                     if (line.StartsWith("Wai"))
-                                        sp.WriteLine("VER");
+                                        SendPacket(sp, 0x10, 0x0001); // send wakeup packet
                                     line = line.Trim();
                                     if (line.StartsWith("VER:")) { versionLine = line.Substring(4).Trim();
                                         alive = false;

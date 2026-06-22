@@ -178,7 +178,7 @@ namespace BeltTensionTest.WPF.Views
                 _flashWindow = new FlashNanoWindow();
                 _flashWindow.Owner = this;
                 _flashWindow.Show();
-                MainViewModel.Device.ManualDisconnect();
+               
                 // Update UI status indicators to reflect manual disconnect
                 VM.DeviceIsOn = false;
                 VM.DeviceStatusText = "Device disconnected";

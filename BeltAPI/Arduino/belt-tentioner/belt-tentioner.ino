@@ -84,7 +84,7 @@ void ResetMotors() {
     L_TARGET = L_MAX;
   else
     L_TARGET = L_MIN;
-  
+
 
   if (R_INVERT)
     R_TARGET = R_MAX;
@@ -138,6 +138,13 @@ void ProcessSerial() {
   if (!handshakeComplete && Serial.available() >= 3) {
     uint8_t key = Serial.peek();
 
+    if (key == 0x10) {
+      Serial.print("VER:");
+      Serial.print(FIRMWARE_NAME);
+      Serial.print("-");
+      Serial.println(FIRMWARE_VERSION);
+    }
+
     if (key == 0x00) {
       Serial.read();
       Serial.read();
@@ -151,8 +158,8 @@ void ProcessSerial() {
       abs_frame = 0;
 
 
-      Serial.println("READY");
-
+      Serial.print("READY#");
+      Serial.println(FIRMWARE_VERSION);
       _isConnected = true;
       _isDisconecting = false;
       lastDataTime = millis();
@@ -160,8 +167,11 @@ void ProcessSerial() {
     }
   }
 
-  if (!handshakeComplete)
+
+  if (!handshakeComplete) {
+
     return;
+  }
 
   while (Serial.available() >= 3) {
 
@@ -278,6 +288,14 @@ void ProcessSerial() {
           }
         }
         break;
+
+      case 0x15:
+        {
+          handshakeComplete = false;
+          _isConnected = false;
+          _isDisconecting = false;
+        }
+        break;
     }
   }
 }
@@ -348,6 +366,7 @@ void loop() {
       if (_isDisconecting) {
         _isConnected = false;
         _isDisconecting = false;
+        handshakeComplete = false;
       }
     }
 

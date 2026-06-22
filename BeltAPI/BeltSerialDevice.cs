@@ -138,9 +138,20 @@ namespace BeltAPI
             return string.Empty;
         }
 
-        public void RequestDeviceVersion(Action<string, string> callback)
+        public void RequestDeviceVersion()
         {
+            Log($"Request Device Version");
+            var sp = serialPort;
+            if (sp == null || !sp.IsOpen)
+            {
+                Log("RequestDeviceVersion: serial port not open");
+                MessageReceived?.Invoke("DEVICE_UNPLUGGED");
+                return;
+            }
+            sp.DataReceived += SerialPort_DataReceived;
             SendPacket(0x10, 0);
+           
+
         }
 
         public void SendWindPower(ushort power)
@@ -156,9 +167,6 @@ namespace BeltAPI
             }
             SendPacket(0x03, power);
         }
-
-
-
 
         private void DecodeSettings(string message)
         {
@@ -189,6 +197,20 @@ namespace BeltAPI
                 Log($"DecodeSettings: failed to parse '{message}'");
             }
         }
+
+        public static int GetVersionHash(string ver)
+        {
+            if (string.IsNullOrEmpty(ver)) return 0;
+            var parts = ver.Split('.');
+            if (parts.Length != 3) return 0;
+            int major = int.TryParse(parts[0], out var m) ? m : 0;
+            int minor = int.TryParse(parts[1], out var n) ? n : 0;
+            int patch = int.TryParse(parts[2], out var p) ? p : 0;
+            // Combine into a single integer hash
+            return major * 10000 + minor * 100 + patch;
+        }
+
+        public int VersionHash { get; private set; } = 0;
         // Read any available data and raise MessageReceived and HandshakeComplete when appropriate
         private void ReadAllSerialData(SerialPort sp)
         {
@@ -221,15 +243,19 @@ namespace BeltAPI
                         DecodeSettings(line);
                     }
 
-                    if (line.StartsWith("VERSION:", StringComparison.OrdinalIgnoreCase))
+                    // Accept both "VER:" (Arduino) and "VERSION:"
+                    if (line.StartsWith("VER:", StringComparison.OrdinalIgnoreCase) ||
+                        line.StartsWith("VERSION:", StringComparison.OrdinalIgnoreCase))
                     {
-                        string version = GetVersionNumber(line.Substring(8));
+                        string version = GetVersionNumber(line);
                         Log($"Device version: {version}");
                     }
 
                     MessageReceived?.Invoke(line);
-                    if (string.Equals(line, "READY", StringComparison.OrdinalIgnoreCase))
+                    if (line.ToLower().Contains("READY"))
                     {
+                        int ver = GetVersionHash(line.Substring('-'));
+
                         HandshakeComplete?.Invoke();
                     }
                 }
@@ -277,7 +303,20 @@ namespace BeltAPI
                     if (!string.IsNullOrEmpty(s) &&
                         s.IndexOf("READY", StringComparison.OrdinalIgnoreCase) >= 0)
                     {
-                        return true;
+                        int a = s.IndexOf("READY#", StringComparison.OrdinalIgnoreCase);
+                                if (a != -1)
+                                {
+                                    a += 6;
+                                    int b = s.IndexOf("\r", a);
+
+                                    if (b != -1)
+                                    {
+                                        string has = s.Substring(a, b - a);
+                                        VersionHash = GetVersionHash(has);
+                                    }    
+                                }
+                                HandshakeComplete?.Invoke();
+                                return true;
                     }
                 }
             }
@@ -319,7 +358,12 @@ namespace BeltAPI
                 if (port != null)
                 {
                     serialPort = port;
-                    serialPort.DataReceived += SerialPort_DataReceived;
+                    try
+                    {
+                        
+                        Log($"DataReceived handler attached to {serialPort.PortName}");
+                    }
+                    catch { }
                     return true;
                 }
             }
@@ -339,7 +383,12 @@ namespace BeltAPI
                 if (port != null)
                 {
                     serialPort = port;
-                    serialPort.DataReceived += SerialPort_DataReceived;
+                    try
+                    {
+                        serialPort.DataReceived += SerialPort_DataReceived;
+                        Log($"DataReceived handler attached to {serialPort.PortName}");
+                    }
+                    catch { }
                     HandshakeComplete?.Invoke();
                     return true;
                 }
@@ -366,7 +415,12 @@ namespace BeltAPI
                         if (port != null)
                         {
                             serialPort = port;
-                            serialPort.DataReceived += SerialPort_DataReceived;
+                            try
+                            {
+                                serialPort.DataReceived += SerialPort_DataReceived;
+                                Log($"DataReceived handler attached to {serialPort.PortName}");
+                            }
+                            catch { }
                             isConnected = true;
 
                             OnConnencted?.Invoke();
@@ -788,7 +842,9 @@ namespace BeltAPI
 
         public void ManualDisconnect()
         {
+
             Log($"ManualDisconnect called (port: {PortName ?? "none"})");
+            SendPacket(0x15, 0);
             try { ClosePort(); } catch { }
             isConnected = false;
             OnDisconnection?.Invoke();
