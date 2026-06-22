@@ -162,12 +162,12 @@ void ProcessSerial() {
     switch (key) {
 
       case 0x01:
-     //   if (value >= L_MIN && value <= L_MAX) {
-       //   if (L_INVERT)
-         //   L_TARGET = L_MIN + (L_MAX - value);
-          //else
-           // L_TARGET = value;
-       // }
+        if (value >= L_MIN && value <= L_MAX) {
+          if (L_INVERT)
+           L_TARGET = L_MIN + (L_MAX - value);
+          else
+            L_TARGET = value;
+        }
         break;
 
       case 0x02:
@@ -243,6 +243,25 @@ void ProcessSerial() {
             snIndex = 0;
             saveSettings();
           }
+        }
+        break;
+
+
+        case 0x13:
+        {
+            if (value >= R_MIN && value <= R_MAX) {
+                int pulse = map(value, 0, 180, 500, 2500);
+                 ServoLeft.writeMicroseconds(pulse);
+            }
+        }
+        break;
+
+        case 0x14:
+        {
+            if (value >= R_MIN && value <= R_MAX) {
+                int pulse = map(value, 0, 180, 500, 2500);
+                 ServoRight.writeMicroseconds(pulse);
+            }
         }
         break;
     }
