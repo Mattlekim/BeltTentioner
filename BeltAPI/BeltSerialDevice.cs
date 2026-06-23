@@ -148,7 +148,7 @@ namespace BeltAPI
                 MessageReceived?.Invoke("DEVICE_UNPLUGGED");
                 return;
             }
-            sp.DataReceived += SerialPort_DataReceived;
+         //   sp.DataReceived += SerialPort_DataReceived;
             SendPacket(0x10, 0);
            
 
@@ -252,12 +252,7 @@ namespace BeltAPI
                     }
 
                     MessageReceived?.Invoke(line);
-                    if (line.ToLower().Contains("READY"))
-                    {
-                        int ver = GetVersionHash(line.Substring('-'));
-
-                        HandshakeComplete?.Invoke();
-                    }
+                   
                 }
             }
             catch (Exception ex)
@@ -316,6 +311,8 @@ namespace BeltAPI
                                     }    
                                 }
                                 HandshakeComplete?.Invoke();
+                                sp.DataReceived += SerialPort_DataReceived;
+                                SendRequestSettings();
                                 return true;
                     }
                 }
@@ -385,7 +382,7 @@ namespace BeltAPI
                     serialPort = port;
                     try
                     {
-                        serialPort.DataReceived += SerialPort_DataReceived;
+                     //   serialPort.DataReceived += SerialPort_DataReceived;
                         Log($"DataReceived handler attached to {serialPort.PortName}");
                     }
                     catch { }
@@ -417,7 +414,7 @@ namespace BeltAPI
                             serialPort = port;
                             try
                             {
-                                serialPort.DataReceived += SerialPort_DataReceived;
+                             //   serialPort.DataReceived += SerialPort_DataReceived;
                                 Log($"DataReceived handler attached to {serialPort.PortName}");
                             }
                             catch { }

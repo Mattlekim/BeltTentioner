@@ -479,15 +479,15 @@ namespace belttentiontest
                     // Ensure we run on the UI thread of the target so MessageBox is parented and centered over it
                     if (target.InvokeRequired)
                     {
-                        try
-                        {
-                            target.Invoke(new Action(() => MessageBox.Show(target, message, caption, MessageBoxButtons.OK, MessageBoxIcon.Information)));
-                        }
-                        catch
-                        {
-                            // fallback
-                            MessageBox.Show(message, caption, MessageBoxButtons.OK, MessageBoxIcon.Information);
-                        }
+                            try
+                            {
+                                target.Invoke(new Action(() => ThemedMessageBox.Show(target, message, caption, MessageBoxButtons.OK, MessageBoxIcon.Information)));
+                            }
+                            catch
+                            {
+                                // fallback
+                                ThemedMessageBox.Show(message, caption, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            }
                     }
                     else
                     {
@@ -519,21 +519,21 @@ namespace belttentiontest
                     {
                         try
                         {
-                            return (DialogResult)target.Invoke(new Func<DialogResult>(() => MessageBox.Show(target, message, caption, MessageBoxButtons.YesNo, MessageBoxIcon.Question)));
+                            return (DialogResult)target.Invoke(new Func<DialogResult>(() => ThemedMessageBox.Show(target, message, caption, MessageBoxButtons.YesNo, MessageBoxIcon.Question)));
                         }
                         catch
                         {
-                            return MessageBox.Show(message, caption, MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                            return ThemedMessageBox.Show(message, caption, MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                         }
                     }
                     else
                     {
-                        return MessageBox.Show(target, message, caption, MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                        return ThemedMessageBox.Show(target, message, caption, MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                     }
                 }
                 else
                 {
-                    return MessageBox.Show(message, caption, MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    return ThemedMessageBox.Show(message, caption, MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 }
             }
             catch

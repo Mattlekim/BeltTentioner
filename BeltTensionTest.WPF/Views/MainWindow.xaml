@@ -10,7 +10,7 @@
         Background="#12121E"
         Foreground="#A0A0BE"
         FontFamily="Segoe UI"
-        ResizeMode="CanMinimize"
+        ResizeMode="CanResize"
         WindowStyle="None"
         WindowStartupLocation="CenterScreen">
 

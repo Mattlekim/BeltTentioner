@@ -19,6 +19,7 @@ using System.Windows.Media;
 using System.Linq;
 using System.Collections.Generic;
 using BeltTensionTest.WPF.Views;
+using BeltTensionTest;
 
 namespace BeltTensionTest.WPF.ViewModels
 {
@@ -807,7 +808,7 @@ namespace BeltTensionTest.WPF.ViewModels
             int lastestFirmwareHash = BeltSerialDevice.GetVersionHash(UpdateService.FIRMWARE_VERSION);
             if (lastestFirmwareHash > Device.VersionHash)
             {
-                MessageBox.Show("To update firmware go to settings, flash nano.", "New Firmware Available!");
+                ThemedMessageBox.Show("To update firmware go to settings, flash nano.", "New Firmware Available!");
             }
         }
 
@@ -1229,7 +1230,7 @@ namespace BeltTensionTest.WPF.ViewModels
 
         private void DoApplyMotorSettings(object? _)
         {
-            if (MotorStart >= MotorEnd) { MessageBox.Show("Motor start angle must be less than end angle.", "Invalid Settings", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+            if (MotorStart >= MotorEnd) { ThemedMessageBox.Show("Motor start angle must be less than end angle.", "Invalid Settings", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
 
             if (_selectedMotorIndex == 1) { R_MIN = MotorStart; R_MAX = MotorEnd; R_INVERT = MotorInverted; }
             else                          { L_MIN = MotorStart; L_MAX = MotorEnd; L_INVERT = MotorInverted; }
@@ -1261,7 +1262,7 @@ namespace BeltTensionTest.WPF.ViewModels
                 }
                 else
                 {
-                    MessageBox.Show("You are on the latest version.", "Update Check",
+                    ThemedMessageBox.Show("You are on the latest version.", "Update Check",
                         MessageBoxButton.OK, MessageBoxImage.Information);
                 }
             });
