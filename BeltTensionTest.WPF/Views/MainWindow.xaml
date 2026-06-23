@@ -95,6 +95,9 @@
                 <MenuItem Header="About..."
                           Foreground="#A0A0BE"
                           Click="About_Click"/>
+                <MenuItem Header="Buy me a coffee..."
+                          Foreground="#A0A0BE"
+                          Click="OpenBuyMeACoffee_Click"/>
             </MenuItem>
         </Menu>
 
@@ -156,6 +159,9 @@
                                 x:Name="bnt_Connect"
                                 Content="Connect"
                                 Command="{Binding ConnectCommand}"
+                                Background="Green"
+                                Foreground="Black"
+                                
                                 IsEnabled="True" Click="bnt_Connect_Click" Grid.ColumnSpan="2" Margin="222,0,0,0"/>
                     </Grid>
                 </Grid>

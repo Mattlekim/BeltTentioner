@@ -39,11 +39,11 @@
                     Content="Clear"
                     Width="70"
                     Margin="6,0"
-                    Click="Clear_Click"/>
+                    Click="Clear_Click" Style="{DynamicResource BlueButton}"/>
             <Button Grid.Column="2"
                     Content="Copy All"
                     Width="80"
-                    Click="CopyAll_Click"/>
+                    Click="CopyAll_Click" Style="{DynamicResource BlueButton}"/>
         </Grid>
     </Grid>
 </Window>

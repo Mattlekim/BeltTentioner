@@ -78,7 +78,7 @@
                 <Button Grid.Column="2"
                         Content="Apply"
                         Command="{Binding ApplyMotorSettingsCommand}"
-                        Style="{StaticResource GreenButtonStyle}"
+                        Style="{DynamicResource BlueButton}"
                         Width="80"/>
             </Grid>
 

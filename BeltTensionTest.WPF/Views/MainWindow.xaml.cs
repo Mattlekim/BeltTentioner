@@ -14,6 +14,7 @@ namespace BeltTensionTest.WPF.Views
         private DebugLogWindow? _debugWindow;
         private FlashNanoWindow? _flashWindow;
         private MotorSettingsWindow? _motorSettingsWindow;
+        private BuyMeCoffeeWindow? _buyWindow;
         private TrayIcon? _trayIcon;
         private bool _isExitRequested = false;
 
@@ -195,6 +196,20 @@ namespace BeltTensionTest.WPF.Views
         private void About_Click(object sender, RoutedEventArgs e)
         {
             new AboutWindow { Owner = this }.ShowDialog();
+        }
+
+        private void OpenBuyMeACoffee_Click(object sender, RoutedEventArgs e)
+        {
+            if (_buyWindow == null || !_buyWindow.IsLoaded)
+            {
+                _buyWindow = new BuyMeCoffeeWindow();
+                _buyWindow.Owner = this;
+                _buyWindow.ShowDialog();
+            }
+            else
+            {
+                _buyWindow.Activate();
+            }
         }
 
         private void OpenFlashNano_Click(object sender, RoutedEventArgs e)
