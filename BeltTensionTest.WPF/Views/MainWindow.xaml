@@ -27,6 +27,7 @@
 
             <!-- Value converters inline -->
             <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+            <!-- MenuItem uses default template to preserve submenu behavior; custom styling removed -->
         </ResourceDictionary>
     </Window.Resources>
 
@@ -84,6 +85,10 @@
                           Foreground="#A0A0BE"
                           Click="OpenMotorSettings_Click"/>
                 <Separator Background="#46466A"/>
+            </MenuItem>
+
+            <!-- Help menu moved out from Settings -->
+            <MenuItem Header="Help" Foreground="#A0A0BE">
                 <MenuItem Header="Check for Updates..."
                           Foreground="#A0A0BE"
                           Command="{Binding CheckUpdatesCommand}"/>
@@ -247,11 +252,13 @@
 
                                         <!-- Max Output -->
                                         <views:SliderRow Label="Max Output" Min="1" Max="100"
+                                                         IsInteger="True"
                                                      Value="{Binding MaxOutput, Mode=TwoWay}"
                                                      FillBrush="#DC3C3C"
                                                      Margin="0,3"/>
                                         <!-- Resting Point -->
                                         <views:SliderRow Label="Resting Pt" Min="0" Max="30"
+                                                         IsInteger="True"
                                                      Value="{Binding RestingPoint, Mode=TwoWay}"
                                                      FillBrush="#00BFFF"
                                                      Margin="0,3"/>
@@ -262,9 +269,12 @@
                                               Margin="0,4">
                                             <StackPanel>
                                                 <views:SliderRow Label="Curve"    Min="0.1" Max="5"
+                                                                 
+                                                                 
                                                              Value="{Binding BrakingCurve, Mode=TwoWay}"
                                                              FillBrush="#6496FF" Margin="0,3"/>
                                                 <views:SliderRow Label="Strength" Min="1"   Max="200"
+                                                                 IsInteger="True"
                                                              Value="{Binding BrakingStrength, Mode=TwoWay}"
                                                              FillBrush="#6496FF" Margin="0,3"/>
                                                 <CheckBox Content="Invert"
@@ -284,6 +294,7 @@
                                                              Value="{Binding CorneringCurve, Mode=TwoWay}"
                                                              FillBrush="#50C878" Margin="0,3"/>
                                                 <views:SliderRow Label="Strength" Min="1"   Max="200"
+                                                                 IsInteger="True"
                                                              Value="{Binding CorneringStrength, Mode=TwoWay}"
                                                              FillBrush="#50C878" Margin="0,3"/>
                                                 <CheckBox Content="Invert"
@@ -300,6 +311,7 @@
                                               Margin="0,4">
                                             <StackPanel>
                                                 <views:SliderRow Label="Strength" Min="1" Max="200"
+                                                                 IsInteger="True"
                                                              Value="{Binding VerticalStrength, Mode=TwoWay}"
                                                              FillBrush="#FF8040" Margin="0,3"/>
                                                 <CheckBox Content="Invert"
@@ -321,6 +333,7 @@
                                                     </Grid.ColumnDefinitions>
                                                     <TextBlock Grid.Column="0" Text="Pitch" Style="{StaticResource LabelStyle}"/>
                                                     <Slider Grid.Column="1" Minimum="1" Maximum="200"
+
                                                         Value="{Binding PitchStrength, Mode=TwoWay}"
                                                         Tag="#6496FF" Margin="4,0"
                                                         ToolTip="Adjust pitch strength applied by gravity (tilt)."/>
@@ -354,6 +367,7 @@
                                 <GroupBox Header="Other" IsEnabled="{Binding ControlsEnabled}" Margin="0,0,0,6">
                                     <StackPanel>
                                         <views:SliderRow Label="Neg. Sway" Min="0" Max="100"
+                                                         IsInteger="True"
                                                      Value="{Binding NegativeSway, Mode=TwoWay}"
                                                      FillBrush="#50C878" Margin="0,3"/>
                                         <Grid Margin="0,4">
@@ -369,6 +383,7 @@
                                                    ToolTip="Enable ABS behavior which reduces output during braking events."/>
                                         </Grid>
                                         <views:SliderRow Label="ABS Str." Min="3" Max="30"
+                                                         IsInteger="True"
                                                      Value="{Binding AbsStrength, Mode=TwoWay}"
                                                      FillBrush="#DC3C3C" Margin="0,3"/>
                                         <Button Content="Test ABS"
@@ -395,10 +410,10 @@
                                 <StackPanel>
                                     <CheckBox Content="Enable for Car" IsChecked="{Binding EnableForCar, Mode=TwoWay}" Margin="0,0,6,6"
                                               ToolTip="Enable wind effects for this car."/>
-                                    <views:SliderRow Label="Resting Power" Min="0" Max="300" Value="{Binding WindRestingPower, Mode=TwoWay}" Margin="0,0,0,6"/>
-                                    <views:SliderRow Label="Min Speed" Min="0" Max="300" Value="{Binding WindMinSpeed, Mode=TwoWay}" Margin="0,0,0,6" />
-                                    <views:SliderRow Label="Min Power" Min="0" Max="300" Value="{Binding WindMinPower, Mode=TwoWay}" Margin="0,0,0,6" />
-                                    <views:SliderRow Label="Power" Min="0" Max="300" Value="{Binding WindPowerPercentage, Mode=TwoWay}" Margin="0,0,0,6"/>
+                                    <views:SliderRow Label="Resting Power" IsInteger="True" Min="0" Max="300" Value="{Binding WindRestingPower, Mode=TwoWay}" Margin="0,0,0,6"/>
+                                    <views:SliderRow Label="Min Speed" IsInteger="True" Min="0" Max="300" Value="{Binding WindMinSpeed, Mode=TwoWay}" Margin="0,0,0,6" />
+                                    <views:SliderRow Label="Min Power" IsInteger="True" Min="0" Max="300" Value="{Binding WindMinPower, Mode=TwoWay}" Margin="0,0,0,6" />
+                                    <views:SliderRow Label="Power" IsInteger="True" Min="0" Max="300" Value="{Binding WindPowerPercentage, Mode=TwoWay}" Margin="0,0,0,6"/>
                                     <views:SliderRow Label="Curve" Min="0.1" Max="5" Value="{Binding WindCurve, Mode=TwoWay}" FillBrush="#50C878" Margin="0,0,0,6"/>
                                 </StackPanel>
 
