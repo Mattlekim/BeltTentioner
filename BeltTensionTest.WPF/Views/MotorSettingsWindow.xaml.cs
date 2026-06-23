@@ -1,6 +1,7 @@
 using System.Windows;
 using System;
 using System.Windows;
+using System.Windows.Input;
 using BeltTensionTest.WPF.ViewModels;
 
 namespace BeltTensionTest.WPF.Views
@@ -49,6 +50,19 @@ namespace BeltTensionTest.WPF.Views
         private void cb_MotorSelect_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
             cb_Test.IsChecked = false;
+        }
+
+        private void TitleBar_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ChangedButton == MouseButton.Left)
+            {
+                try { DragMove(); } catch { }
+            }
+        }
+
+        private void CloseButton_Click(object sender, RoutedEventArgs e)
+        {
+            this.Close();
         }
     }
 }

@@ -43,6 +43,19 @@ namespace BeltTensionTest.WPF.Views
           
         }
 
+        private void TitleBar_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (e.ChangedButton == System.Windows.Input.MouseButton.Left)
+            {
+                try { DragMove(); } catch { }
+            }
+        }
+
+        private void CloseButton_Click(object sender, RoutedEventArgs e)
+        {
+            this.Close();
+        }
+
         protected override void OnClosed(EventArgs e)
         {
             base.OnClosed(e);

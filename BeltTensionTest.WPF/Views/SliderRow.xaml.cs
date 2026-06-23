@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Data;
 
 namespace BeltTensionTest.WPF.Views
 {
@@ -28,7 +29,7 @@ namespace BeltTensionTest.WPF.Views
         public SliderRow()
         {
             InitializeComponent();
-            Loaded += (s, e) => UpdateTooltips();
+            Loaded += (s, e) => { UpdateTooltips(); UpdateValueBinding(); };
 
             // Watch for Label property changes so tooltips stay in sync
             var descriptor = System.ComponentModel.DependencyPropertyDescriptor.FromProperty(LabelProperty, typeof(SliderRow));
@@ -47,6 +48,23 @@ namespace BeltTensionTest.WPF.Views
             if (textbox != null)
             {
                 textbox.ToolTip = string.IsNullOrWhiteSpace(Label) ? null : $"Current {Label} value";
+            }
+        }
+
+        private void UpdateValueBinding()
+        {
+            // Ensure the textbox binds to the Value property and displays one decimal place
+            var textbox = FindChild<TextBox>(this);
+            if (textbox != null)
+            {
+                var binding = new Binding(nameof(Value))
+                {
+                    Source = this,
+                    Mode = BindingMode.TwoWay,
+                    StringFormat = "F1",
+                    UpdateSourceTrigger = UpdateSourceTrigger.LostFocus
+                };
+                BindingOperations.SetBinding(textbox, TextBox.TextProperty, binding);
             }
         }
 
