@@ -3,6 +3,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        xmlns:views="clr-namespace:BeltTensionTest.WPF.Views"
         Title="Preferences" Height="225" Width="360" WindowStartupLocation="CenterOwner"
         Background="#12121E" Foreground="#A0A0BE" FontFamily="Segoe UI" WindowStyle="None">
 
@@ -63,13 +64,13 @@
                         </Grid.ColumnDefinitions>
 
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Toggle fan:" VerticalAlignment="Center" Margin="0,6" Foreground="#A0A0BE" />
-                        <TextBox x:Name="txt_ToggleFan" Grid.Row="0" Grid.Column="1" Margin="6,4" IsReadOnly="True" PreviewKeyDown="KeyBox_PreviewKeyDown" GotFocus="KeyBox_GotFocus" PreviewMouseLeftButtonDown="KeyBox_PreviewMouseDown" Focusable="False" IsTabStop="False" />
+                        <views:KeyBindingControl x:Name="kb_ToggleFan" Grid.Row="0" Grid.Column="1" Margin="6,4" />
 
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="Increase resting power:" VerticalAlignment="Center" Margin="0,6" Foreground="#A0A0BE" />
-                        <TextBox x:Name="txt_IncreaseWindRest" Grid.Row="1" Grid.Column="1" Margin="6,4" IsReadOnly="True" PreviewKeyDown="KeyBox_PreviewKeyDown" GotFocus="KeyBox_GotFocus" PreviewMouseLeftButtonDown="KeyBox_PreviewMouseDown" Focusable="False" IsTabStop="False" />
+                        <views:KeyBindingControl x:Name="kb_IncreaseWindRest" Grid.Row="1" Grid.Column="1" Margin="6,4" />
 
                         <TextBlock Grid.Row="2" Grid.Column="0" Text="Decrease resting power:" VerticalAlignment="Center" Margin="0,6" Foreground="#A0A0BE" />
-                        <TextBox x:Name="txt_DecreaseWindRest" Grid.Row="2" Grid.Column="1" Margin="6,4" IsReadOnly="True" PreviewKeyDown="KeyBox_PreviewKeyDown" GotFocus="KeyBox_GotFocus" PreviewMouseLeftButtonDown="KeyBox_PreviewMouseDown" Focusable="False" IsTabStop="False" />
+                        <views:KeyBindingControl x:Name="kb_DecreaseWindRest" Grid.Row="2" Grid.Column="1" Margin="6,4" />
 
                     </Grid>
                 </TabItem>

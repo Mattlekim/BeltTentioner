@@ -392,7 +392,7 @@
                                 <StackPanel>
                                     <CheckBox Content="Enable for Car" IsChecked="{Binding EnableForCar, Mode=TwoWay}" Margin="0,0,6,6"
                                               ToolTip="Enable wind effects for this car."/>
-                                    <views:SliderRow Label="Resting Power" IsInteger="True" Min="0" Max="300" Value="{Binding WindRestingPower, Mode=TwoWay}" Margin="0,0,0,6"/>
+                                    <views:SliderRow Label="Resting Power" IsInteger="True" Min="0" Max="255" Value="{Binding WindRestingPower, Mode=TwoWay}" Margin="0,0,0,6"/>
                                     <views:SliderRow Label="Min Speed" IsInteger="True" Min="0" Max="300" Value="{Binding WindMinSpeed, Mode=TwoWay}" Margin="0,0,0,6" />
                                     <views:SliderRow Label="Min Power" IsInteger="True" Min="0" Max="300" Value="{Binding WindMinPower, Mode=TwoWay}" Margin="0,0,0,6" />
                                     <views:SliderRow Label="Power" IsInteger="True" Min="0" Max="300" Value="{Binding WindPowerPercentage, Mode=TwoWay}" Margin="0,0,0,6"/>

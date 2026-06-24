@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace BeltTensionTest.WPF.Models
@@ -22,5 +23,9 @@ namespace BeltTensionTest.WPF.Models
         public string ToggleFanKey { get; set; } = string.Empty;
         public string IncreaseWindRestingKey { get; set; } = string.Empty;
         public string DecreaseWindRestingKey { get; set; } = string.Empty;
+        // Whether the shortcut is registered globally (system-wide) instead of only when app has focus
+        public bool ToggleFanGlobal { get; set; } = false;
+        public bool IncreaseWindRestingGlobal { get; set; } = false;
+        public bool DecreaseWindRestingGlobal { get; set; } = false;
     }
 }
