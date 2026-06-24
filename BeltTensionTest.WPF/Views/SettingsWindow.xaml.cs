@@ -170,11 +170,33 @@ namespace BeltTensionTest.WPF.Views
             {
                 if (_vm?.AppSettings == null) return;
                 if (sender == kb_ToggleFan)
+                {
                     _vm.AppSettings.ToggleFanKey = kb_ToggleFan.Gesture ?? string.Empty;
+                    // update registration
+                    GlobalHotKeyManager.Unregister("ToggleFan");
+                    if (kb_ToggleFan.IsGlobal && !string.IsNullOrWhiteSpace(kb_ToggleFan.Gesture))
+                    {
+                        GlobalHotKeyManager.Register("ToggleFan", kb_ToggleFan.Gesture, () => { try { _vm.EnableForCar = !_vm.EnableForCar; _vm.MenuStateText = $"Hotkey triggered: ToggleFan ({kb_ToggleFan.Gesture})"; } catch { } });
+                    }
+                }
                 else if (sender == kb_IncreaseWindRest)
+                {
                     _vm.AppSettings.IncreaseWindRestingKey = kb_IncreaseWindRest.Gesture ?? string.Empty;
+                    GlobalHotKeyManager.Unregister("IncreaseRest");
+                    if (kb_IncreaseWindRest.IsGlobal && !string.IsNullOrWhiteSpace(kb_IncreaseWindRest.Gesture))
+                    {
+                        GlobalHotKeyManager.Register("IncreaseRest", kb_IncreaseWindRest.Gesture, () => { try { _vm.WindRestingPower = _vm.WindRestingPower + 1; _vm.MenuStateText = $"Hotkey triggered: IncreaseRest ({kb_IncreaseWindRest.Gesture})"; } catch { } });
+                    }
+                }
                 else if (sender == kb_DecreaseWindRest)
+                {
                     _vm.AppSettings.DecreaseWindRestingKey = kb_DecreaseWindRest.Gesture ?? string.Empty;
+                    GlobalHotKeyManager.Unregister("DecreaseRest");
+                    if (kb_DecreaseWindRest.IsGlobal && !string.IsNullOrWhiteSpace(kb_DecreaseWindRest.Gesture))
+                    {
+                        GlobalHotKeyManager.Register("DecreaseRest", kb_DecreaseWindRest.Gesture, () => { try { _vm.WindRestingPower = _vm.WindRestingPower - 1; _vm.MenuStateText = $"Hotkey triggered: DecreaseRest ({kb_DecreaseWindRest.Gesture})"; } catch { } });
+                    }
+                }
 
                 _settingsSvc.Save(_vm.AppSettings);
             }
@@ -187,11 +209,26 @@ namespace BeltTensionTest.WPF.Views
             {
                 if (_vm?.AppSettings == null) return;
                 if (sender == kb_ToggleFan)
+                {
                     _vm.AppSettings.ToggleFanGlobal = kb_ToggleFan.IsGlobal;
+                    GlobalHotKeyManager.Unregister("ToggleFan");
+                    if (kb_ToggleFan.IsGlobal && !string.IsNullOrWhiteSpace(kb_ToggleFan.Gesture))
+                        GlobalHotKeyManager.Register("ToggleFan", kb_ToggleFan.Gesture, () => { try { _vm.EnableForCar = !_vm.EnableForCar; _vm.MenuStateText = $"Hotkey triggered: ToggleFan ({kb_ToggleFan.Gesture})"; } catch { } });
+                }
                 else if (sender == kb_IncreaseWindRest)
+                {
                     _vm.AppSettings.IncreaseWindRestingGlobal = kb_IncreaseWindRest.IsGlobal;
+                    GlobalHotKeyManager.Unregister("IncreaseRest");
+                    if (kb_IncreaseWindRest.IsGlobal && !string.IsNullOrWhiteSpace(kb_IncreaseWindRest.Gesture))
+                        GlobalHotKeyManager.Register("IncreaseRest", kb_IncreaseWindRest.Gesture, () => { try { _vm.WindRestingPower = _vm.WindRestingPower + 1; _vm.MenuStateText = $"Hotkey triggered: IncreaseRest ({kb_IncreaseWindRest.Gesture})"; } catch { } });
+                }
                 else if (sender == kb_DecreaseWindRest)
+                {
                     _vm.AppSettings.DecreaseWindRestingGlobal = kb_DecreaseWindRest.IsGlobal;
+                    GlobalHotKeyManager.Unregister("DecreaseRest");
+                    if (kb_DecreaseWindRest.IsGlobal && !string.IsNullOrWhiteSpace(kb_DecreaseWindRest.Gesture))
+                        GlobalHotKeyManager.Register("DecreaseRest", kb_DecreaseWindRest.Gesture, () => { try { _vm.WindRestingPower = _vm.WindRestingPower - 1; _vm.MenuStateText = $"Hotkey triggered: DecreaseRest ({kb_DecreaseWindRest.Gesture})"; } catch { } });
+                }
 
                 _settingsSvc.Save(_vm.AppSettings);
             }

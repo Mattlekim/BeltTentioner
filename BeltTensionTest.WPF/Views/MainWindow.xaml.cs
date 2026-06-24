@@ -1,6 +1,7 @@
 using BeltTensionTest.WPF.ViewModels;
 using System.Windows;
 using System.Windows.Interop;
+using BeltTensionTest.WPF.Services;
 using System.ComponentModel;
 using System.Threading;
 using System;
@@ -22,6 +23,42 @@ namespace BeltTensionTest.WPF.Views
         {
             InitializeComponent();
             DataContext = new MainViewModel();
+
+            // Initialize global hotkey manager and register any persisted global bindings
+            try
+            {
+                GlobalHotKeyManager.Initialize(this);
+                var vm = VM;
+                if (vm?.AppSettings != null)
+                {
+                    try
+                    {
+                        if (!string.IsNullOrWhiteSpace(vm.AppSettings.ToggleFanKey) && vm.AppSettings.ToggleFanGlobal)
+                        {
+                            GlobalHotKeyManager.Register("ToggleFan", vm.AppSettings.ToggleFanKey, () =>
+                            {
+                                try { vm.EnableForCar = !vm.EnableForCar; vm.MenuStateText = $"Hotkey triggered: ToggleFan ({vm.AppSettings.ToggleFanKey})"; } catch { }
+                            });
+                        }
+                        if (!string.IsNullOrWhiteSpace(vm.AppSettings.IncreaseWindRestingKey) && vm.AppSettings.IncreaseWindRestingGlobal)
+                        {
+                            GlobalHotKeyManager.Register("IncreaseRest", vm.AppSettings.IncreaseWindRestingKey, () =>
+                            {
+                                try { vm.WindRestingPower = vm.WindRestingPower + 1; vm.MenuStateText = $"Hotkey triggered: IncreaseRest ({vm.AppSettings.IncreaseWindRestingKey})"; } catch { }
+                            });
+                        }
+                        if (!string.IsNullOrWhiteSpace(vm.AppSettings.DecreaseWindRestingKey) && vm.AppSettings.DecreaseWindRestingGlobal)
+                        {
+                            GlobalHotKeyManager.Register("DecreaseRest", vm.AppSettings.DecreaseWindRestingKey, () =>
+                            {
+                                try { vm.WindRestingPower = vm.WindRestingPower - 1; vm.MenuStateText = $"Hotkey triggered: DecreaseRest ({vm.AppSettings.DecreaseWindRestingKey})"; } catch { }
+                            });
+                        }
+                    }
+                    catch { }
+                }
+            }
+            catch { }
 
             Loaded  += (_, _) => Shared.WpfMessageBridge.Attach(this);
             // Capture key presses when window has focus
