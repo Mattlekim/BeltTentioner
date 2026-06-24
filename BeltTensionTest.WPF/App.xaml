@@ -55,6 +55,228 @@ ContentTemplate="{TemplateBinding ContentTemplate}">
                     </Setter.Value>
                 </Setter>
             </Style>
+            <Style x:Key="RedButton" TargetType="{x:Type Button}">
+                <Setter Property="Background" Value="Red"/>
+                <Setter Property="Foreground" Value="Black"/>
+                <Setter Property="FontFamily" Value="Segoe UI"/>
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Padding" Value="12,5"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type Button}">
+                            <Border Background="{TemplateBinding Background}"
+								CornerRadius="4"
+								Padding="{TemplateBinding Padding}">
+                                <ContentPresenter
+HorizontalAlignment="Center"
+VerticalAlignment="Center"
+Content="{TemplateBinding Content}"
+ContentTemplate="{TemplateBinding ContentTemplate}">
+                                    <ContentPresenter.Resources>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="Black"/>
+                                        </Style>
+                                    </ContentPresenter.Resources>
+                                </ContentPresenter>
+
+
+
+
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Opacity" Value="0.85"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter Property="Opacity" Value="0.7"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Background" Value="{StaticResource DisabledBrush}"/>
+                                    <Setter Property="Foreground" Value="#666680"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style x:Key="GreenButton" TargetType="{x:Type Button}">
+                <Setter Property="Background" Value="Green"/>
+                <Setter Property="Foreground" Value="Black"/>
+                <Setter Property="FontFamily" Value="Segoe UI"/>
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Padding" Value="12,5"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type Button}">
+                            <Border Background="{TemplateBinding Background}"
+								CornerRadius="4"
+								Padding="{TemplateBinding Padding}">
+                                <ContentPresenter
+HorizontalAlignment="Center"
+VerticalAlignment="Center"
+Content="{TemplateBinding Content}"
+ContentTemplate="{TemplateBinding ContentTemplate}">
+                                    <ContentPresenter.Resources>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="Black"/>
+                                        </Style>
+                                    </ContentPresenter.Resources>
+                                </ContentPresenter>
+
+
+
+
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Opacity" Value="0.85"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter Property="Opacity" Value="0.7"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Background" Value="{StaticResource DisabledBrush}"/>
+                                    <Setter Property="Foreground" Value="#666680"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style x:Key="OrangeButton" TargetType="{x:Type Button}">
+                <Setter Property="Background" Value="Orange"/>
+                <Setter Property="Foreground" Value="Black"/>
+                <Setter Property="FontFamily" Value="Segoe UI"/>
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Padding" Value="12,5"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type Button}">
+                            <Border Background="{TemplateBinding Background}"
+								CornerRadius="4"
+								Padding="{TemplateBinding Padding}">
+                                <ContentPresenter
+HorizontalAlignment="Center"
+VerticalAlignment="Center"
+Content="{TemplateBinding Content}"
+ContentTemplate="{TemplateBinding ContentTemplate}">
+                                    <ContentPresenter.Resources>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="Black"/>
+                                        </Style>
+                                    </ContentPresenter.Resources>
+                                </ContentPresenter>
+
+
+
+
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Opacity" Value="0.85"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter Property="Opacity" Value="0.7"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Background" Value="{StaticResource DisabledBrush}"/>
+                                    <Setter Property="Foreground" Value="#666680"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="MyTabControl" TargetType="TabControl">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="BorderBrush" Value="Transparent"/>
+                <Setter Property="Foreground" Value="#A0A0BE"/>
+
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="TabControl">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- TAB HEADERS -->
+                                <TabPanel Grid.Row="0"
+                      IsItemsHost="True"
+                      Background="Transparent"
+                      Margin="0"/>
+
+                                <!-- TAB CONTENT -->
+                                <ContentPresenter Grid.Row="1"
+                              ContentSource="SelectedContent"/>
+                            </Grid>
+
+                            <!-- Inject TabItem style here -->
+                            <ControlTemplate.Resources>
+
+                                <Style TargetType="TabItem">
+                                    <Setter Property="Foreground" Value="#A0A0BE"/>
+                                    <Setter Property="Padding" Value="8,4"/>
+                                    <Setter Property="Margin" Value="0,0,4,0"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="TabItem">
+                                                <Border x:Name="Bd"
+                                    Background="Transparent"
+                                    Padding="{TemplateBinding Padding}"
+                                    CornerRadius="4,4,0,0">
+                                                    <ContentPresenter ContentSource="Header"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  RecognizesAccessKey="True"/>
+                                                </Border>
+
+                                                <ControlTemplate.Triggers>
+
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter TargetName="Bd"
+                                            Property="Background"
+                                            Value="MidnightBlue"/>
+                                                        <Setter Property="Foreground"
+                                            Value="#12121E"/>
+                                                    </Trigger>
+
+                                                    <MultiTrigger>
+                                                        <MultiTrigger.Conditions>
+                                                            <Condition Property="IsMouseOver" Value="True"/>
+                                                            <Condition Property="IsSelected" Value="False"/>
+                                                        </MultiTrigger.Conditions>
+                                                        <Setter TargetName="Bd"
+                                            Property="Background"
+                                            Value="#22222A"/>
+                                                    </MultiTrigger>
+
+                                                    <Trigger Property="IsEnabled" Value="False">
+                                                        <Setter Property="Foreground" Value="#66667A"/>
+                                                    </Trigger>
+
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+
+                            </ControlTemplate.Resources>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

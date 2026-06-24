@@ -26,60 +26,18 @@
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
             <Button x:Name="BtnSurge" Content="Sweep Surge"
                     Command="{Binding StartSurgeCommand}"
-                    Width="110" Margin="0,0,6,0">
-                <Button.Style>
-                    <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding SurgeActive}" Value="True">
-                                <Setter Property="Background" Value="#3A5AFF"/>
-                                <Setter Property="BorderThickness" Value="2"/>
-                                <Setter Property="BorderBrush" Value="White"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Button.Style>
-            </Button>
+                    Width="110" Margin="0,0,6,0" Style="{DynamicResource BlueButton}"/>
             <Button Content="Sweep Sway"
                     Command="{Binding StartSwayCommand}"
-                    Width="110" Margin="0,0,6,0">
-                <Button.Style>
-                    <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-                        <Setter Property="Background" Value="#30A050"/>
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding SwayActive}" Value="True">
-                                <Setter Property="Background" Value="#20C060"/>
-                                <Setter Property="BorderThickness" Value="2"/>
-                                <Setter Property="BorderBrush" Value="White"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Button.Style>
-            </Button>
+                    Width="110" Margin="0,0,6,0" Style="{DynamicResource GreenButton}"/>
             <Button Content="Sweep Heave"
                     Command="{Binding StartHeaveCommand}"
-                    Width="110" Margin="0,0,6,0">
-                <Button.Style>
-                    <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-                        <Setter Property="Background" Value="#C06010"/>
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding HeaveActive}" Value="True">
-                                <Setter Property="Background" Value="#FF8020"/>
-                                <Setter Property="BorderThickness" Value="2"/>
-                                <Setter Property="BorderBrush" Value="White"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Button.Style>
-            </Button>
+                    Width="110" Margin="0,0,6,0" Style="{DynamicResource OrangeButton}"/>
             <Button Content="Stop"
                     Command="{Binding StopCommand}"
                     Background="#DC3C3C"
-                    Width="80"/>
-			<Button Content="Slow"
-				
-				Background="#FF401313"
-				Width="80" Click="Button_Click"/>
-		</StackPanel>
+                    Width="80" Style="{DynamicResource RedButton}"/>
+        </StackPanel>
 
         <!-- Status -->
         <TextBlock Grid.Row="1"

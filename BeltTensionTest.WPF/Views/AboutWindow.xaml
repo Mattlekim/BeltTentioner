@@ -38,7 +38,7 @@
         <Border Padding="16" Background="{StaticResource BgBrush}">
             <StackPanel Margin="8" VerticalAlignment="Center">
                 <TextBlock Text="Belt Tensioner" FontSize="22" FontWeight="Bold" Foreground="{StaticResource TextBrightBrush}" HorizontalAlignment="Center"/>
-                <TextBlock Text="Version 1.0.46" FontSize="13" Margin="0,6,0,0" HorizontalAlignment="Center"/>
+                <TextBlock x:Name="VersionText" Text="version" FontSize="13" Margin="0,6,0,0" HorizontalAlignment="Center"/>
                 <TextBlock Text="&#169; 2026 Riddlersoft Games" FontSize="12" Margin="0,8,0,0" HorizontalAlignment="Center"/>
                 <Button Content="OK" Width="80" Margin="0,18,0,0" HorizontalAlignment="Center" Click="OK_Click"/>
             </StackPanel>

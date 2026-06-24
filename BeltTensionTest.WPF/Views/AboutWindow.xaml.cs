@@ -10,6 +10,13 @@ namespace BeltTensionTest.WPF.Views
         public AboutWindow() => InitializeComponent();
         private void OK_Click(object s, RoutedEventArgs e) => Close();
 
+        protected override void OnInitialized(EventArgs e)
+        {
+            base.OnInitialized(e);
+
+            VersionText.Text = $"Version: {Services.UpdateService.AppVersion}";
+        }
+
         private void TitleBar_MouseDown(object sender, MouseButtonEventArgs e)
         {
             if (e.ChangedButton == MouseButton.Left)

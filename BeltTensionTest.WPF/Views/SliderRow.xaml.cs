@@ -8,6 +8,11 @@ namespace BeltTensionTest.WPF.Views
 {
     public partial class SliderRow : UserControl
     {
+        public static readonly DependencyProperty ResourceKeyProperty =
+            DependencyProperty.Register(nameof(ResourceKey), typeof(string), typeof(SliderRow), new PropertyMetadata("", OnResourceKeyChanged));
+
+        public string ResourceKey { get => (string)GetValue(ResourceKeyProperty); set => SetValue(ResourceKeyProperty, value); }
+
         public static readonly DependencyProperty LabelProperty =
             DependencyProperty.Register(nameof(Label), typeof(string), typeof(SliderRow), new PropertyMetadata(""));
         public static readonly DependencyProperty MinProperty =
@@ -38,12 +43,16 @@ namespace BeltTensionTest.WPF.Views
         public SliderRow()
         {
             InitializeComponent();
-            Loaded += (s, e) => { UpdateTooltips(); UpdateValueBinding(); AddButtons(); };
+            Loaded += (s, e) => { UpdateFromResource(); UpdateTooltips(); UpdateValueBinding(); AddButtons(); };
 
             // Watch for Label property changes so tooltips stay in sync
             var descriptor = System.ComponentModel.DependencyPropertyDescriptor.FromProperty(LabelProperty, typeof(SliderRow));
             if (descriptor != null)
                 descriptor.AddValueChanged(this, (s, e) => UpdateTooltips());
+
+            var resDescriptor = System.ComponentModel.DependencyPropertyDescriptor.FromProperty(ResourceKeyProperty, typeof(SliderRow));
+            if (resDescriptor != null)
+                resDescriptor.AddValueChanged(this, (s, e) => UpdateFromResource());
 
         }
 
@@ -256,12 +265,63 @@ namespace BeltTensionTest.WPF.Views
             var textbox = FindChild<TextBox>(this);
             if (slider != null)
             {
-                slider.ToolTip = string.IsNullOrWhiteSpace(Label) ? null : $"Sets the {Label} value.";
+                // If a resource-specific tooltip exists use it, otherwise fall back to a generated tooltip
+                string? resTip = null;
+                try
+                {
+                    if (!string.IsNullOrWhiteSpace(ResourceKey))
+                        resTip = BeltTensionTest.WPF.Properties.Resources.ResourceManager.GetString(ResourceKey + "ToolTip", BeltTensionTest.WPF.Properties.Resources.Culture);
+                }
+                catch { }
+
+                // Wrap tooltip text in a TextBlock so long lines wrap to multiple lines
+                string? tipText = !string.IsNullOrWhiteSpace(resTip) ? resTip : (string.IsNullOrWhiteSpace(Label) ? null : $"Sets the {Label} value.");
+                if (string.IsNullOrWhiteSpace(tipText))
+                    slider.ToolTip = null;
+                else
+                    slider.ToolTip = new TextBlock { Text = tipText, TextWrapping = System.Windows.TextWrapping.Wrap, MaxWidth = 400 };
             }
             if (textbox != null)
             {
-                textbox.ToolTip = string.IsNullOrWhiteSpace(Label) ? null : $"Current {Label} value";
+                string? resTip = null;
+                try
+                {
+                    if (!string.IsNullOrWhiteSpace(ResourceKey))
+                        resTip = BeltTensionTest.WPF.Properties.Resources.ResourceManager.GetString(ResourceKey + "CurrentValueToolTip", BeltTensionTest.WPF.Properties.Resources.Culture);
+                }
+                catch { }
+
+                // Wrap tooltip text in a TextBlock so long lines wrap to multiple lines
+                string? curTipText = !string.IsNullOrWhiteSpace(resTip) ? resTip : (string.IsNullOrWhiteSpace(Label) ? null : $"Current {Label} value");
+                if (string.IsNullOrWhiteSpace(curTipText))
+                    textbox.ToolTip = null;
+                else
+                    textbox.ToolTip = new TextBlock { Text = curTipText, TextWrapping = System.Windows.TextWrapping.Wrap, MaxWidth = 320 };
             }
+        }
+
+        private static void OnResourceKeyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (d is SliderRow row)
+                row.UpdateFromResource();
+        }
+
+        private void UpdateFromResource()
+        {
+            if (string.IsNullOrWhiteSpace(ResourceKey)) return;
+
+            try
+            {
+                var rm = BeltTensionTest.WPF.Properties.Resources.ResourceManager;
+                var culture = BeltTensionTest.WPF.Properties.Resources.Culture;
+                var txt = rm.GetString(ResourceKey, culture);
+                if (!string.IsNullOrWhiteSpace(txt))
+                    Label = txt;
+
+                // if resource contains specific tooltip keys, UpdateTooltips will pick them up
+                UpdateTooltips();
+            }
+            catch { }
         }
 
         private void UpdateValueBinding()

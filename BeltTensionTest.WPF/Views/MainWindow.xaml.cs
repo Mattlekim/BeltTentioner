@@ -290,5 +290,7 @@ namespace BeltTensionTest.WPF.Views
 
             bnt_Connect.IsEnabled = false;
         }
+
+     
     }
 }

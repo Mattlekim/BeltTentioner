@@ -8,7 +8,7 @@ namespace BeltTensionTest.WPF.Views
     public partial class BuyMeCoffeeWindow : Window
     {
         // Replace with your actual BuyMeACoffee page
-        private const string CoffeeUrl = "https://www.buymeacoffee.com/yourname";
+        private const string CoffeeUrl = "https://www.buymeacoffee.com/mattlekim";
 
         public BuyMeCoffeeWindow()
         {

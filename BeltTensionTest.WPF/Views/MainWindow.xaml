@@ -4,6 +4,7 @@
         xmlns:vm="clr-namespace:BeltTensionTest.WPF.ViewModels"
         xmlns:views="clr-namespace:BeltTensionTest.WPF.Views"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        xmlns:properties="clr-namespace:BeltTensionTest.WPF.Properties"
         Title="BBT"
         Width="420" MinWidth="420"
         MinHeight="400"
@@ -209,33 +210,8 @@
             </GroupBox>
 
             <Border Margin="10,0,10,8" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6" Background="{StaticResource BgBrush}">
-                <TabControl Width="370" BorderThickness="0">
-                    <TabControl.Resources>
-                        <!-- Local TabItem style to match app theme and remove white chrome -->
-                        <Style TargetType="{x:Type TabItem}">
-                            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
-                            <Setter Property="Background" Value="Transparent"/>
-                            <Setter Property="Padding" Value="10,6"/>
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="{x:Type TabItem}">
-                                        <Border x:Name="Bd" Background="Transparent" Padding="{TemplateBinding Padding}" CornerRadius="4">
-                                            <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsSelected" Value="True">
-                                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource BgLightBrush}"/>
-                                                <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
-                                            </Trigger>
-                                            <Trigger Property="IsEnabled" Value="False">
-                                                <Setter Property="Foreground" Value="{StaticResource DisabledBrush}"/>
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                        </Style>
-                    </TabControl.Resources>
+                <TabControl Style="{StaticResource MyTabControl}" Width="370" BorderThickness="0">
+                    
                     <TabControl.Background>
                         <StaticResource ResourceKey="BgBrush"/>
                     </TabControl.Background>
@@ -275,8 +251,8 @@
                                               Margin="0,4">
                                             <StackPanel>
                                                 <views:SliderRow Label="Curve"    Min="0.1" Max="5"
-                                                                 
-                                                                 
+                                                                
+                                                             ToolTip="{x:Static properties:Resources.Curve}"
                                                              Value="{Binding BrakingCurve, Mode=TwoWay}"
                                                              FillBrush="#6496FF" Margin="0,3"/>
                                                 <views:SliderRow Label="Strength" Min="1"   Max="200"
@@ -396,7 +372,7 @@
                                             Command="{Binding TestAbsCommand}"
                                             HorizontalAlignment="Left"
                                             Width="80" Margin="0,6,0,2"
-                                            Background="#DC3C3C"/>
+                                            Background="#DC3C3C" Style="{DynamicResource RedButton}"/>
                                     </StackPanel>
                                 </GroupBox>
 

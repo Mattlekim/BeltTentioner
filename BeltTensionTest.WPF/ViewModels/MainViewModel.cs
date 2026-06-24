@@ -611,6 +611,12 @@ namespace BeltTensionTest.WPF.ViewModels
                     using var cts = new CancellationTokenSource();
                     bool ok = await Device.ConnectAsync(cts.Token).ConfigureAwait(false);
                     if (ok) Application.Current.Dispatcher.Invoke(() => OnConnectionSuccess());
+                    else
+                        Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            DeviceStatusText = "Connection Failed!";
+                            ConnectButtonEnabled = true;
+                        });
                 });
             }
             // Silent update check

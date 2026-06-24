@@ -1,95 +1,85 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Window x:Class="BeltTensionTest.WPF.Views.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="Preferences" Height="225" Width="360" WindowStartupLocation="CenterOwner"
-        Background="#12121E" Foreground="#A0A0BE" FontFamily="Segoe UI">
+        Background="#12121E" Foreground="#A0A0BE" FontFamily="Segoe UI" WindowStyle="None">
 
-    <Window.Resources>
-        <Style TargetType="TabControl">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-            <Setter Property="Foreground" Value="#A0A0BE" />
-        </Style>
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="40" ResizeBorderThickness="6"/>
+    </shell:WindowChrome.WindowChrome>
 
-        <Style TargetType="TabItem">
-            <Setter Property="Foreground" Value="#A0A0BE" />
-            <Setter Property="Padding" Value="8,4" />
-            <Setter Property="Margin" Value="0,0,4,0" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="TabItem">
-                        <Border x:Name="Bd" Background="Transparent" Padding="{TemplateBinding Padding}" CornerRadius="4,4,0,0">
-                            <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#FFAA20" />
-                                <Setter Property="Foreground" Value="#12121E" />
-                            </Trigger>
-                            <!-- Only show hover background when the tab is NOT selected to avoid visual flicker -->
-                            <MultiTrigger>
-                                <MultiTrigger.Conditions>
-                                    <Condition Property="IsMouseOver" Value="True" />
-                                    <Condition Property="IsSelected" Value="False" />
-                                </MultiTrigger.Conditions>
-                                <Setter TargetName="Bd" Property="Background" Value="#22222A" />
-                            </MultiTrigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Foreground" Value="#66667A" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-    </Window.Resources>
+    <DockPanel>
+        <Border DockPanel.Dock="Top" Height="40" Background="{StaticResource BgLightBrush}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock VerticalAlignment="Center" Margin="12,0,0,0" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Text="BBT" MouseDown="TitleBar_MouseDown"/>
+                <StackPanel Orientation="Horizontal" Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0"
+                            shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button Width="36" Height="24" Margin="2,0" Click="Minimize_Click" Content="─" ToolTip="Minimize" Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
+                            shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                            FontSize="14" FontWeight="SemiBold" Padding="0" BorderThickness="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+                    <Button Width="36" Height="24" Margin="2,0" Click="MaximizeRestore_Click" Content="□" ToolTip="Maximize" Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
+                            shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                            FontSize="14" FontWeight="SemiBold" Padding="0" BorderThickness="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+                    <Button Width="36" Height="24" Margin="2,0" Click="Close_Click" Content="X" ToolTip="Close" Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
+                            shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                            FontSize="14" FontWeight="SemiBold" Padding="0" BorderThickness="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+                </StackPanel>
+            </Grid>
+        </Border>
 
-    <Grid Margin="12">
-        <TabControl Background="Transparent" BorderBrush="Transparent">
-            <TabItem Header="General">
-                <Grid Margin="6">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <StackPanel Grid.Row="0" Orientation="Vertical" Margin="0,0,0,8">
-                        <CheckBox x:Name="chk_StartWithWindows" Content="Start with Windows" Foreground="#A0A0BE" Margin="0,4"
-                                  ToolTip="Start the application automatically when Windows starts."/>
-                        <CheckBox x:Name="chk_MinimizeToTaskbar" Content="Minimize to taskbar when closed" Foreground="#A0A0BE" Margin="0,4"
-                                  ToolTip="When closed, minimize the app to the taskbar instead of exiting."/>
-                    </StackPanel>
-                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-                        <Button x:Name="btn_Ok" Content="OK" Width="80" Margin="0,0,8,0" Click="Ok_Click" Background="#FFAA20" Foreground="#12121E"/>
-                        <Button x:Name="btn_Cancel" Content="Cancel" Width="80" Click="Cancel_Click"/>
-                    </StackPanel>
-                </Grid>
-            </TabItem>
+        <Grid Margin="12">
+        <TabControl Style="{StaticResource MyTabControl}" Background="Transparent" BorderBrush="Transparent">
+                <TabItem Header="General">
+                    <Grid Margin="6">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <StackPanel Grid.Row="0" Orientation="Vertical" Margin="0,0,0,8">
+                            <CheckBox x:Name="chk_StartWithWindows" Content="Start with Windows" Foreground="#A0A0BE" Margin="0,4"
+                                      ToolTip="Start the application automatically when Windows starts."/>
+                            <CheckBox x:Name="chk_MinimizeToTaskbar" Content="Minimize to taskbar when closed" Foreground="#A0A0BE" Margin="0,4"
+                                      ToolTip="When closed, minimize the app to the taskbar instead of exiting."/>
+                        </StackPanel>
+                        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                            <Button x:Name="btn_Ok" Content="OK" Width="80" Margin="0,0,8,0" Click="Ok_Click" Style="{DynamicResource GreenButton}"/>
+                            <Button x:Name="btn_Cancel" Content="Cancel" Width="80" Click="Cancel_Click" Style="{DynamicResource BlueButton}"/>
+                        </StackPanel>
+                    </Grid>
+                </TabItem>
 
-            <TabItem Header="KeyBindings">
-                <Grid Margin="8">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
+                <TabItem Header="KeyBindings">
+                    <Grid Margin="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
 
-                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Toggle fan:" VerticalAlignment="Center" Margin="0,6" Foreground="#A0A0BE" />
-                    <TextBox x:Name="txt_ToggleFan" Grid.Row="0" Grid.Column="1" Margin="6,4" IsReadOnly="True" PreviewKeyDown="KeyBox_PreviewKeyDown" GotFocus="KeyBox_GotFocus" PreviewMouseLeftButtonDown="KeyBox_PreviewMouseDown" Focusable="False" IsTabStop="False" />
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Toggle fan:" VerticalAlignment="Center" Margin="0,6" Foreground="#A0A0BE" />
+                        <TextBox x:Name="txt_ToggleFan" Grid.Row="0" Grid.Column="1" Margin="6,4" IsReadOnly="True" PreviewKeyDown="KeyBox_PreviewKeyDown" GotFocus="KeyBox_GotFocus" PreviewMouseLeftButtonDown="KeyBox_PreviewMouseDown" Focusable="False" IsTabStop="False" />
 
-                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Increase resting power:" VerticalAlignment="Center" Margin="0,6" Foreground="#A0A0BE" />
-                    <TextBox x:Name="txt_IncreaseWindRest" Grid.Row="1" Grid.Column="1" Margin="6,4" IsReadOnly="True" PreviewKeyDown="KeyBox_PreviewKeyDown" GotFocus="KeyBox_GotFocus" PreviewMouseLeftButtonDown="KeyBox_PreviewMouseDown" Focusable="False" IsTabStop="False" />
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Increase resting power:" VerticalAlignment="Center" Margin="0,6" Foreground="#A0A0BE" />
+                        <TextBox x:Name="txt_IncreaseWindRest" Grid.Row="1" Grid.Column="1" Margin="6,4" IsReadOnly="True" PreviewKeyDown="KeyBox_PreviewKeyDown" GotFocus="KeyBox_GotFocus" PreviewMouseLeftButtonDown="KeyBox_PreviewMouseDown" Focusable="False" IsTabStop="False" />
 
-                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Decrease resting power:" VerticalAlignment="Center" Margin="0,6" Foreground="#A0A0BE" />
-                    <TextBox x:Name="txt_DecreaseWindRest" Grid.Row="2" Grid.Column="1" Margin="6,4" IsReadOnly="True" PreviewKeyDown="KeyBox_PreviewKeyDown" GotFocus="KeyBox_GotFocus" PreviewMouseLeftButtonDown="KeyBox_PreviewMouseDown" Focusable="False" IsTabStop="False" />
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Decrease resting power:" VerticalAlignment="Center" Margin="0,6" Foreground="#A0A0BE" />
+                        <TextBox x:Name="txt_DecreaseWindRest" Grid.Row="2" Grid.Column="1" Margin="6,4" IsReadOnly="True" PreviewKeyDown="KeyBox_PreviewKeyDown" GotFocus="KeyBox_GotFocus" PreviewMouseLeftButtonDown="KeyBox_PreviewMouseDown" Focusable="False" IsTabStop="False" />
 
-                </Grid>
-            </TabItem>
-        </TabControl>
-    </Grid>
+                    </Grid>
+                </TabItem>
+            </TabControl>
+        </Grid>
+    </DockPanel>
 </Window>
