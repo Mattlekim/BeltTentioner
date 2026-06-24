@@ -1062,19 +1062,19 @@ namespace BeltTensionTest.WPF.ViewModels
         // Generate a simple wind power vs speed graph based on current sliders.
         // Formula: for speed < WindMinSpeed -> 0, otherwise linear ramp up to WindPowerPercentage
         // across displayed max speed (defaults to 150 matching slider max).
-        private void GenerateWindGraphImage(int width = 320, int height = 140)
+        private void GenerateWindGraphImage(int width = 320, int height = 160)
         {
             try
             {
                 int w = Math.Max(100, width);
-                int h = Math.Max(60, height);
+                int h = Math.Max(80, height);
                 using var bmp = new System.Drawing.Bitmap(w, h);
                 using var g = System.Drawing.Graphics.FromImage(bmp);
                 g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
                 // background
                 g.Clear(System.Drawing.Color.FromArgb(18, 18, 30));
 
-                int lp = 36, rp = 12, tp = 8, bp = 24;
+                int lp = 36, rp = 12, tp = 18, bp = 32;
                 int gw = w - lp - rp;
                 int gh = h - tp - bp;
                 if (gw <= 0 || gh <= 0) return;
@@ -1089,9 +1089,14 @@ namespace BeltTensionTest.WPF.ViewModels
                 for (int i = 0; i <= 4; i++)
                     g.DrawLine(gridPen, lp, tp + i * gh / 4, lp + gw, tp + i * gh / 4);
 
+
+
                 // labels (min/max)
                 using var lblBrush = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(160, 160, 190));
                 using var lblFont = new System.Drawing.Font("Segoe UI", 8f);
+                
+                
+                g.DrawString("Power", lblFont, lblBrush, lp - 18, tp - 20   );
                 // Y labels: 0 .. 255 (PWM)
                 double maxYVal = 255.0;
                 for (int i = 0; i <= 4; i++)
@@ -1111,6 +1116,8 @@ namespace BeltTensionTest.WPF.ViewModels
                     g.DrawString(sp.ToString(), lblFont, lblBrush, sx - sz.Width/2, tp + gh + 4);
                 }
 
+                g.DrawString("Speed", lblFont, lblBrush, lp + gw / 2 - 40, tp + gh + 16);
+                
                 // compute points
                 var pts = new List<System.Drawing.PointF>();
                 // Use same formula as StartWindLoop: apply WindMinSpeed and WindCurve, produce PWM 0..255
@@ -1123,14 +1130,14 @@ namespace BeltTensionTest.WPF.ViewModels
                         // speed below min -> use resting power
                         if (speed < WindMinSpeed)
                         {
-                            double restPct = WindRestingPower / 100.0;
+                            double restPct = WindRestingPower / 255;
                             pwm = Math.Round(restPct * 255.0);
                             pwm = Math.Clamp(pwm, 0.0, 255.0);
                         }
                         else
                         {
-                            double maxPct = WindPowerPercentage / 100.0;
-                            double minPct = WindMinPower / 100.0;
+                            double maxPct = WindPowerPercentage / 255;
+                            double minPct = WindMinPower / 255;
                             double norm = (speed - WindMinSpeed) / (MaxSpeed - WindMinSpeed);
                             norm = Math.Clamp(norm, 0.0, 1.0);
                             double curved = Math.Pow(norm, WindCurve <= 0 ? 1.0 : WindCurve);
