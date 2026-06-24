@@ -27,9 +27,12 @@ namespace BeltTensionTest.WPF.Views
             // Initialize keybinding boxes
             if (_vm.AppSettings != null)
             {
-                txt_ToggleFan.Text = _vm.AppSettings.ToggleFanKey ?? string.Empty;
-                txt_IncreaseWindRest.Text = _vm.AppSettings.IncreaseWindRestingKey ?? string.Empty;
-                txt_DecreaseWindRest.Text = _vm.AppSettings.DecreaseWindRestingKey ?? string.Empty;
+                kb_ToggleFan.Gesture = _vm.AppSettings.ToggleFanKey ?? string.Empty;
+                kb_ToggleFan.IsGlobal = _vm.AppSettings.ToggleFanGlobal;
+                kb_IncreaseWindRest.Gesture = _vm.AppSettings.IncreaseWindRestingKey ?? string.Empty;
+                kb_IncreaseWindRest.IsGlobal = _vm.AppSettings.IncreaseWindRestingGlobal;
+                kb_DecreaseWindRest.Gesture = _vm.AppSettings.DecreaseWindRestingKey ?? string.Empty;
+                kb_DecreaseWindRest.IsGlobal = _vm.AppSettings.DecreaseWindRestingGlobal;
             }
 
             // Also load on-disk settings to ensure mappings saved from previous runs are shown
@@ -38,32 +41,27 @@ namespace BeltTensionTest.WPF.Views
                 var disk = _settingsSvc.Load();
                 if (disk != null)
                 {
-                    if (!string.IsNullOrWhiteSpace(disk.ToggleFanKey)) txt_ToggleFan.Text = disk.ToggleFanKey;
-                    if (!string.IsNullOrWhiteSpace(disk.IncreaseWindRestingKey)) txt_IncreaseWindRest.Text = disk.IncreaseWindRestingKey;
-                    if (!string.IsNullOrWhiteSpace(disk.DecreaseWindRestingKey)) txt_DecreaseWindRest.Text = disk.DecreaseWindRestingKey;
+                    if (!string.IsNullOrWhiteSpace(disk.ToggleFanKey)) kb_ToggleFan.Gesture = disk.ToggleFanKey;
+                    kb_ToggleFan.IsGlobal = disk.ToggleFanGlobal;
+                    if (!string.IsNullOrWhiteSpace(disk.IncreaseWindRestingKey)) kb_IncreaseWindRest.Gesture = disk.IncreaseWindRestingKey;
+                    kb_IncreaseWindRest.IsGlobal = disk.IncreaseWindRestingGlobal;
+                    if (!string.IsNullOrWhiteSpace(disk.DecreaseWindRestingKey)) kb_DecreaseWindRest.Gesture = disk.DecreaseWindRestingKey;
+                    kb_DecreaseWindRest.IsGlobal = disk.DecreaseWindRestingGlobal;
                 }
             }
             catch { }
 
             // Ensure no textbox is marked ready for capture by default; require explicit selection
+            // Wire up keybinding control change handlers so mappings are saved immediately when changed
             try
             {
-                txt_ToggleFan.Tag = false;
-                txt_IncreaseWindRest.Tag = false;
-                txt_DecreaseWindRest.Tag = false;
+                kb_ToggleFan.GestureChanged += Kb_GestureChanged;
+                kb_IncreaseWindRest.GestureChanged += Kb_GestureChanged;
+                kb_DecreaseWindRest.GestureChanged += Kb_GestureChanged;
 
-                // restore visuals in case
-                txt_ToggleFan.BorderBrush = null;
-                txt_ToggleFan.BorderThickness = new System.Windows.Thickness(1);
-                txt_ToggleFan.Background = System.Windows.Media.Brushes.Transparent;
-
-                txt_IncreaseWindRest.BorderBrush = null;
-                txt_IncreaseWindRest.BorderThickness = new System.Windows.Thickness(1);
-                txt_IncreaseWindRest.Background = System.Windows.Media.Brushes.Transparent;
-
-                txt_DecreaseWindRest.BorderBrush = null;
-                txt_DecreaseWindRest.BorderThickness = new System.Windows.Thickness(1);
-                txt_DecreaseWindRest.Background = System.Windows.Media.Brushes.Transparent;
+                kb_ToggleFan.GlobalChanged += Kb_GlobalChanged;
+                kb_IncreaseWindRest.GlobalChanged += Kb_GlobalChanged;
+                kb_DecreaseWindRest.GlobalChanged += Kb_GlobalChanged;
             }
             catch { }
 
@@ -98,9 +96,12 @@ namespace BeltTensionTest.WPF.Views
             _vm.AppSettings.StartWithWindows = startWithWindows;
             _vm.AppSettings.MinimizeToTaskbarOnClose = minimizeToTaskbar;
             // Save keybindings
-            _vm.AppSettings.ToggleFanKey = txt_ToggleFan.Text ?? string.Empty;
-            _vm.AppSettings.IncreaseWindRestingKey = txt_IncreaseWindRest.Text ?? string.Empty;
-            _vm.AppSettings.DecreaseWindRestingKey = txt_DecreaseWindRest.Text ?? string.Empty;
+            _vm.AppSettings.ToggleFanKey = kb_ToggleFan.Gesture ?? string.Empty;
+            _vm.AppSettings.ToggleFanGlobal = kb_ToggleFan.IsGlobal;
+            _vm.AppSettings.IncreaseWindRestingKey = kb_IncreaseWindRest.Gesture ?? string.Empty;
+            _vm.AppSettings.IncreaseWindRestingGlobal = kb_IncreaseWindRest.IsGlobal;
+            _vm.AppSettings.DecreaseWindRestingKey = kb_DecreaseWindRest.Gesture ?? string.Empty;
+            _vm.AppSettings.DecreaseWindRestingGlobal = kb_DecreaseWindRest.IsGlobal;
 
             // Persist
             _settingsSvc.Save(_vm.AppSettings);
@@ -163,127 +164,38 @@ namespace BeltTensionTest.WPF.Views
             Close();
         }
 
-        private void KeyBox_GotFocus(object sender, RoutedEventArgs e)
+        private void Kb_GestureChanged(object? sender, EventArgs e)
         {
-            if (sender is TextBox tb)
+            try
             {
-                // Mark textbox as ready to capture a single keypress and select text.
-                try { tb.SelectAll(); } catch { }
-                try
-                {
-                    tb.Tag = true;
-                    // visually indicate waiting-for-key state
-                    tb.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFAA20"));
-                    tb.BorderThickness = new Thickness(2);
-                    tb.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#1A1A22"));
-                }
-                catch { }
+                if (_vm?.AppSettings == null) return;
+                if (sender == kb_ToggleFan)
+                    _vm.AppSettings.ToggleFanKey = kb_ToggleFan.Gesture ?? string.Empty;
+                else if (sender == kb_IncreaseWindRest)
+                    _vm.AppSettings.IncreaseWindRestingKey = kb_IncreaseWindRest.Gesture ?? string.Empty;
+                else if (sender == kb_DecreaseWindRest)
+                    _vm.AppSettings.DecreaseWindRestingKey = kb_DecreaseWindRest.Gesture ?? string.Empty;
+
+                _settingsSvc.Save(_vm.AppSettings);
             }
+            catch { }
         }
 
-        private void KeyBox_PreviewMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        private void Kb_GlobalChanged(object? sender, EventArgs e)
         {
-            // Only arm textbox for capture when user explicitly clicks it. Make it focusable then focus.
-            if (sender is TextBox tb)
+            try
             {
-                try
-                {
-                    tb.Focusable = true;
-                    tb.IsTabStop = true;
-                    tb.Tag = true;
-                    tb.Focus();
-                    tb.SelectAll();
-                    e.Handled = true;
-                }
-                catch { }
+                if (_vm?.AppSettings == null) return;
+                if (sender == kb_ToggleFan)
+                    _vm.AppSettings.ToggleFanGlobal = kb_ToggleFan.IsGlobal;
+                else if (sender == kb_IncreaseWindRest)
+                    _vm.AppSettings.IncreaseWindRestingGlobal = kb_IncreaseWindRest.IsGlobal;
+                else if (sender == kb_DecreaseWindRest)
+                    _vm.AppSettings.DecreaseWindRestingGlobal = kb_DecreaseWindRest.IsGlobal;
+
+                _settingsSvc.Save(_vm.AppSettings);
             }
-        }
-
-        private void KeyBox_PreviewKeyDown(object sender, KeyEventArgs e)
-        {
-            // Capture combination excluding modifier-only presses
-            var key = e.Key == Key.System ? e.SystemKey : e.Key;
-            if (key == Key.LeftCtrl || key == Key.RightCtrl || key == Key.LeftAlt || key == Key.RightAlt || key == Key.LeftShift || key == Key.RightShift || key == Key.LWin || key == Key.RWin)
-            {
-                e.Handled = true;
-                return;
-            }
-
-            var mods = Keyboard.Modifiers;
-
-            // Build a gesture string manually to avoid KeyGesture throwing for unsupported combinations
-            string s = string.Empty;
-            if ((mods & ModifierKeys.Control) != 0) s += "Ctrl+";
-            if ((mods & ModifierKeys.Alt) != 0) s += "Alt+";
-            if ((mods & ModifierKeys.Shift) != 0) s += "Shift+";
-            if ((mods & ModifierKeys.Windows) != 0) s += "Win+";
-
-            // Use the Key enum name for the key portion
-            s += key.ToString();
-
-            if (sender is TextBox tb)
-            {
-                // Only capture if textbox was marked as ready (first keypress after focus).
-                var ready = tb.Tag as bool? ?? false;
-                if (!ready)
-                {
-                    // Ignore subsequent keypresses while the box is not ready to capture
-                    e.Handled = true;
-                    return;
-                }
-
-                tb.Text = s;
-                // Mark as captured so further keys don't overwrite until user focuses again
-                tb.Tag = false;
-
-                // restore visuals
-                try
-                {
-                    tb.BorderBrush = null;
-                    tb.BorderThickness = new Thickness(1);
-                    tb.Background = Brushes.Transparent;
-                }
-                catch { }
-
-                // Persist the mapping immediately so a breakpoint on Save will be hit
-                try
-                {
-                    if (_vm?.AppSettings != null)
-                    {
-                        if (tb == txt_ToggleFan)
-                            _vm.AppSettings.ToggleFanKey = s;
-                        else if (tb == txt_IncreaseWindRest)
-                            _vm.AppSettings.IncreaseWindRestingKey = s;
-                        else if (tb == txt_DecreaseWindRest)
-                            _vm.AppSettings.DecreaseWindRestingKey = s;
-
-                        _settingsSvc.Save(_vm.AppSettings);
-
-                        // Reload and copy to in-memory AppSettings to ensure consistency
-                        try
-                        {
-                            var loaded = _settingsSvc.Load();
-                            if (loaded != null && _vm.AppSettings != null)
-                            {
-                                _vm.AppSettings.AutoConnectOnStartup = loaded.AutoConnectOnStartup;
-                                _vm.AppSettings.UseSimHub = loaded.UseSimHub;
-                                _vm.AppSettings.UseIracing = loaded.UseIracing;
-                                _vm.AppSettings.CollapsedGroups = loaded.CollapsedGroups ?? new System.Collections.Generic.List<string>();
-                                _vm.AppSettings.WindRestingPower = loaded.WindRestingPower;
-                                _vm.AppSettings.StartWithWindows = loaded.StartWithWindows;
-                                _vm.AppSettings.MinimizeToTaskbarOnClose = loaded.MinimizeToTaskbarOnClose;
-                                _vm.AppSettings.ToggleFanKey = loaded.ToggleFanKey;
-                                _vm.AppSettings.IncreaseWindRestingKey = loaded.IncreaseWindRestingKey;
-                                _vm.AppSettings.DecreaseWindRestingKey = loaded.DecreaseWindRestingKey;
-                            }
-                        }
-                        catch { }
-                    }
-                }
-                catch { }
-            }
-
-            e.Handled = true;
+            catch { }
         }
 
         private void SetStartupRegistration(bool enable)

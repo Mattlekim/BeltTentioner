@@ -8,6 +8,7 @@ using System.Drawing.Drawing2D;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media.Imaging;
+using System.Windows.Input;
 using ApiRotation = BeltAPI.Rotation;
 
 namespace BeltTensionTest.WPF.Views
@@ -516,6 +517,32 @@ namespace BeltTensionTest.WPF.Views
         private void Button_Click(object sender, RoutedEventArgs e)
         {
             MainViewModel.Device.SendSlowMode();
+        }
+
+        private void TitleBar_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ChangedButton == MouseButton.Left)
+            {
+                try { this.DragMove(); } catch { }
+            }
+        }
+
+        private void Minimize_Click(object sender, RoutedEventArgs e)
+        {
+            SystemCommands.MinimizeWindow(this);
+        }
+
+        private void MaximizeRestore_Click(object sender, RoutedEventArgs e)
+        {
+            if (WindowState == WindowState.Maximized)
+                SystemCommands.RestoreWindow(this);
+            else
+                SystemCommands.MaximizeWindow(this);
+        }
+
+        private void Close_Click(object sender, RoutedEventArgs e)
+        {
+            SystemCommands.CloseWindow(this);
         }
     }
 }

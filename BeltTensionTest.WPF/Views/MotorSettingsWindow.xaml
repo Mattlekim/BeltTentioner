@@ -23,7 +23,7 @@
             </Grid.RowDefinitions>
 
             <!-- Title bar -->
-            <Grid Grid.Row="0" Background="#FF2A2A2A" MouseDown="TitleBar_MouseDown">
+            <Grid Grid.Row="0"  Background="{StaticResource BgLightBrush}" MouseDown="TitleBar_MouseDown">
                 <TextBlock Text="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=Title}" VerticalAlignment="Center" Margin="12,0,40,0" FontWeight="SemiBold" Foreground="#E0E0FF" />
                 <Button Width="36" Height="24" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0" Click="CloseButton_Click"
                         Background="Transparent" BorderBrush="Transparent" Foreground="#E0E0FF" FontSize="14" Content="X" ToolTip="Close" />

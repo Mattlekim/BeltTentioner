@@ -24,12 +24,14 @@ unsigned long lastDataTime = 0;
 
 bool slow = true;
 
-int ABS_STRENGTH = 20;
-bool ABS_ACTIVATED = true;
+int special_effect_strength = 20;
+
+byte Special_Effect_Activated = 0;
+
 float ABS_FRQ = 2;
 int_fast16_t abs_frame = 0;
 
-byte ABS_RUNNING_FRAME = 0;
+byte special_effect_running_frame = 0;
 
 bool _isConnected = false;
 bool _isDisconecting = false;
@@ -77,7 +79,7 @@ int last_TargetL, last_TargetR;
 
 
 void ResetMotors() {
-  ABS_ACTIVATED = false;
+  Special_Effect_Activated = 0;
 
 
   if (L_INVERT)
@@ -153,8 +155,8 @@ void ProcessSerial() {
       handshakeComplete = true;
       SetUPServos();
 
-      ABS_ACTIVATED = false;
-      ABS_RUNNING_FRAME = 0;
+      Special_Effect_Activated = 0;
+      special_effect_running_frame = 0;
       abs_frame = 0;
 
 
@@ -210,9 +212,9 @@ void ProcessSerial() {
         break;
 
       case 0x04:
-        ABS_STRENGTH = value;
-        ABS_ACTIVATED = true;
-        ABS_RUNNING_FRAME = 0;
+        special_effect_strength = value;
+        Special_Effect_Activated = 1;
+        special_effect_running_frame = 0;
         break;
 
       case 0x05:
@@ -295,6 +297,12 @@ void ProcessSerial() {
           _isConnected = false;
           _isDisconecting = false;
         }
+
+      case 0x16:
+        special_effect_strength = value;
+        Special_Effect_Activated = 2;
+        special_effect_running_frame = 0;
+        break;
         break;
     }
   }
@@ -335,68 +343,75 @@ void loop() {
   if (_isDisconecting)
     ResetMotors();
 
-  int abs_l = 0, abs_r = 0;
+  int special_effect_l = 0, special_effect_r = 0;
 
   if (!_isDisconecting) {
 
-    if (ABS_ACTIVATED) {
-      ABS_RUNNING_FRAME++;
-      if (ABS_RUNNING_FRAME > 3)
-        ABS_ACTIVATED = false;
+    switch (Special_Effect_Activated) {
+      case 1:
+        {
+          special_effect_running_frame++;
+          if (special_effect_running_frame > 3)
+            Special_Effect_Activated = false;
 
-      if (abs_frame > ABS_FRQ) {
-        abs_l = (L_INVERT ? -ABS_STRENGTH : ABS_STRENGTH);
-      } else {
-        abs_r = (R_INVERT ? -ABS_STRENGTH : ABS_STRENGTH);
-      }
+          if (abs_frame > ABS_FRQ) {
+            special_effect_l = (L_INVERT ? -special_effect_strength : special_effect_strength);
+          } else {
+            special_effect_r = (R_INVERT ? -special_effect_strength : special_effect_strength);
+          }
+        }
+        break;
+      case 2:
+        break;
     }
-
-    abs_frame++;
-    if (abs_frame >= ABS_FRQ * 2)
-      abs_frame = 0;
   }
 
-  if (slow) {
-    slowTimeout -= elapsed;
-    if (slowTimeout <= 0) {
-      slow = false;
-      slowTimeout = 0;
-      Serial.println("Slow Mode Stopeed");
+  abs_frame++;
+  if (abs_frame >= ABS_FRQ * 2)
+    abs_frame = 0;
+}
 
-      if (_isDisconecting) {
-        _isConnected = false;
-        _isDisconecting = false;
-        handshakeComplete = false;
-      }
+if (slow) {
+  slowTimeout -= elapsed;
+  if (slowTimeout <= 0) {
+    slow = false;
+    slowTimeout = 0;
+    Serial.println("Slow Mode Stopeed");
+
+    if (_isDisconecting) {
+      _isConnected = false;
+      _isDisconecting = false;
+      handshakeComplete = false;
     }
-
-    int maxSlewRate = 1;
-
-    int diff_l = L_TARGET - last_TargetL;
-    int diff_r = R_TARGET - last_TargetR;
-
-    if (abs(diff_l) > maxSlewRate)
-      diff_l = maxSlewRate * signInt(diff_l);
-
-    if (abs(diff_r) > maxSlewRate)
-      diff_r = maxSlewRate * signInt(diff_r);
-
-    L_TARGET = last_TargetL + diff_l;
-    R_TARGET = last_TargetR + diff_r;
   }
 
-  int l_output = L_TARGET + abs_l;
-  int r_output = R_TARGET + abs_r;
+  int maxSlewRate = 1;
 
-  l_output = constrain(l_output, L_MIN, L_MAX);
-  r_output = constrain(r_output, R_MIN, R_MAX);
+  int diff_l = L_TARGET - last_TargetL;
+  int diff_r = R_TARGET - last_TargetR;
 
-  int pulseL = map(l_output, 0, 180, 500, 2500);
-  int pulseR = map(r_output, 0, 180, 500, 2500);
+  if (abs(diff_l) > maxSlewRate)
+    diff_l = maxSlewRate * signInt(diff_l);
 
-  ServoLeft.writeMicroseconds(pulseL);
-  if (DUAL_MOTORS)
-    ServoRight.writeMicroseconds(pulseR);
+  if (abs(diff_r) > maxSlewRate)
+    diff_r = maxSlewRate * signInt(diff_r);
 
-  delay(4);
+  L_TARGET = last_TargetL + diff_l;
+  R_TARGET = last_TargetR + diff_r;
+}
+
+int l_output = L_TARGET + abs_l;
+int r_output = R_TARGET + abs_r;
+
+l_output = constrain(l_output, L_MIN, L_MAX);
+r_output = constrain(r_output, R_MIN, R_MAX);
+
+int pulseL = map(l_output, 0, 180, 500, 2500);
+int pulseR = map(r_output, 0, 180, 500, 2500);
+
+ServoLeft.writeMicroseconds(pulseL);
+if (DUAL_MOTORS)
+  ServoRight.writeMicroseconds(pulseR);
+
+delay(4);
 }

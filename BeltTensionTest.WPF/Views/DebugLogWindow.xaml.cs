@@ -23,6 +23,19 @@ namespace BeltTensionTest.WPF.Views
             Closed += (_, _) => _timer.Stop();
         }
 
+        private void TitleBar_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (e.ChangedButton == System.Windows.Input.MouseButton.Left)
+            {
+                try { this.DragMove(); } catch { }
+            }
+        }
+
+        private void CloseButton_Click(object sender, RoutedEventArgs e)
+        {
+            this.Close();
+        }
+
         private void OnTick(object? s, EventArgs e)
         {
             var log = _device.GetLog;

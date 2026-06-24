@@ -3,7 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Debug Log" Width="600" Height="450"
         Background="#12121E" Foreground="#A0A0BE"
-        FontFamily="Segoe UI">
+        FontFamily="Segoe UI" WindowStyle="None">
+
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
@@ -11,39 +12,57 @@
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Window.Resources>
-    <Grid Margin="10">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-        <ListBox x:Name="LogListBox"
-                 Grid.Row="0"
-                 Background="#0E0E1A"
-                 Foreground="#A0A0BE"
-                 FontFamily="Consolas"
-                 FontSize="11"
-                 BorderBrush="#46466A"
-                 Margin="0,0,0,6"
-                 SelectionMode="Extended"/>
-        <Grid Grid.Row="1">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0"
-                       x:Name="StatusLabel"
-                       VerticalAlignment="Center"
-                       Text="Monitoring serial port..."/>
-            <Button Grid.Column="1"
-                    Content="Clear"
-                    Width="70"
-                    Margin="6,0"
-                    Click="Clear_Click" Style="{DynamicResource BlueButton}"/>
-            <Button Grid.Column="2"
-                    Content="Copy All"
-                    Width="80"
-                    Click="CopyAll_Click" Style="{DynamicResource BlueButton}"/>
+
+    <DockPanel>
+        <!-- Title bar matching FlashNanoWindow -->
+        <Border DockPanel.Dock="Top" Height="36" Background="{StaticResource BgLightBrush}">
+            <Grid MouseDown="TitleBar_MouseDown">
+                <TextBlock VerticalAlignment="Center" Margin="12,0,40,0" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Text="Debug Log" />
+                <Button Width="36" Height="24" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0" Click="CloseButton_Click"
+                        Background="Transparent" BorderBrush="Transparent" Padding="0" BorderThickness="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                    <Viewbox Width="14" Height="14">
+                        <Canvas Width="16" Height="16">
+                            <Path Stroke="{StaticResource TextPrimaryBrush}" StrokeThickness="2" Data="M4,4 L12,12 M12,4 L4,12" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                        </Canvas>
+                    </Viewbox>
+                </Button>
+            </Grid>
+        </Border>
+
+        <Grid Margin="10">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <ListBox x:Name="LogListBox"
+                     Grid.Row="0"
+                     Background="#0E0E1A"
+                     Foreground="#A0A0BE"
+                     FontFamily="Consolas"
+                     FontSize="11"
+                     BorderBrush="#46466A"
+                     Margin="0,0,0,6"
+                     SelectionMode="Extended"/>
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0"
+                           x:Name="StatusLabel"
+                           VerticalAlignment="Center"
+                           Text="Monitoring serial port..."/>
+                <Button Grid.Column="1"
+                        Content="Clear"
+                        Width="70"
+                        Margin="6,0"
+                        Click="Clear_Click" Style="{DynamicResource BlueButton}"/>
+                <Button Grid.Column="2"
+                        Content="Copy All"
+                        Width="80"
+                        Click="CopyAll_Click" Style="{DynamicResource BlueButton}"/>
+            </Grid>
         </Grid>
-    </Grid>
+    </DockPanel>
 </Window>
