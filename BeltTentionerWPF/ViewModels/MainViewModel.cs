@@ -143,6 +143,13 @@ namespace BeltTentionerWPF.ViewModels
         public bool AbsEnabled { get => _absEnabled; set { SetField(ref _absEnabled, value); ApplyCarSettings(); } }
         private bool _absEnabled;
 
+        // Rumble / rumble strip settings
+        public float RumbleStrength { get => _rumbleStrength; set { SetField(ref _rumbleStrength, value); ApplyCarSettings(); } }
+        private float _rumbleStrength = 1f;
+
+        public bool RumbleStripEnabled { get => _rumbleStripEnabled; set { SetField(ref _rumbleStripEnabled, value); ApplyCarSettings(); } }
+        private bool _rumbleStripEnabled;
+
         public float PitchStrength { get => _pitchStrength; set { SetField(ref _pitchStrength, value); ApplyCarSettings(); } }
         private float _pitchStrength = 10f;
 
@@ -424,6 +431,8 @@ namespace BeltTentionerWPF.ViewModels
             RestingPoint = s.RestingPoint;
             AbsStrength = s.AbsStrength;
             AbsEnabled = s.AbsEnabled;
+            RumbleStrength = s.RumbleStrength;
+            RumbleStripEnabled = s.RumbleStripEnabled;
             PitchStrength = s.PitchStrength;
             InvertPitch = s.InvertPitch;
             RollStrength = s.RollStrength;
@@ -449,6 +458,8 @@ namespace BeltTentionerWPF.ViewModels
             s.RestingPoint = RestingPoint;
             s.AbsStrength = AbsStrength;
             s.AbsEnabled = AbsEnabled;
+            s.RumbleStrength = RumbleStrength;
+            s.RumbleStripEnabled = RumbleStripEnabled;
             s.PitchStrength = PitchStrength;
             s.InvertPitch = InvertPitch;
             s.RollStrength = RollStrength;

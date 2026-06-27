@@ -29,6 +29,10 @@ namespace BeltAPI
         public float AbsStrength { get; set; } = 1.0f; // NEW: ABS strength
         public bool AbsEnabled { get; set; } = false;  // NEW: ABS enabled
 
+        // Rumble strip settings
+        public float RumbleStrength { get; set; } = 1.0f; // strength for rumble strips
+        public bool RumbleStripEnabled { get; set; } = false; // enable rumble strip handling
+
 
         public int RestingPoint { get; set; } = 0; // NEW: Resting point for the motor
         // Wind settings
@@ -62,6 +66,8 @@ namespace BeltAPI
                 InvertHeave = this.InvertHeave,
                 AbsStrength = this.AbsStrength,
                 AbsEnabled = this.AbsEnabled,
+                RumbleStrength = this.RumbleStrength,
+                RumbleStripEnabled = this.RumbleStripEnabled,
                 RestingPoint = this.RestingPoint,
                 NegativeSway = this.NegativeSway,
                 PitchStrength = this.PitchStrength,

@@ -11,6 +11,7 @@ namespace BeltTensionTest.WPF.Views
     public partial class MainWindow : Window
     {
         private MainViewModel VM => (MainViewModel)DataContext;
+        private readonly SettingsService _localSettings = new SettingsService();
         private TestingWindow? _testingWindow;
         private DebugLogWindow? _debugWindow;
         private FlashNanoWindow? _flashWindow;
@@ -61,9 +62,13 @@ namespace BeltTensionTest.WPF.Views
             catch { }
 
             Loaded  += (_, _) => Shared.WpfMessageBridge.Attach(this);
+            Loaded += MainWindow_Loaded;
             // Capture key presses when window has focus
             PreviewKeyDown += MainWindow_PreviewKeyDown;
             Closing += MainWindow_Closing;
+
+            // Save size/position when closing
+            Closing += (_, _) => SaveWindowBounds();
 
             MainViewModel.Device.OnConnencted += () =>
             {
@@ -84,6 +89,89 @@ namespace BeltTensionTest.WPF.Views
                     bnt_Connect.IsEnabled = true;
                 });
             };
+        }
+
+        private void MainWindow_Loaded(object? sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var s = VM?.AppSettings;
+                if (s != null)
+                {
+                    // Apply saved size
+                    if (s.WindowWidth > 0) Width = s.WindowWidth;
+                    if (s.WindowHeight > 0) Height = s.WindowHeight;
+
+                    // Apply saved position if present
+                    if (!double.IsNaN(s.WindowLeft) && !double.IsNaN(s.WindowTop))
+                    {
+                        Left = s.WindowLeft;
+                        Top = s.WindowTop;
+                    }
+
+                    // Apply saved state if valid
+                    if (!string.IsNullOrWhiteSpace(s.WindowState) && Enum.TryParse<WindowState>(s.WindowState, out var ws))
+                    {
+                        WindowState = ws;
+                    }
+                }
+            }
+            catch { }
+
+            // Subscribe to changes so we can persist them
+            SizeChanged += MainWindow_SizeChanged;
+            LocationChanged += MainWindow_LocationChanged;
+            StateChanged += MainWindow_StateChanged;
+        }
+
+        private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            // Only persist when in normal state (not minimized/maximized)
+            if (WindowState == WindowState.Normal)
+                SaveWindowBounds();
+        }
+
+        private void MainWindow_LocationChanged(object sender, EventArgs e)
+        {
+            if (WindowState == WindowState.Normal)
+                SaveWindowBounds();
+        }
+
+        private void MainWindow_StateChanged(object sender, EventArgs e)
+        {
+            // Persist restore bounds / state when the window state changes
+            SaveWindowBounds();
+        }
+
+        private void SaveWindowBounds()
+        {
+            try
+            {
+                var s = VM?.AppSettings;
+                if (s == null) return;
+
+                if (WindowState == WindowState.Normal)
+                {
+                    s.WindowWidth = Width;
+                    s.WindowHeight = Height;
+                    s.WindowLeft = Left;
+                    s.WindowTop = Top;
+                    s.WindowState = WindowState.ToString();
+                }
+                else
+                {
+                    // Use RestoreBounds to capture the normal window size/position
+                    var rb = RestoreBounds;
+                    s.WindowWidth = rb.Width;
+                    s.WindowHeight = rb.Height;
+                    s.WindowLeft = rb.Left;
+                    s.WindowTop = rb.Top;
+                    s.WindowState = WindowState.ToString();
+                }
+
+                _localSettings.Save(s);
+            }
+            catch { }
         }
 
         private void TitleBar_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)

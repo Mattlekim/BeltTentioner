@@ -369,49 +369,49 @@ void loop() {
   abs_frame++;
   if (abs_frame >= ABS_FRQ * 2)
     abs_frame = 0;
-}
 
-if (slow) {
-  slowTimeout -= elapsed;
-  if (slowTimeout <= 0) {
-    slow = false;
-    slowTimeout = 0;
-    Serial.println("Slow Mode Stopeed");
 
-    if (_isDisconecting) {
-      _isConnected = false;
-      _isDisconecting = false;
-      handshakeComplete = false;
+  if (slow) {
+    slowTimeout -= elapsed;
+    if (slowTimeout <= 0) {
+      slow = false;
+      slowTimeout = 0;
+      Serial.println("Slow Mode Stopeed");
+
+      if (_isDisconecting) {
+        _isConnected = false;
+        _isDisconecting = false;
+        handshakeComplete = false;
+      }
     }
+
+    int maxSlewRate = 1;
+
+    int diff_l = L_TARGET - last_TargetL;
+    int diff_r = R_TARGET - last_TargetR;
+
+    if (abs(diff_l) > maxSlewRate)
+      diff_l = maxSlewRate * signInt(diff_l);
+
+    if (abs(diff_r) > maxSlewRate)
+      diff_r = maxSlewRate * signInt(diff_r);
+
+    L_TARGET = last_TargetL + diff_l;
+    R_TARGET = last_TargetR + diff_r;
   }
 
-  int maxSlewRate = 1;
+  int l_output = L_TARGET + special_effect_l;
+  int r_output = R_TARGET + special_effect_r;
 
-  int diff_l = L_TARGET - last_TargetL;
-  int diff_r = R_TARGET - last_TargetR;
+  l_output = constrain(l_output, L_MIN, L_MAX);
+  r_output = constrain(r_output, R_MIN, R_MAX);
 
-  if (abs(diff_l) > maxSlewRate)
-    diff_l = maxSlewRate * signInt(diff_l);
+  int pulseL = map(l_output, 0, 180, 500, 2500);
+  int pulseR = map(r_output, 0, 180, 500, 2500);
 
-  if (abs(diff_r) > maxSlewRate)
-    diff_r = maxSlewRate * signInt(diff_r);
+  ServoLeft.writeMicroseconds(pulseL);
+  if (DUAL_MOTORS)
+    ServoRight.writeMicroseconds(pulseR);
 
-  L_TARGET = last_TargetL + diff_l;
-  R_TARGET = last_TargetR + diff_r;
-}
-
-int l_output = L_TARGET + abs_l;
-int r_output = R_TARGET + abs_r;
-
-l_output = constrain(l_output, L_MIN, L_MAX);
-r_output = constrain(r_output, R_MIN, R_MAX);
-
-int pulseL = map(l_output, 0, 180, 500, 2500);
-int pulseR = map(r_output, 0, 180, 500, 2500);
-
-ServoLeft.writeMicroseconds(pulseL);
-if (DUAL_MOTORS)
-  ServoRight.writeMicroseconds(pulseR);
-
-delay(4);
+  delay(4);
 }

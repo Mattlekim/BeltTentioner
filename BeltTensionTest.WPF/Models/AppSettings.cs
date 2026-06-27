@@ -27,5 +27,12 @@ namespace BeltTensionTest.WPF.Models
         public bool ToggleFanGlobal { get; set; } = false;
         public bool IncreaseWindRestingGlobal { get; set; } = false;
         public bool DecreaseWindRestingGlobal { get; set; } = false;
+        // Window placement / size
+        public double WindowWidth { get; set; } = 1100;
+        public double WindowHeight { get; set; } = 400;
+        public double WindowLeft { get; set; } = double.NaN;
+        public double WindowTop { get; set; } = double.NaN;
+        // Stored as string to keep JSON simple (e.g. "Normal", "Maximized")
+        public string WindowState { get; set; } = "Normal";
     }
 }
