@@ -21,6 +21,7 @@ namespace BeltTensionTest.WPF.Views
             _vm = vm ?? throw new ArgumentNullException(nameof(vm));
 
             // Initialize controls from current app settings
+            chk_AutoConnect.IsChecked = _vm.AppSettings?.AutoConnectOnStartup ?? false;
             chk_StartWithWindows.IsChecked = _vm.AppSettings?.StartWithWindows ?? false;
             chk_MinimizeToTaskbar.IsChecked = _vm.AppSettings?.MinimizeToTaskbarOnClose ?? false;
 
@@ -90,8 +91,12 @@ namespace BeltTensionTest.WPF.Views
         {
             if (_vm.AppSettings == null) return;
 
+            var autoConnect = chk_AutoConnect.IsChecked == true;
             var startWithWindows = chk_StartWithWindows.IsChecked == true;
             var minimizeToTaskbar = chk_MinimizeToTaskbar.IsChecked == true;
+
+            // Apply auto-connect setting through the viewmodel so side-effects (save/connect) occur
+            try { _vm.AutoConnect = autoConnect; } catch { _vm.AppSettings.AutoConnectOnStartup = autoConnect; }
 
             _vm.AppSettings.StartWithWindows = startWithWindows;
             _vm.AppSettings.MinimizeToTaskbarOnClose = minimizeToTaskbar;

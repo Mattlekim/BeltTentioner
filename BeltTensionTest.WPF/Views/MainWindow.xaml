@@ -153,11 +153,7 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <CheckBox Grid.Column="0"
-                                  Content="Connect On Startup"
-                                  IsChecked="{Binding AutoConnect}"
-                                  VerticalAlignment="Center"
-                                  ToolTip="Automatically connect to the device on application startup."/>
+                        <!-- Connect on startup moved to Preferences window -->
                         <Button
                                 x:Name="bnt_Connect"
                                 Content="Connect"

@@ -38,6 +38,8 @@
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
                         <StackPanel Grid.Row="0" Orientation="Vertical" Margin="0,0,0,8">
+                            <CheckBox x:Name="chk_AutoConnect" Content="Connect On Startup" Foreground="#A0A0BE" Margin="0,4"
+                                      ToolTip="Automatically connect to the device on application startup."/>
                             <CheckBox x:Name="chk_StartWithWindows" Content="Start with Windows" Foreground="#A0A0BE" Margin="0,4"
                                       ToolTip="Start the application automatically when Windows starts."/>
                             <CheckBox x:Name="chk_MinimizeToTaskbar" Content="Minimize to taskbar when closed" Foreground="#A0A0BE" Margin="0,4"
