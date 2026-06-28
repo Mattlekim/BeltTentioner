@@ -47,9 +47,7 @@
                     <Button Width="36" Height="24" Margin="2,0" Click="Minimize_Click" Content="─" ToolTip="Minimize" Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
                             WindowChrome.IsHitTestVisibleInChrome="True"
                             FontSize="14" FontWeight="SemiBold" Padding="0" BorderThickness="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
-                    <Button Width="36" Height="24" Margin="2,0" Click="MaximizeRestore_Click" Content="□" ToolTip="Maximize" Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
-                            WindowChrome.IsHitTestVisibleInChrome="True"
-                            FontSize="14" FontWeight="SemiBold" Padding="0" BorderThickness="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+                    
                     <Button Width="36" Height="24" Margin="2,0" Click="Close_Click" Content="X" ToolTip="Close" Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
                             WindowChrome.IsHitTestVisibleInChrome="True"
                             FontSize="14" FontWeight="SemiBold" Padding="0" BorderThickness="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
@@ -125,7 +123,8 @@
         </Border>
 
         <!-- Main content: keep the connect controls visible, move everything else into tabs -->
-        <StackPanel DockPanel.Dock="Bottom" Margin="0" Height="1115">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="0">
 
             <!-- Device Connection (keep visible outside tabs) -->
             <Border Background="#1C1C2E" CornerRadius="6" Padding="10,10" Margin="10,8" Width="332">
@@ -427,5 +426,6 @@
                 </TabControl>
             </Border>
         </StackPanel>
+        </ScrollViewer>
     </DockPanel>
 </Window>
