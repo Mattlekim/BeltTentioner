@@ -55,8 +55,12 @@
             </Grid>
         </Border>
         <!-- ?? Menu Bar ???????????????????????????????????????????????????? -->
-        <Menu DockPanel.Dock="Top"
-              Background="#12121E"
+        <DockPanel DockPanel.Dock="Top" Background="#12121E" LastChildFill="True">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0">
+                <views:StatusIndicatorView Label="IRacing:" IsOn="{Binding IracingIsOn}" Margin="0,0,8,0"/>
+                <views:StatusIndicatorView Label="SimHub:" IsOn="{Binding SimHubIsOn}"/>
+            </StackPanel>
+        <Menu Background="#12121E"
               Foreground="#A0A0BE">
             <MenuItem Header="Settings" Foreground="#A0A0BE" Click="MenuItem_Click">
                 <MenuItem Header="Preferences..."
@@ -100,8 +104,9 @@
                           Click="OpenBuyMeACoffee_Click"/>
             </MenuItem>
         </Menu>
+        </DockPanel>
 
-        <!-- ?? Update Banner ??????????????????????????????????????????????? -->
+        <!-- Update Banner -->
         <Border DockPanel.Dock="Top"
                 Background="#3A2A10"
                 BorderBrush="#FFAA20"
@@ -165,19 +170,7 @@
                 </Grid>
             </Border>
 
-            <!-- Top indicators (iRacing / SimHub) moved out of tabs -->
-            <Border Margin="10,4,10,6" Background="#1C1C2E" CornerRadius="6" Padding="10,8" Width="332">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <views:StatusIndicatorView Grid.Column="0" Label="IRacing:" IsOn="{Binding IracingIsOn}"/>
-                    <views:StatusIndicatorView
-            Margin="8,0,0,0" Label="SimHub:" IsOn="{Binding SimHubIsOn}" Grid.Column="1"/>
-                </Grid>
-            </Border>
-            <!-- ?? SimHub group ????????????????????????????????????????? -->
+            <!-- SimHub group -->
             <GroupBox Header="SimHub"
                                       IsEnabled="{Binding SimHubGroupEnabled}"
                                       Visibility="{Binding SimHubIsOn, Converter={StaticResource BoolToVis}}">
@@ -215,9 +208,7 @@
                                   PanningMode="VerticalFirst" Margin="2,0,1,0">
                             <StackPanel Margin="10,8" Width="332">
 
-                                <!-- iRacing/SimHub indicators moved to top of window -->
-
-                                <!-- ?? Car Settings ??????????????????????????????????????? -->
+                                <!-- Car Settings -->
                                 <GroupBox Header="Car Settings" IsEnabled="{Binding ControlsEnabled}" Margin="0,0,0,6">
                                     <StackPanel>
                                         <!-- Car Name -->
