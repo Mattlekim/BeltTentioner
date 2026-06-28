@@ -2,7 +2,7 @@
 #include <EEPROM.h>
 
 // Firmware version
-#define FIRMWARE_VERSION "1.0.0"
+#define FIRMWARE_VERSION "1.0.2"
 #define FIRMWARE_NAME "BBT"
 
 uint8_t WindPower = 0;
@@ -24,14 +24,12 @@ unsigned long lastDataTime = 0;
 
 bool slow = true;
 
-int special_effect_strength = 20;
-
-byte Special_Effect_Activated = 0;
-
-float ABS_FRQ = 2;
+int ABS_STRENGTH = 20;
+bool ABS_ACTIVATED = true;
+int ABS_FRQ = 2;
 int_fast16_t abs_frame = 0;
 
-byte special_effect_running_frame = 0;
+byte ABS_RUNNING_FRAME = 0;
 
 bool _isConnected = false;
 bool _isDisconecting = false;
@@ -75,33 +73,17 @@ void loadSettings() {
   EEPROM.get(addr, DUAL_MOTORS);
 }
 
-int last_TargetL, last_TargetR;
-
-
 void ResetMotors() {
-  Special_Effect_Activated = 0;
-
-
-  if (L_INVERT)
-    L_TARGET = L_MAX;
-  else
-    L_TARGET = L_MIN;
-
-
-  if (R_INVERT)
-    R_TARGET = R_MAX;
-  else
-    R_TARGET = R_MIN;
-
-
-  last_TargetL = L_TARGET;
-  last_TargetR = R_TARGET;
+  ABS_ACTIVATED = false;
+  L_TARGET = L_MIN;
+  R_TARGET = R_MIN;
 }
 
+int last_TargetL, last_TargetR;
 
 void SetUPServos() {
-
-  ServoLeft.attach(LEFT_MOTOR);
+ 
+   ServoLeft.attach(LEFT_MOTOR);
   ServoRight.attach(RIGHT_MOTOR);
   ResetMotors();
   last_TargetL = L_TARGET;
@@ -113,6 +95,8 @@ void SetUPServos() {
   ServoLeft.writeMicroseconds(pulseL);
   if (DUAL_MOTORS)
     ServoRight.writeMicroseconds(pulseR);
+
+  
 }
 
 void EnableSlowMode() {
@@ -129,7 +113,7 @@ void setup() {
   loadSettings();
   EnableSlowMode();
 
-  Serial.println("Waiting for handshake... Send 'HELLO' to begin.");
+  Serial.println("Waiting for handshake...");
 }
 
 unsigned long lastUpdate = 0;
@@ -140,13 +124,6 @@ void ProcessSerial() {
   if (!handshakeComplete && Serial.available() >= 3) {
     uint8_t key = Serial.peek();
 
-    if (key == 0x10) {
-      Serial.print("VER:");
-      Serial.print(FIRMWARE_NAME);
-      Serial.print("-");
-      Serial.println(FIRMWARE_VERSION);
-    }
-
     if (key == 0x00) {
       Serial.read();
       Serial.read();
@@ -155,13 +132,18 @@ void ProcessSerial() {
       handshakeComplete = true;
       SetUPServos();
 
-      Special_Effect_Activated = 0;
-      special_effect_running_frame = 0;
+      ABS_ACTIVATED = false;
+      ABS_RUNNING_FRAME = 0;
       abs_frame = 0;
 
 
+      // Send READY with firmware name and version so the PC can parse version info
+      // Format: READY#<NAME>-<VERSION>\r\n (matches PC handshake parsing)
       Serial.print("READY#");
+      Serial.print(FIRMWARE_NAME);
+      Serial.print("-");
       Serial.println(FIRMWARE_VERSION);
+
       _isConnected = true;
       _isDisconecting = false;
       lastDataTime = millis();
@@ -169,11 +151,8 @@ void ProcessSerial() {
     }
   }
 
-
-  if (!handshakeComplete) {
-
+  if (!handshakeComplete)
     return;
-  }
 
   while (Serial.available() >= 3) {
 
@@ -190,7 +169,7 @@ void ProcessSerial() {
       case 0x01:
         if (value >= L_MIN && value <= L_MAX) {
           if (L_INVERT)
-            L_TARGET = L_MIN + (L_MAX - value);
+           L_TARGET = L_MIN + (L_MAX - value);
           else
             L_TARGET = value;
         }
@@ -212,9 +191,9 @@ void ProcessSerial() {
         break;
 
       case 0x04:
-        special_effect_strength = value;
-        Special_Effect_Activated = 1;
-        special_effect_running_frame = 0;
+        ABS_STRENGTH = value;
+        ABS_ACTIVATED = true;
+        ABS_RUNNING_FRAME = 0;
         break;
 
       case 0x05:
@@ -273,36 +252,22 @@ void ProcessSerial() {
         break;
 
 
-      case 0x13:
+        case 0x13:
         {
-          if (value >= R_MIN && value <= R_MAX) {
-            int pulse = map(value, 0, 180, 500, 2500);
-            ServoLeft.writeMicroseconds(pulse);
-          }
+            if (value >= L_MIN && value <= L_MAX) {
+                int pulse = map(value, 0, 180, 500, 2500);
+                 ServoLeft.writeMicroseconds(pulse);
+            }
         }
         break;
 
-      case 0x14:
+        case 0x14:
         {
-          if (value >= R_MIN && value <= R_MAX) {
-            int pulse = map(value, 0, 180, 500, 2500);
-            ServoRight.writeMicroseconds(pulse);
-          }
+            if (value >= R_MIN && value <= R_MAX) {
+                int pulse = map(value, 0, 180, 500, 2500);
+                 ServoRight.writeMicroseconds(pulse);
+            }
         }
-        break;
-
-      case 0x15:
-        {
-          handshakeComplete = false;
-          _isConnected = false;
-          _isDisconecting = false;
-        }
-
-      case 0x16:
-        special_effect_strength = value;
-        Special_Effect_Activated = 2;
-        special_effect_running_frame = 0;
-        break;
         break;
     }
   }
@@ -337,39 +302,31 @@ void loop() {
 
       WindPower = 0;
       analogWrite(WIND_PIN, 0);
+
+       ResetMotors();
     }
   }
 
-  if (_isDisconecting)
-    ResetMotors();
-
-  int special_effect_l = 0, special_effect_r = 0;
+  int abs_l = 0, abs_r = 0;
 
   if (!_isDisconecting) {
 
-    switch (Special_Effect_Activated) {
-      case 1:
-        {
-          special_effect_running_frame++;
-          if (special_effect_running_frame > 3)
-            Special_Effect_Activated = false;
+    if (ABS_ACTIVATED) {
+      ABS_RUNNING_FRAME++;
+      if (ABS_RUNNING_FRAME > 3)
+        ABS_ACTIVATED = false;
 
-          if (abs_frame > ABS_FRQ) {
-            special_effect_l = (L_INVERT ? -special_effect_strength : special_effect_strength);
-          } else {
-            special_effect_r = (R_INVERT ? -special_effect_strength : special_effect_strength);
-          }
-        }
-        break;
-      case 2:
-        break;
+      if (abs_frame > ABS_FRQ) {
+        abs_l = (L_INVERT ? -ABS_STRENGTH : ABS_STRENGTH);
+      } else {
+        abs_r = (R_INVERT ? -ABS_STRENGTH : ABS_STRENGTH);
+      }
     }
+
+    abs_frame++;
+    if (abs_frame >= ABS_FRQ * 2)
+      abs_frame = 0;
   }
-
-  abs_frame++;
-  if (abs_frame >= ABS_FRQ * 2)
-    abs_frame = 0;
-
 
   if (slow) {
     slowTimeout -= elapsed;
@@ -381,7 +338,6 @@ void loop() {
       if (_isDisconecting) {
         _isConnected = false;
         _isDisconecting = false;
-        handshakeComplete = false;
       }
     }
 
@@ -400,8 +356,8 @@ void loop() {
     R_TARGET = last_TargetR + diff_r;
   }
 
-  int l_output = L_TARGET + special_effect_l;
-  int r_output = R_TARGET + special_effect_r;
+  int l_output = L_TARGET + abs_l;
+  int r_output = R_TARGET + abs_r;
 
   l_output = constrain(l_output, L_MIN, L_MAX);
   r_output = constrain(r_output, R_MIN, R_MAX);

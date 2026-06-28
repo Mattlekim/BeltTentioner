@@ -453,6 +453,7 @@ namespace BeltTentionerWPF.ViewModels
             s.InvertSway = InvertSway;
             s.NegativeSway = NegativeSway;
             s.HeaveStrength = HeaveStrength;
+            s.HeaveStrength = HeaveStrength;
             s.InvertHeave = InvertHeave;
             s.MaxPower = MaxPower;
             s.RestingPoint = RestingPoint;

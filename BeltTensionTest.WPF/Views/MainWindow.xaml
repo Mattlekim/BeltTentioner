@@ -69,7 +69,8 @@
                 <views:StatusIndicatorView Label="SimHub:" IsOn="{Binding SimHubIsOn}"/>
             </StackPanel>
         <Menu Background="#12121E"
-              Foreground="#A0A0BE" Height="29">
+              Foreground="#A0A0BE" Height="24"
+              Margin="0,6,0,0">
             <MenuItem Header="Settings" Foreground="#A0A0BE" Click="MenuItem_Click">
                 <MenuItem Header="Preferences..."
                           Foreground="#A0A0BE"
@@ -123,15 +124,16 @@
                 Visibility="{Binding IsUpdateAvailable, Converter={StaticResource BoolToVis}}">
             <DockPanel>
                 <Button DockPanel.Dock="Right"
-                        Content="Download"
+                        Content="{Binding UpdateButtonText}"
                         Background="#FFAA20"
                         Foreground="#12121E"
                         Padding="10,3"
-                        Command="{Binding OpenUpdateCommand}"
-                        Margin="6,0,0,0"/>
+                        Command="{Binding UpdateButtonCommand}"
+                        Margin="6,0,0,0" Style="{DynamicResource OrangeButton}"/>
                 <TextBlock VerticalAlignment="Center"
-                           Foreground="#FFCC60"><Run Text="Update available: "/><Run Text=" "/><Run Text="{Binding UpdateTag, Mode=OneWay}"
-                         FontWeight="Bold"/></TextBlock>
+                           Foreground="#FFCC60"
+                           Text="{Binding UpdateBannerMessage, Mode=OneWay}"
+                           FontWeight="Bold" />
             </DockPanel>
         </Border>
 

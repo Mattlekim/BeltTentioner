@@ -536,6 +536,12 @@ namespace BeltTensionTest.WPF.ViewModels
         public ICommand TestAbsCommand { get; }
         public ICommand CheckUpdatesCommand { get; }
         public ICommand OpenUpdateCommand { get; }
+        private ICommand _updateButtonCommand = null!;
+        public ICommand UpdateButtonCommand { get => _updateButtonCommand; set => SetField(ref _updateButtonCommand, value); }
+        private string _updateButtonText = "Download";
+        public string UpdateButtonText { get => _updateButtonText; set => SetField(ref _updateButtonText, value); }
+        private string _updateBannerMessage = string.Empty;
+        public string UpdateBannerMessage { get => _updateBannerMessage; set => SetField(ref _updateBannerMessage, value); }
 
         // ?? Constructor ????????????????????????????????????????????????????????
         public MainViewModel()
@@ -551,6 +557,9 @@ namespace BeltTensionTest.WPF.ViewModels
             TestAbsCommand          = new RelayCommand(DoTestAbs);
             CheckUpdatesCommand     = new AsyncRelayCommand(DoCheckUpdatesAsync);
             OpenUpdateCommand       = new RelayCommand(DoOpenUpdate);
+            // default update button behavior (app update)
+            UpdateButtonCommand     = OpenUpdateCommand;
+            UpdateButtonText        = "Download";
 
             // Device events
             Device.HandshakeComplete    += OnHandshakeComplete;
@@ -814,7 +823,15 @@ namespace BeltTensionTest.WPF.ViewModels
             int lastestFirmwareHash = BeltSerialDevice.GetVersionHash(UpdateService.FIRMWARE_VERSION);
             if (lastestFirmwareHash > Device.VersionHash)
             {
-                ThemedMessageBox.Show("To update firmware go to settings, flash nano.", "New Firmware Available!");
+                // Expose update banner and make the button perform a firmware flash
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    IsUpdateAvailable = true;
+                    UpdateTag = UpdateService.FIRMWARE_VERSION;
+                    UpdateButtonText = "Update";
+                    UpdateButtonCommand = new RelayCommand(_ => DoOpenFlashNano());
+                    UpdateBannerMessage = "New Firmware available.";
+                });
             }
         }
 
@@ -1272,6 +1289,10 @@ namespace BeltTensionTest.WPF.ViewModels
                 {
                     IsUpdateAvailable = true;
                     UpdateTag = info.RemoteTag ?? string.Empty;
+                    // app update -> download release
+                    UpdateButtonText = "Download";
+                    UpdateButtonCommand = OpenUpdateCommand;
+                    UpdateBannerMessage = $"Update available: {UpdateTag}";
                 }
                 else
                 {
@@ -1282,6 +1303,19 @@ namespace BeltTensionTest.WPF.ViewModels
         }
 
         private void DoOpenUpdate(object? _) => _updateSvc.OpenReleasePage();
+
+        private void DoOpenFlashNano()
+        {
+            try
+            {
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    var w = new FlashNanoWindow();
+                    w.ShowDialog();
+                });
+            }
+            catch { }
+        }
 
         private float MaxSpeed = 300;
         private void StartWindLoop()
