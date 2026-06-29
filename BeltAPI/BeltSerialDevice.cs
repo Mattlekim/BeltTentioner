@@ -307,6 +307,7 @@ namespace BeltAPI
                                     if (b != -1)
                                     {
                                         string has = s.Substring(a, b - a);
+                                        has = has.Replace("BBT-", string.Empty);
                                         VersionHash = GetVersionHash(has);
                                     }    
                                 }

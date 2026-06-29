@@ -66,6 +66,74 @@ namespace belttentiontest
                 {
                     _instance = new Form1();
                 }
+
+        private sealed class DarkToolStripRenderer : ToolStripProfessionalRenderer
+        {
+            private static readonly Color _bg = Color.FromArgb(18, 18, 30);
+            private static readonly Color _highlight = Color.FromArgb(45, 45, 65);
+            private static readonly Color _border = Color.FromArgb(60, 60, 85);
+            private static readonly Color _text = Color.FromArgb(160, 160, 190);
+
+            public DarkToolStripRenderer(ProfessionalColorTable table) : base(table) { }
+
+            protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e)
+            {
+                // Draw a custom border for drop-downs and menu strip
+                if (e.ToolStrip is ToolStripDropDown || e.ToolStrip is MenuStrip)
+                {
+                    using (var pen = new Pen(_border))
+                    {
+                        var rect = new Rectangle(0, 0, e.ToolStrip.Width - 1, e.ToolStrip.Height - 1);
+                        e.Graphics.DrawRectangle(pen, rect);
+                    }
+                }
+                else
+                {
+                    base.OnRenderToolStripBorder(e);
+                }
+            }
+
+            protected override void OnRenderMenuItemBackground(ToolStripItemRenderEventArgs e)
+            {
+                var g = e.Graphics;
+                var rc = new Rectangle(Point.Empty, e.Item.Size);
+
+                if (e.Item.Selected || e.Item.Pressed)
+                {
+                    using (var b = new SolidBrush(_highlight))
+                    {
+                        g.FillRectangle(b, rc);
+                    }
+                    using (var pen = new Pen(_border))
+                    {
+                        g.DrawRectangle(pen, 0, 0, rc.Width - 1, rc.Height - 1);
+                    }
+                }
+                else
+                {
+                    using (var b = new SolidBrush(_bg))
+                    {
+                        g.FillRectangle(b, rc);
+                    }
+                }
+            }
+
+            protected override void OnRenderImageMargin(ToolStripRenderEventArgs e)
+            {
+                // Fill the image margin area with the background color so it isn't white
+                var rc = e.AffectedBounds;
+                using (var b = new SolidBrush(_bg))
+                {
+                    e.Graphics.FillRectangle(b, rc);
+                }
+            }
+
+            protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
+            {
+                e.TextColor = _text;
+                base.OnRenderItemText(e);
+            }
+        }
                 return _instance;
             }
         }
@@ -383,7 +451,7 @@ namespace belttentiontest
             var menuStrip = new MenuStrip();
             menuStrip.BackColor = Color.FromArgb(18, 18, 30);
             menuStrip.ForeColor = Color.FromArgb(160, 160, 190);
-            menuStrip.Renderer = new ToolStripProfessionalRenderer(darkTable);
+            menuStrip.Renderer = new DarkToolStripRenderer(darkTable);
             var menuSystem = new ToolStripMenuItem("Settings");
             menuSystem.ForeColor = Color.FromArgb(160, 160, 190);
             IracingCommunicator.Instance.Enabled = ApplicatoinSettings.UseIracing;
@@ -1926,6 +1994,8 @@ namespace belttentiontest
             public override Color MenuItemPressedGradientEnd => _highlight;
             public override Color MenuItemPressedGradientMiddle => _highlight;
             public override Color ToolStripDropDownBackground => _bg;
+            // Border color for drop-downs/toolstrips
+            public override Color ToolStripBorder => _border;
             public override Color ImageMarginGradientBegin => _bg;
             public override Color ImageMarginGradientMiddle => _bg;
             public override Color ImageMarginGradientEnd => _bg;

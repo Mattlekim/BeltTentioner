@@ -71,36 +71,24 @@
         <Menu Background="#12121E"
               Foreground="#A0A0BE" Height="24"
               Margin="0,6,0,0">
-            <MenuItem Header="Settings" Foreground="#A0A0BE" Click="MenuItem_Click">
-                <MenuItem Header="Preferences..."
-                          Foreground="#A0A0BE"
-                          Click="OpenPreferences_Click"/>
-                <Separator Background="#46466A"/>
-                <MenuItem Header="Use iRacing Telemetry"
-                          IsCheckable="True"
-                          IsChecked="{Binding UseIracing}"
-                          Foreground="#A0A0BE"/>
-                <MenuItem Header="Use SimHub Telemetry"
-                          IsCheckable="True"
-                          IsChecked="{Binding UseSimHub}"
-                          Foreground="#A0A0BE"/>
-                <Separator Background="#46466A"/>
-                <MenuItem Header="Open Testing Window..."
-                          Foreground="#A0A0BE"
-                          Click="OpenTestingWindow_Click"/>
-                <MenuItem Header="Show Debug Log..."
-                          Foreground="#A0A0BE"
-                          Click="OpenDebugLog_Click"/>
-                <MenuItem Header="Flash Nano..."
-                          Foreground="#A0A0BE"
-                          Click="OpenFlashNano_Click"/>
-                <MenuItem Header="Motor Settings..."
-                          Foreground="#A0A0BE"
-                          Click="OpenMotorSettings_Click"/>
-                <Separator Background="#46466A"/>
-            </MenuItem>
+                <MenuItem Header="Settings" Click="MenuItem_Click">
+                    <MenuItem Header="Preferences..." Click="OpenPreferences_Click"/>
+                    <Separator/>
+                    <MenuItem Header="Use iRacing Telemetry"
+              IsCheckable="True"
+              IsChecked="{Binding UseIracing}"/>
+                    <MenuItem Header="Use SimHub Telemetry"
+              IsCheckable="True"
+              IsChecked="{Binding UseSimHub}"/>
+                    <Separator/>
+                    <MenuItem Header="Open Testing Window..." Click="OpenTestingWindow_Click"/>
+                    <MenuItem Header="Show Debug Log..." Click="OpenDebugLog_Click"/>
+                    <MenuItem Header="Flash Nano..." Click="OpenFlashNano_Click"/>
+                    <MenuItem Header="Motor Settings..." Click="OpenMotorSettings_Click"/>
+                    <Separator/>
+                </MenuItem>
 
-            <!-- Help menu moved out from Settings -->
+                <!-- Help menu moved out from Settings -->
             <MenuItem Header="Help" Foreground="#A0A0BE">
                 <MenuItem Header="Check for Updates..."
                           Foreground="#A0A0BE"
