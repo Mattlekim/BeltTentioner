@@ -28,6 +28,7 @@ namespace BeltTensionTest.WPF.Services
         private string _oldCarName = string.Empty;
 
         private IRacingSdkDatum? _datumSpeed;
+        private IRacingSdkDatum? _datumGear;
         private IRacingSdkDatum? _datumAbs;
         private IRacingSdkDatum? _datumReplay;
         private IRacingSdkDatum? _datumLong;
@@ -52,6 +53,7 @@ namespace BeltTensionTest.WPF.Services
         public event Action<float, float, float, Rotation>? TelemetryUpdated;
         public event Action? AbsTriggered;
         public event Action<string>? CarNameChanged;
+        public event Action<int,int>? GearChanged;
         public event Action<RumbleSide>? RumbleStripDetected;
 
         public event Action<bool> OnDriverInCarChange;
@@ -108,7 +110,7 @@ namespace BeltTensionTest.WPF.Services
                 _datumRoll = _sdk.Data.TelemetryDataProperties["Roll"];
                 _datumYaw = _sdk.Data.TelemetryDataProperties["Yaw"];
                 _datumSpeed = _sdk.Data.TelemetryDataProperties["Speed"];
-
+                _datumGear = _sdk.Data.TelemetryDataProperties["Gear"];
                 // Rumble pitch (front axle)
                 try { _datumRumbleFL = _sdk.Data.TelemetryDataProperties["TireLF_RumblePitch"]; } catch { _datumRumbleFL = null; }
                 try { _datumRumbleFR = _sdk.Data.TelemetryDataProperties["TireRF_RumblePitch"]; } catch { _datumRumbleFR = null; }
@@ -127,6 +129,9 @@ namespace BeltTensionTest.WPF.Services
 
         private bool _rumbleLeftPrev = false;
         private bool _rumbleRightPrev = false;
+
+        private int _lastGear = 0;
+        private bool _haveGear = false;
 
         private readonly RmsFilter _rmsLeft = new RmsFilter(12);
         private readonly RmsFilter _rmsRight = new RmsFilter(12);
@@ -172,6 +177,8 @@ namespace BeltTensionTest.WPF.Services
             {
                 TelemetryUpdated?.Invoke(0, 0, 0, Rotation.Zero);
                 GForceUpdated?.Invoke(0);
+                // reset gear state when entering replay
+                _haveGear = false;
                 return;
             }
 
@@ -187,6 +194,28 @@ namespace BeltTensionTest.WPF.Services
             TelemetryUpdated?.Invoke(surge, sway, heave, new Rotation(pitch, roll, yaw));
             GForceUpdated?.Invoke(-Math.Clamp(surge, -1000, 0));
             if (abs) AbsTriggered?.Invoke();
+
+            // --- Gear change detection ---
+            try
+            {
+                if (_datumGear != null)
+                {
+                    // read as float and convert to int (SDK exposes gear as float)
+                    float gf = _sdk.Data.GetFloat(_datumGear);
+                    int gear = (int)Math.Round(gf);
+                    if (!_haveGear)
+                    {
+                        _lastGear = gear;
+                        _haveGear = true;
+                    }
+                    else if (gear != _lastGear)
+                    {
+                        try { GearChanged?.Invoke(_lastGear, gear); } catch { }
+                        _lastGear = gear;
+                    }
+                }
+            }
+            catch { }
 
             // --- Rumble strip detection using Tire RumblePitch ---
             try

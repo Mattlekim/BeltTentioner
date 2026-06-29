@@ -2,7 +2,7 @@
 #include <EEPROM.h>
 
 // Firmware version
-#define FIRMWARE_VERSION "1.0.4"
+#define FIRMWARE_VERSION "1.0.5"
 #define FIRMWARE_NAME "BBT"
 
 uint8_t WindPower = 0;
@@ -34,9 +34,9 @@ bool ABS_ENABLED_R = false;
 unsigned long abs_startTime = 0;
 unsigned long abs_lastTime = 0;
 
-const unsigned long ABS_DURATION = 100;   // ABS runs for 100ms
-int ABS_FREQUENCY = 40;                   // Hz
-int ABS_PULSE_WIDTH = 6;                  // ms
+const unsigned long ABS_DURATION = 100;  // ABS runs for 100ms
+int ABS_FREQUENCY = 40;                  // Hz
+int ABS_PULSE_WIDTH = 6;                 // ms
 
 bool _isConnected = false;
 bool _isDisconecting = false;
@@ -47,32 +47,53 @@ long slowTimeout = 0;
 // Save settings to EEPROM
 void saveSettings() {
   int addr = 200;
-  EEPROM.put(addr, L_MIN); addr += sizeof(L_MIN);
-  EEPROM.put(addr, L_MAX); addr += sizeof(L_MAX);
-  EEPROM.put(addr, R_MIN); addr += sizeof(R_MIN);
-  EEPROM.put(addr, R_MAX); addr += sizeof(R_MAX);
-  EEPROM.put(addr, L_INVERT); addr += sizeof(L_INVERT);
-  EEPROM.put(addr, R_INVERT); addr += sizeof(R_INVERT);
+  EEPROM.put(addr, L_MIN);
+  addr += sizeof(L_MIN);
+  EEPROM.put(addr, L_MAX);
+  addr += sizeof(L_MAX);
+  EEPROM.put(addr, R_MIN);
+  addr += sizeof(R_MIN);
+  EEPROM.put(addr, R_MAX);
+  addr += sizeof(R_MAX);
+  EEPROM.put(addr, L_INVERT);
+  addr += sizeof(L_INVERT);
+  EEPROM.put(addr, R_INVERT);
+  addr += sizeof(R_INVERT);
   EEPROM.put(addr, DUAL_MOTORS);
 }
 
 // Load settings from EEPROM
 void loadSettings() {
   int addr = 200;
-  EEPROM.get(addr, L_MIN); addr += sizeof(L_MIN);
-  EEPROM.get(addr, L_MAX); addr += sizeof(L_MAX);
-  EEPROM.get(addr, R_MIN); addr += sizeof(R_MIN);
-  EEPROM.get(addr, R_MAX); addr += sizeof(R_MAX);
-  EEPROM.get(addr, L_INVERT); addr += sizeof(L_INVERT);
-  EEPROM.get(addr, R_INVERT); addr += sizeof(R_INVERT);
+  EEPROM.get(addr, L_MIN);
+  addr += sizeof(L_MIN);
+  EEPROM.get(addr, L_MAX);
+  addr += sizeof(L_MAX);
+  EEPROM.get(addr, R_MIN);
+  addr += sizeof(R_MIN);
+  EEPROM.get(addr, R_MAX);
+  addr += sizeof(R_MAX);
+  EEPROM.get(addr, L_INVERT);
+  addr += sizeof(L_INVERT);
+  EEPROM.get(addr, R_INVERT);
+  addr += sizeof(R_INVERT);
   EEPROM.get(addr, DUAL_MOTORS);
 }
 
 void ResetMotors() {
   ABS_ENABLED_L = false;
   ABS_ENABLED_R = false;
-  L_TARGET = L_MIN;
-  R_TARGET = R_MIN;
+
+  if (L_INVERT)
+    L_TARGET = L_MAX;
+  else
+    L_TARGET = L_MIN;
+
+  if (R_INVERT)
+    R_TARGET = R_MAX;
+  else
+    R_TARGET = R_MIN;
+  
 }
 
 int last_TargetL, last_TargetR;
@@ -119,7 +140,9 @@ void ProcessSerial() {
     uint8_t key = Serial.peek();
 
     if (key == 0x00) {
-      Serial.read(); Serial.read(); Serial.read();
+      Serial.read();
+      Serial.read();
+      Serial.read();
 
       handshakeComplete = true;
       SetUPServos();
@@ -170,7 +193,7 @@ void ProcessSerial() {
         analogWrite(WIND_PIN, value);
         break;
 
-      case 0x04:   // ABS BOTH
+      case 0x04:  // ABS BOTH
         ABS_STRENGTH = value;
         ABS_ENABLED_L = true;
         ABS_ENABLED_R = true;
@@ -195,12 +218,18 @@ void ProcessSerial() {
 
       case 0x11:
         Serial.print("S");
-        Serial.print(L_MIN); Serial.print("\t");
-        Serial.print(L_MAX); Serial.print("\t");
-        Serial.print(R_MIN); Serial.print("\t");
-        Serial.print(R_MAX); Serial.print("\t");
-        Serial.print(L_INVERT); Serial.print("\t");
-        Serial.print(R_INVERT); Serial.print("\t");
+        Serial.print(L_MIN);
+        Serial.print("\t");
+        Serial.print(L_MAX);
+        Serial.print("\t");
+        Serial.print(R_MIN);
+        Serial.print("\t");
+        Serial.print(R_MAX);
+        Serial.print("\t");
+        Serial.print(L_INVERT);
+        Serial.print("\t");
+        Serial.print(R_INVERT);
+        Serial.print("\t");
         Serial.print(DUAL_MOTORS);
         Serial.println();
         break;
@@ -227,19 +256,20 @@ void ProcessSerial() {
         }
         break;
 
-      case 0x13:   // ABS LEFT ONLY
+      case 0x13:  // ABS LEFT ONLY
         ABS_STRENGTH = value;
         ABS_ENABLED_L = true;
         abs_startTime = millis();
         abs_lastTime = millis();
         break;
 
-      case 0x14:   // ABS RIGHT ONLY
+      case 0x14:  // ABS RIGHT ONLY
         ABS_STRENGTH = value;
         ABS_ENABLED_R = true;
         abs_startTime = millis();
         abs_lastTime = millis();
         break;
+        
     }
   }
 }
@@ -287,28 +317,28 @@ void loop() {
   if ((ABS_ENABLED_L || ABS_ENABLED_R) && !_isDisconecting) {
 
     if (now - abs_startTime >= ABS_DURATION) {
-        ABS_ENABLED_L = false;
-        ABS_ENABLED_R = false;
+      ABS_ENABLED_L = false;
+      ABS_ENABLED_R = false;
     } else {
 
-        unsigned long period = 1000UL / ABS_FREQUENCY;
+      unsigned long period = 1000UL / ABS_FREQUENCY;
 
-        if (now - abs_lastTime < ABS_PULSE_WIDTH) {
+      if (now - abs_lastTime < ABS_PULSE_WIDTH) {
 
-            // Random jitter per motor
-            int jitterL = random(-5, 6);
-            int jitterR = random(-5, 6);
+        // Random jitter per motor
+        int jitterL = random(-5, 6);
+        int jitterR = random(-5, 6);
 
-            if (ABS_ENABLED_L)
-                abs_l = (L_INVERT ? -(ABS_STRENGTH + jitterL) : (ABS_STRENGTH + jitterL));
+        if (ABS_ENABLED_L)
+          abs_l = (L_INVERT ? -(ABS_STRENGTH + jitterL) : (ABS_STRENGTH + jitterL));
 
-            if (ABS_ENABLED_R)
-                abs_r = (R_INVERT ? -(ABS_STRENGTH + jitterR) : (ABS_STRENGTH + jitterR));
-        }
+        if (ABS_ENABLED_R)
+          abs_r = (R_INVERT ? -(ABS_STRENGTH + jitterR) : (ABS_STRENGTH + jitterR));
+      }
 
-        if (now - abs_lastTime >= period) {
-            abs_lastTime = now;
-        }
+      if (now - abs_lastTime >= period) {
+        abs_lastTime = now;
+      }
     }
   }
 

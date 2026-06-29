@@ -161,7 +161,8 @@
             </GroupBox>
 
             <Border Margin="10,0,10,8" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6" Background="{StaticResource BgBrush}">
-                <TabControl Style="{StaticResource MyTabControl}" Width="370" BorderThickness="0" Background="{StaticResource BgBrush}">
+                <TabControl Style="{StaticResource MyTabControl}" Width="370" BorderThickness="0" Background="{StaticResource BgBrush}"
+                            SelectionChanged="TabControl_SelectionChanged">
 
                     <TabItem Header="Belt Tentioner">
                         <ScrollViewer VerticalScrollBarVisibility="Auto"
@@ -369,9 +370,9 @@
                                 </StackPanel>
 
                                 <!-- Wind graph -->
-                                <Border Margin="0,8,0,0" Background="#12121E" CornerRadius="4" Padding="6">
-                                    <Image Source="{Binding WindGraphImageSource}" Width="300" Height="140" Stretch="Fill" />
-                                </Border>
+                                 <Border Margin="0,8,0,0" Background="#12121E" CornerRadius="4" Padding="6">
+                                     <Image x:Name="img_WindGraph" Source="{Binding WindGraphImageSource}" Width="300" Height="140" Stretch="Fill" Loaded="WindImage_Loaded" />
+                                 </Border>
                             </StackPanel>
                         </ScrollViewer>
                     </TabItem>

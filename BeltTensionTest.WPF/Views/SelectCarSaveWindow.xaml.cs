@@ -15,14 +15,10 @@ namespace BeltTensionTest.WPF.Views
         {
             InitializeComponent();
 
-            // Ensure the window appears centered on top of the main window (set owner)
-            var main = Application.Current?.MainWindow;
-            if (main != null)
-            {
-                this.Owner = main;
-                this.WindowStartupLocation = WindowStartupLocation.CenterOwner;
-                this.ShowInTaskbar = false;
-            }
+            // Do not access Application.Current.MainWindow here (may be called from non-UI thread).
+            // Caller should set Owner on the UI thread before showing the dialog.
+            this.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            this.ShowInTaskbar = false;
             // Dim the owner while this dialog is open and restore when closed
             this.Loaded += SelectCarSaveWindow_Loaded;
             this.Closed += SelectCarSaveWindow_Closed;

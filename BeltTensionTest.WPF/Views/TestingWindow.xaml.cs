@@ -448,14 +448,34 @@ namespace BeltTensionTest.WPF.Views
             int gw = w - lp - rp, gh = h - tp - bp;
             if (gw <= 0 || gh <= 0) return;
 
-            float minV = device.DeviceMotorSettings.LeftMinimumAngle;
-            float maxV = device.DeviceMotorSettings.LeftMaximumAngle;
-            if (minV > maxV) (minV, maxV) = (maxV, minV);
-            float mr = maxV - minV; if (mr == 0) mr = 1;
+            float l_minV = device.DeviceMotorSettings.LeftMinimumAngle;
+            float l_maxV = device.DeviceMotorSettings.LeftMaximumAngle;
 
-            int MapY(float v) => tp + (int)((1f - (Math.Clamp(v, minV, maxV) - minV) / mr) * (gh - 1));
+                float r_minV = device.DeviceMotorSettings.RightMinimumAngle;
+                float r_maxV = device.DeviceMotorSettings.RightMaximumAngle;
+                if (l_minV > l_maxV) (l_minV, l_maxV) = (l_maxV, l_minV);
+                float l_mr = l_maxV - l_minV; if (l_mr == 0) l_mr = 1;
+                float r_mr = r_maxV - r_minV; if (r_mr == 0) r_mr = 1;
 
-            EnsureMotorBitmap(w, h);
+                int MapY(float v, bool left)
+                {
+                    float min, max;
+                    float mr = left ? l_mr : r_mr;
+                    if (left) { min = l_minV; max = l_maxV; }
+                    else { min = r_minV; max = r_maxV; }
+
+                    float clamped = Math.Clamp(v, min, max);
+                    float norm = (clamped - min) / mr;
+                    
+                    return tp + (int)((1-norm) * (gh - 1));
+                };
+
+                
+                
+
+
+
+                EnsureMotorBitmap(w, h);
             var bmp = _motorBmp!;
             var g = _motorG!;
             g.SmoothingMode = SmoothingMode.AntiAlias;
@@ -472,7 +492,7 @@ namespace BeltTensionTest.WPF.Views
             for (int i = 0; i <= 4; i++)
             {
                 int y = tp + i * (gh - 1) / 4;
-                float val = maxV - i * mr / 4f;
+                float val = l_maxV - i * l_mr / 4f;
                 var sz = g.MeasureString(val.ToString("F0"), lf);
                 g.DrawString(val.ToString("F0"), lf, lb, lp - sz.Width - 2, y - sz.Height / 2);
             }
@@ -483,13 +503,13 @@ namespace BeltTensionTest.WPF.Views
 
             var (lh, rh) = _vm.GetMotorHistory();
 
-            void DrawHistory(Queue<float> history, Func<float, float> unInvert, Color color)
+            void DrawHistory(Queue<float> history, Func<float, float> unInvert, Color color, bool left)
             {
                 var arr = history.ToArray();
                 if (arr.Length < 2) return;
                 var pts = new System.Drawing.Point[arr.Length];
                 for (int i = 0; i < arr.Length; i++)
-                    pts[i] = new System.Drawing.Point(lp + (int)((float)i / (TestingViewModel.HistorySize - 1) * (gw - 1)), MapY(unInvert(arr[i])));
+                    pts[i] = new System.Drawing.Point(lp + (int)((float)i / (TestingViewModel.HistorySize - 1) * (gw - 1)), MapY(arr[i], left));
                 using var glow = new Pen(Color.FromArgb(50, color), 5);
                 g.DrawLines(glow, pts);
                 using var pen = new Pen(color, 2);
@@ -499,8 +519,8 @@ namespace BeltTensionTest.WPF.Views
             float UnInvertL(float v) => device.DeviceMotorSettings.LeftInverted  ? device.DeviceMotorSettings.LeftMaximumAngle  - v : v;
             float UnInvertR(float v) => device.DeviceMotorSettings.RightInverted ? device.DeviceMotorSettings.RightMaximumAngle - v : v;
 
-            DrawHistory(lh, UnInvertL, leftColor);
-            DrawHistory(rh, UnInvertR, rightColor);
+            DrawHistory(lh, UnInvertL, leftColor, true);
+            DrawHistory(rh, UnInvertR, rightColor, false);
 
             // Legend
             var lf2 = new Font("Segoe UI", 8f, System.Drawing.FontStyle.Bold);

@@ -5,6 +5,7 @@ using BeltTensionTest.WPF.Services;
 using System.ComponentModel;
 using System.Threading;
 using System;
+using System.Windows.Controls;
 
 namespace BeltTensionTest.WPF.Views
 {
@@ -122,6 +123,8 @@ namespace BeltTensionTest.WPF.Views
             SizeChanged += MainWindow_SizeChanged;
             LocationChanged += MainWindow_LocationChanged;
             StateChanged += MainWindow_StateChanged;
+
+            
         }
 
         private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -416,6 +419,44 @@ namespace BeltTensionTest.WPF.Views
             bnt_Connect.IsEnabled = false;
         }
 
-     
+        // Called when the selected tab changes; if the Wind tab is selected, request the VM to refresh the graph
+        private void TabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            try
+            {
+                if (VM == null) return;
+                if (sender is TabControl tc)
+                {
+                    if (tc.SelectedItem is TabItem ti)
+                    {
+                        var header = ti.Header?.ToString() ?? string.Empty;
+                        if (string.Equals(header, "Wind", StringComparison.OrdinalIgnoreCase))
+                        {
+                            int w = (int)(img_WindGraph?.ActualWidth ?? 300);
+                            int h = (int)(img_WindGraph?.ActualHeight ?? 140);
+                            if (w <= 0) w = 300;
+                            if (h <= 0) h = 140;
+                            VM.RefreshWindGraph(w, h);
+                        }
+                    }
+                }
+            }
+            catch { }
+        }
+
+        // Called when the wind Image control is loaded; refresh the graph to match the control size
+        private void WindImage_Loaded(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (VM == null) return;
+                int w = (int)(img_WindGraph?.ActualWidth ?? 300);
+                int h = (int)(img_WindGraph?.ActualHeight ?? 140);
+                if (w <= 0) w = 300;
+                if (h <= 0) h = 140;
+                VM.RefreshWindGraph(w, h);
+            }
+            catch { }
+        }
     }
 }

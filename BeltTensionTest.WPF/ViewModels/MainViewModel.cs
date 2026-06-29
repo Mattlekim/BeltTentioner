@@ -95,6 +95,12 @@ namespace BeltTensionTest.WPF.ViewModels
                 }
             }
         }
+        // Public helper to request a refresh of the wind graph (used by the view when the tab/image becomes visible)
+        public void RefreshWindGraph(int width = 320, int height = 160)
+        {
+            GenerateWindGraphImage(width, height);
+        }
+         
 
         private double _windMinSpeed;
         public double WindMinSpeed
@@ -646,8 +652,8 @@ namespace BeltTensionTest.WPF.ViewModels
             // Placeholder for keeping the timer
             // _windDisplayTimer.Start();
 
-            // Initial car settings
-            LoadCarSettings("NA");
+           
+            // Initial car settings will be loaded by the MainWindow after UI has initialized
             // initial wind graph
             GenerateWindGraphImage();
 
@@ -703,7 +709,11 @@ namespace BeltTensionTest.WPF.ViewModels
             // Load the disk dictionary so we can check if the requested car exists
             _carSettingsSvc.LoadFromDisk();
 
-            if (!_carSettingsSvc.Settings.ContainsKey(carName))
+
+            if (_carSettingsSvc.Settings.Count == 0)
+                return;
+
+            if (!_carSettingsSvc.Settings.ContainsKey(carName) && carName != "NA")
             {
                 // Show a dialog allowing the user to pick an existing save to assign to this car.
                 var available = _carSettingsSvc.GetAvailableCarNames()
@@ -718,13 +728,38 @@ namespace BeltTensionTest.WPF.ViewModels
                     var d = app.Dispatcher;
                     if (d != null && !d.HasShutdownStarted && !d.HasShutdownFinished)
                     {
-                        d.Invoke(() =>
+                        // If main window hasn't finished loading yet (app startup), delay showing
+                        // the dialog for a short time so the main window can render first.
+                        var mainWin = Application.Current?.MainWindow;
+                        if (mainWin != null && !mainWin.IsLoaded)
                         {
+                            // Run on the UI dispatcher so dialog is created on STA thread.
+                            d.Invoke(() =>
+                            {
+                                try
+                                {
+                                    // Brief pause to allow main window to finish rendering
+                                    System.Threading.Thread.Sleep(1000);
+                                    var dlg = new SelectCarSaveWindow(available, carName);
+                                    // Ensure owner is set on the UI thread to avoid cross-thread Owner.set
+                                    try { dlg.Owner = Application.Current?.MainWindow; } catch { }
+                                    var res = dlg.ShowDialog();
+                                    if (res == true) chosenSource = dlg.SelectedCarName;
+                                }
+                                catch { }
+                            });
+                        }
+                        else
+                        {
+                            d.Invoke(() =>
+                            {
                             var dlg = new SelectCarSaveWindow(available, carName);
+                            try { dlg.Owner = Application.Current?.MainWindow; } catch { }
                             var res = dlg.ShowDialog();
                             if (res == true)
                                 chosenSource = dlg.SelectedCarName;
-                        });
+                            });
+                        }
                     }
                 }
 
