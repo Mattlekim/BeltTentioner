@@ -337,7 +337,7 @@
                                             <CheckBox Grid.Column="2" Content="Enabled"
                                                       IsChecked="{Binding RubbleStripEnabled}"
                                                       Margin="8,0,0,0"
-                                                      ToolTip="Enable rubble strip behavior."/>
+                                                      ToolTip="Enable rumble strip behavior."/>
                                         </Grid>
                                         <views:SliderRow Label="Rumble Str." Min="1" Max="30"
                                                          IsInteger="True"

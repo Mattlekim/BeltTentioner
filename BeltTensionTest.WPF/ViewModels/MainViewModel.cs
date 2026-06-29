@@ -210,7 +210,7 @@ namespace BeltTensionTest.WPF.ViewModels
             set => SetField(ref _simHubGroupEnabled, value);
         }
 
-        private string _simHubText = "Not Connected to SimHub";
+        private string _simHubText = "Supported Sim Features";
         public string SimHubText
         {
             get => _simHubText;

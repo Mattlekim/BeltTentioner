@@ -10,6 +10,14 @@ namespace BeltTensionTest.WPF.Services
     /// </summary>
     public class IracingService : IDisposable
     {
+        public enum RumbleSide
+        {
+            None,
+            Left,
+            Right,
+            Both
+        }
+
         private static readonly Lazy<IracingService> _instance = new(() => new IracingService());
         public static IracingService Instance => _instance.Value;
 
@@ -27,6 +35,8 @@ namespace BeltTensionTest.WPF.Services
         private IRacingSdkDatum? _datumPitch;
         private IRacingSdkDatum? _datumRoll;
         private IRacingSdkDatum? _datumYaw;
+        private IRacingSdkDatum? _datumRumbleLeft;
+        private IRacingSdkDatum? _datumRumbleRight;
 
         public bool IsConnected => _isConnected;
         public bool Enabled { get; set; } = true;
@@ -39,6 +49,8 @@ namespace BeltTensionTest.WPF.Services
         public event Action<float, float, float, Rotation>? TelemetryUpdated;
         public event Action? AbsTriggered;
         public event Action<string>? CarNameChanged;
+        // Rumble strip detection event. Fires with side: "Left", "Right", "Both", or "None"
+        public event Action<RumbleSide>? RumbleStripDetected;
 
         private IracingService()
         {
@@ -93,6 +105,9 @@ namespace BeltTensionTest.WPF.Services
                 _datumPitch = _sdk.Data.TelemetryDataProperties["Pitch"];
                 _datumRoll  = _sdk.Data.TelemetryDataProperties["Roll"];
                 _datumYaw   = _sdk.Data.TelemetryDataProperties["Yaw"];
+                // Try to bind rumble strip datums if available in this SDK build
+                try { _datumRumbleLeft = _sdk.Data.TelemetryDataProperties["RumbleStripLeft"]; } catch { _datumRumbleLeft = null; }
+                try { _datumRumbleRight = _sdk.Data.TelemetryDataProperties["RumbleStripRight"]; } catch { _datumRumbleRight = null; }
                 _datumSpeed = _sdk.Data.TelemetryDataProperties["Speed"];
                 _dataInitialized = true;
                 return true;
@@ -101,6 +116,13 @@ namespace BeltTensionTest.WPF.Services
         }
         bool isReplay = false;
         bool _wasReplay = false;
+        // Rumble detection state
+        private bool _rumbleLeftPrev = false;
+        private bool _rumbleRightPrev = false;
+        // Detection thresholds (tuneable)
+        private const float RUMBLE_LAT_THRESHOLD = 0.6f; // g
+        private const float RUMBLE_HEAVE_THRESHOLD = 0.8f; // g
+        private const float RUMBLE_MIN_SPEED = 5.0f; // m/s
 
         public event Action<bool> OnDriverInCarChange;
         private void OnTelemetryData()
@@ -151,6 +173,50 @@ namespace BeltTensionTest.WPF.Services
             TelemetryUpdated?.Invoke(surge, sway, heave, new Rotation(pitch, roll, yaw));
             GForceUpdated?.Invoke(-Math.Clamp(surge, -1000, 0));
             if (abs) AbsTriggered?.Invoke();
+
+            // Rumble strip detection
+            try
+            {
+                bool rumbleLeft = false;
+                bool rumbleRight = false;
+
+                // If SDK exposes rumble strip flags, prefer those
+                if (_datumRumbleLeft != null)
+                {
+                    try { rumbleLeft = _sdk.Data.GetBool(_datumRumbleLeft); } catch { rumbleLeft = false; }
+                }
+                if (_datumRumbleRight != null)
+                {
+                    try { rumbleRight = _sdk.Data.GetBool(_datumRumbleRight); } catch { rumbleRight = false; }
+                }
+
+                // If SDK does not provide rumble flags, use a simple heuristic based on lateral+vertical acceleration
+                if (_datumRumbleLeft == null && _datumRumbleRight == null)
+                {
+                    if (speed >= RUMBLE_MIN_SPEED && Math.Abs(sway) >= RUMBLE_LAT_THRESHOLD && Math.Abs(heave) >= RUMBLE_HEAVE_THRESHOLD)
+                    {
+                        if (sway < 0)
+                            rumbleLeft = true;
+                        else if (sway > 0)
+                            rumbleRight = true;
+                    }
+                }
+
+                // Fire event when state changes
+                if (rumbleLeft != _rumbleLeftPrev || rumbleRight != _rumbleRightPrev)
+                {
+                    _rumbleLeftPrev = rumbleLeft;
+                    _rumbleRightPrev = rumbleRight;
+
+                    var side = RumbleSide.None;
+                    if (rumbleLeft && rumbleRight) side = RumbleSide.Both;
+                    else if (rumbleLeft) side = RumbleSide.Left;
+                    else if (rumbleRight) side = RumbleSide.Right;
+
+                    try { RumbleStripDetected?.Invoke(side); } catch { }
+                }
+            }
+            catch { }
         }
 
         private float speed;
