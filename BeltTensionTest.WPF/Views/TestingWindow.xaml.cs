@@ -66,6 +66,29 @@ namespace BeltTensionTest.WPF.Views
             Closed += (_, _) => { _vm.Dispose(); DisposeGraphics(); };
         }
 
+        private void Pin_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (BtnPin.IsChecked == true)
+                {
+                    this.Topmost = true;
+                    // set overlay icon on taskbar button
+                    var img = (System.Windows.Media.ImageSource)FindResource("PinOverlayImage");
+                    TaskbarInfo.Overlay = img;
+                    // change pin glyph color to accent to show active
+                    PinPath.Fill = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(100,150,255));
+                }
+                else
+                {
+                    this.Topmost = false;
+                    TaskbarInfo.Overlay = null;
+                    PinPath.Fill = (System.Windows.Media.Brush)FindResource("TextPrimaryBrush");
+                }
+            }
+            catch { }
+        }
+
         private void EnsureCurveBitmap(int w, int h)
         {
             if (_curveBmp == null || _curveBmp.Width != w || _curveBmp.Height != h)

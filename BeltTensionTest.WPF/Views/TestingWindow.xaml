@@ -10,11 +10,38 @@
         <shell:WindowChrome CaptionHeight="40" ResizeBorderThickness="6"/>
     </shell:WindowChrome.WindowChrome>
 
+    <Window.TaskbarItemInfo>
+        <TaskbarItemInfo x:Name="TaskbarInfo" />
+    </Window.TaskbarItemInfo>
+
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/Resources/Styles.xaml"/>
             </ResourceDictionary.MergedDictionaries>
+            <!-- Simple vector overlay icon for pinned state (white pin) -->
+            <DrawingImage x:Key="PinOverlayImage">
+                <DrawingImage.Drawing>
+                    <GeometryDrawing Brush="White">
+                        <GeometryDrawing.Geometry>
+                            <GeometryGroup>
+                                <!-- pin head -->
+                                <EllipseGeometry Center="6,4" RadiusX="3" RadiusY="3" />
+                                <!-- pin shaft -->
+                                <RectangleGeometry Rect="5.5,6,1,6" />
+                                <!-- pin tip triangle -->
+                                <PathGeometry>
+                                    <PathFigure StartPoint="3,12">
+                                        <LineSegment Point="9,12" />
+                                        <LineSegment Point="6,16" />
+                                        <LineSegment Point="3,12" />
+                                    </PathFigure>
+                                </PathGeometry>
+                            </GeometryGroup>
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                </DrawingImage.Drawing>
+            </DrawingImage>
         </ResourceDictionary>
     </Window.Resources>
 
@@ -26,9 +53,19 @@
                     <ColumnDefinition/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock VerticalAlignment="Center" Margin="12,0,0,0" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Text="BBT" MouseDown="TitleBar_MouseDown"/>
+                <TextBlock VerticalAlignment="Center" Margin="12,0,0,0" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Text="Testing And Telemetry" MouseDown="TitleBar_MouseDown"/>
                 <StackPanel Orientation="Horizontal" Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0"
                             shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <!-- Pin toggle: when checked window stays on top and taskbar shows overlay -->
+                    <ToggleButton x:Name="BtnPin" Width="36" Height="24" Margin="2,0" ToolTip="Pin on top" Background="Transparent"
+                                  shell:WindowChrome.IsHitTestVisibleInChrome="True" Click="Pin_Click">
+                        <Viewbox Width="14" Height="14">
+                            <Canvas Width="16" Height="16">
+                                <!-- simple pin glyph -->
+                                <Path x:Name="PinPath" Fill="{StaticResource TextPrimaryBrush}" Data="M6,2 A4,4 0 1 1 5.99,2 Z M7,6 L7,12 M4,12 L10,12 L7,16 Z"/>
+                            </Canvas>
+                        </Viewbox>
+                    </ToggleButton>
                     <!-- Minimize (horizontal line) -->
                     <Button Width="36" Height="24" Margin="2,0" Click="Minimize_Click" ToolTip="Minimize" Background="Transparent"
                             shell:WindowChrome.IsHitTestVisibleInChrome="True"
