@@ -455,14 +455,14 @@ namespace BeltTensionTest.WPF.ViewModels
 
         // Rubble / Rumble strip settings (UI uses the name "RubbleStrip" in XAML)
         private float _rubbleStripStrength = 1f;
-        public float RubbleStripStrength
+        public float RumbleStripStrength
         {
             get => _rubbleStripStrength;
             set { if (SetField(ref _rubbleStripStrength, value)) OnCarSettingChanged(); }
         }
 
         private bool _rubbleStripEnabled;
-        public bool RubbleStripEnabled
+        public bool RumbleStripEnabled
         {
             get => _rubbleStripEnabled;
             set { if (SetField(ref _rubbleStripEnabled, value)) OnCarSettingChanged(); }
@@ -792,8 +792,8 @@ namespace BeltTensionTest.WPF.ViewModels
             OnPropertyChanged(nameof(NegativeSway));
             OnPropertyChanged(nameof(AbsStrength));
             OnPropertyChanged(nameof(AbsEnabled));
-            OnPropertyChanged(nameof(RubbleStripStrength));
-            OnPropertyChanged(nameof(RubbleStripEnabled));
+            OnPropertyChanged(nameof(RumbleStripStrength));
+            OnPropertyChanged(nameof(RumbleStripEnabled));
             OnPropertyChanged(nameof(PitchStrength));
             OnPropertyChanged(nameof(InvertPitch));
             OnPropertyChanged(nameof(RollStrength));
@@ -996,25 +996,25 @@ namespace BeltTensionTest.WPF.ViewModels
         private void OnRumbleStripDetected(IracingService.RumbleSide side)
         {
             // Update UI properties based on detected side
-            Application.Current.Dispatcher.Invoke(() =>
-            {
+            
                 switch (side)
                 {
                     case IracingService.RumbleSide.Left:
-                        RumbleLeftActive = true; RumbleRightActive = false; RumbleStatusText = "Rumble: Left";
+                        RumbleLeftActive = true; RumbleRightActive = false;
                         break;
                     case IracingService.RumbleSide.Right:
-                        RumbleLeftActive = false; RumbleRightActive = true; RumbleStatusText = "Rumble: Right";
+                        RumbleLeftActive = false; RumbleRightActive = true;
                         break;
                     case IracingService.RumbleSide.Both:
-                        RumbleLeftActive = true; RumbleRightActive = true; RumbleStatusText = "Rumble: Both";
+                        RumbleLeftActive = true; RumbleRightActive = true;
                         break;
                     case IracingService.RumbleSide.None:
                     default:
-                        RumbleLeftActive = false; RumbleRightActive = false; RumbleStatusText = "Rumble: None";
+                        RumbleLeftActive = false; RumbleRightActive = false;
                         break;
                 }
-            });
+            
+
         }
 
         // ?? Telemetry ?????????????????????????????????????????????????????????
@@ -1159,6 +1159,14 @@ namespace BeltTensionTest.WPF.ViewModels
             LivePreviewUpdated?.Invoke(_simSurge, _simSway, _simHeave);
 
             value.SendDataToSerial(Device, _carSettingsSvc.CurrentSettings, _wasInCar, removeGravity, _simRotation);
+
+            if (RumbleStripEnabled)
+            {
+                if (RumbleLeftActive)
+                    Device.SendRumble(RumbleStripStrength, true);
+                if (RumbleRightActive)
+                    Device.SendRumble(RumbleStripStrength, false);
+            }
             _lastMotorOutput = value;
 
             // Publish motor outputs for testing window (left, right, rotation)

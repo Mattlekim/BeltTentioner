@@ -54,10 +54,12 @@
 
             <views:SliderRow Label="Start Angle" Min="0" Max="180"
                              Value="{Binding MotorStart, Mode=TwoWay}"
-                             FillBrush="#6496FF" Margin="0,3"/>
+                             FillBrush="#6496FF" Margin="0,3"
+                             IsInteger="True"/>
             <views:SliderRow Label="End Angle" Min="0" Max="180"
                              Value="{Binding MotorEnd, Mode=TwoWay}"
-                             FillBrush="#6496FF" Margin="0,3"/>
+                             FillBrush="#6496FF" Margin="0,3"
+                             IsInteger="True"/>
             <CheckBox Content="Inverted"
                       IsChecked="{Binding MotorInverted}"
                       Margin="0,6,0,4"
@@ -85,7 +87,7 @@
             <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
 
                 <views:SliderRow x:Name="sr_TestAngle" Label="Test Angle" Min="0" Max="180"
-                 Value="0" FillBrush="#6496FF" Margin="0,6" Width="290"/>
+                 Value="0" FillBrush="#6496FF" Margin="0,6" Width="290" IsInteger="True"/>
                 <CheckBox x:Name="cb_Test"
                           Content="Test"
                           Checked="Cb_Test_Checked"

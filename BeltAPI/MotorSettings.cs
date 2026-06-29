@@ -70,7 +70,6 @@ namespace BeltAPI
       */
         public (float, float) ClampToMaxMotorPower(float lValue, float rValue, CarSettings settings)
         {
-
             float sFactor = (settings.MaxPower / 100f);
 
             float lRange = Math.Abs(LeftMaximumAngle - LeftMinimumAngle); //get range

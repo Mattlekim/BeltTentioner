@@ -321,15 +321,15 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="Rumble Strip" Style="{StaticResource LabelStyle}"/>
+                                                <TextBlock Grid.Column="0" Text="Kerbs Strip" Style="{StaticResource LabelStyle}"/>
                                             <CheckBox Grid.Column="2" Content="Enabled"
-                                                      IsChecked="{Binding RubbleStripEnabled}"
+                                                      IsChecked="{Binding RumbleStripEnabled, Mode=TwoWay}"
                                                       Margin="8,0,0,0"
                                                       ToolTip="Enable rumble strip behavior."/>
                                         </Grid>
-                                        <views:SliderRow Label="Rumble Str." Min="1" Max="30"
+                                            <views:SliderRow Label="Kerbs Str." Min="1" Max="30"
                                                          IsInteger="True"
-                                                     Value="{Binding RubbleStripStrength, Mode=TwoWay}"
+                                                     Value="{Binding RumbleStripStrength, Mode=TwoWay}"
                                                      FillBrush="CornflowerBlue" Margin="0,3"/>
 
                                         <StackPanel Orientation="Horizontal" Margin="0,4,0,0">

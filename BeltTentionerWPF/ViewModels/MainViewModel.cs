@@ -150,6 +150,13 @@ namespace BeltTentionerWPF.ViewModels
         public bool RumbleStripEnabled { get => _rumbleStripEnabled; set { SetField(ref _rumbleStripEnabled, value); ApplyCarSettings(); } }
         private bool _rumbleStripEnabled;
 
+        // Internal state for rumble-strip HF detection
+        private float _swayLowpass = 0f;
+        private float _heaveLowpass = 0f;
+        private int _lastRumbleLeft = 0;
+        private int _lastRumbleRight = 0;
+        private const int RumbleCooldownMs = 200; // minimum ms between rumble triggers per side
+
         public float PitchStrength { get => _pitchStrength; set { SetField(ref _pitchStrength, value); ApplyCarSettings(); } }
         private float _pitchStrength = 10f;
 
@@ -256,6 +263,50 @@ namespace BeltTentionerWPF.ViewModels
                 float yaw = _irSdk.Data.GetFloat(_dYaw);
 
                 UpdateForces(surge, sway, heave, new Rotation(pitch, roll, yaw));
+
+                // Rumble-strip detection: high-frequency component on lateral/vertical axes
+                try
+                {
+                    if (RumbleStripEnabled)
+                    {
+                        // simple single-pole low-pass to extract high-frequency component
+                        const float lpAlpha = 0.92f; // larger = slower LP
+                        _swayLowpass = _swayLowpass * lpAlpha + sway * (1f - lpAlpha);
+                        _heaveLowpass = _heaveLowpass * lpAlpha + heave * (1f - lpAlpha);
+
+                        float swayHF = sway - _swayLowpass;
+                        float heaveHF = heave - _heaveLowpass;
+
+                        float hfMag = Math.Max(Math.Abs(swayHF), Math.Abs(heaveHF));
+
+                        // threshold scaled by user strength; adjust base threshold as needed
+                        float threshold = 0.20f; // ~0.2g high-frequency magnitude
+                        float trigger = threshold * Math.Max(0.25f, RumbleStrength);
+
+                        if (hfMag > trigger)
+                        {
+                            // decide side from lateral sign (sway). If sway is near zero use both
+                            int now = Environment.TickCount;
+                            ushort intensity = (ushort)Math.Clamp(RumbleStrength * 150f, 1f, 255f);
+
+                            if (Math.Abs(sway) < 0.05f)
+                            {
+                                // ambiguous — fire both if cooldowns allow
+                                if (now - _lastRumbleLeft > RumbleCooldownMs) { BeltDevice.SendRumble(intensity, true); _lastRumbleLeft = now; }
+                                if (now - _lastRumbleRight > RumbleCooldownMs) { BeltDevice.SendRumble(intensity, false); _lastRumbleRight = now; }
+                            }
+                            else if (sway > 0)
+                            {
+                                if (now - _lastRumbleRight > RumbleCooldownMs) { BeltDevice.SendRumble(intensity, false); _lastRumbleRight = now; }
+                            }
+                            else
+                            {
+                                if (now - _lastRumbleLeft > RumbleCooldownMs) { BeltDevice.SendRumble(intensity, true); _lastRumbleLeft = now; }
+                            }
+                        }
+                    }
+                }
+                catch { }
 
                 bool abs = _irSdk.Data.GetBool(_dABS);
                 if (abs && AbsEnabled)

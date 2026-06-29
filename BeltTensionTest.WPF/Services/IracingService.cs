@@ -37,9 +37,9 @@ namespace BeltTensionTest.WPF.Services
         private IRacingSdkDatum? _datumRoll;
         private IRacingSdkDatum? _datumYaw;
 
-        // Wheel vertical velocity datums (front axle only for rumble detection)
-        private IRacingSdkDatum? _datumWheelVertVelFL;
-        private IRacingSdkDatum? _datumWheelVertVelFR;
+        // Rumble pitch datums (front axle)
+        private IRacingSdkDatum? _datumRumbleFL;
+        private IRacingSdkDatum? _datumRumbleFR;
 
         public bool IsConnected => _isConnected;
         public bool Enabled { get; set; } = true;
@@ -52,7 +52,6 @@ namespace BeltTensionTest.WPF.Services
         public event Action<float, float, float, Rotation>? TelemetryUpdated;
         public event Action? AbsTriggered;
         public event Action<string>? CarNameChanged;
-        // Rumble strip detection event. Fires with side: "Left", "Right", "Both", or "None"
         public event Action<RumbleSide>? RumbleStripDetected;
 
         public event Action<bool> OnDriverInCarChange;
@@ -61,7 +60,7 @@ namespace BeltTensionTest.WPF.Services
         {
             Task.Run(async () =>
             {
-                await Task.Delay(1000); // Small delay to allow app to initialize before connecting to iRacing
+                await Task.Delay(1000);
                 try
                 {
                     _sdk = new IRacingSdk();
@@ -72,7 +71,6 @@ namespace BeltTensionTest.WPF.Services
                 }
                 catch
                 {
-                    // If we fail to connect, we'll just stay disconnected and try again next time telemetry data is requested.
                 }
             });
         }
@@ -111,9 +109,9 @@ namespace BeltTensionTest.WPF.Services
                 _datumYaw = _sdk.Data.TelemetryDataProperties["Yaw"];
                 _datumSpeed = _sdk.Data.TelemetryDataProperties["Speed"];
 
-                // Wheel vertical velocity (front axle)
-                try { _datumWheelVertVelFL = _sdk.Data.TelemetryDataProperties["WheelVertVel_FL"]; } catch { _datumWheelVertVelFL = null; }
-                try { _datumWheelVertVelFR = _sdk.Data.TelemetryDataProperties["WheelVertVel_FR"]; } catch { _datumWheelVertVelFR = null; }
+                // Rumble pitch (front axle)
+                try { _datumRumbleFL = _sdk.Data.TelemetryDataProperties["TireLF_RumblePitch"]; } catch { _datumRumbleFL = null; }
+                try { _datumRumbleFR = _sdk.Data.TelemetryDataProperties["TireRF_RumblePitch"]; } catch { _datumRumbleFR = null; }
 
                 _dataInitialized = true;
                 return true;
@@ -127,17 +125,14 @@ namespace BeltTensionTest.WPF.Services
         bool isReplay = false;
         bool _wasReplay = false;
 
-        // Rumble detection state
         private bool _rumbleLeftPrev = false;
         private bool _rumbleRightPrev = false;
 
-        // Simple RMS filters for wheel vertical velocity
-        private readonly RmsFilter _rmsLeft = new RmsFilter(12);  // ~200ms at 60Hz
+        private readonly RmsFilter _rmsLeft = new RmsFilter(12);
         private readonly RmsFilter _rmsRight = new RmsFilter(12);
 
-        // Detection thresholds (tuneable)
-        private const float RUMBLE_MIN_SPEED = 5.0f;      // m/s
-        private const float RUMBLE_RMS_THRESHOLD = 2.0f;  // m/s vertical velocity RMS
+        private const float RUMBLE_MIN_SPEED = 5.0f;
+        private const float RUMBLE_RMS_THRESHOLD = 2.0f;
 
         private float speed;
         public float Speed => speed;
@@ -148,7 +143,6 @@ namespace BeltTensionTest.WPF.Services
             if (!Enabled) return;
             if (!SetupDatums()) return;
 
-            // Car name
             try
             {
                 if (_sdk?.Data.SessionInfo?.DriverInfo != null)
@@ -194,16 +188,16 @@ namespace BeltTensionTest.WPF.Services
             GForceUpdated?.Invoke(-Math.Clamp(surge, -1000, 0));
             if (abs) AbsTriggered?.Invoke();
 
-            // --- Rumble strip detection using wheel vertical velocity RMS ---
+            // --- Rumble strip detection using Tire RumblePitch ---
             try
             {
                 bool rumbleLeft = false;
                 bool rumbleRight = false;
 
-                if (_datumWheelVertVelFL != null && _datumWheelVertVelFR != null && speed >= RUMBLE_MIN_SPEED)
+                if (_datumRumbleFL != null && _datumRumbleFR != null && speed >= RUMBLE_MIN_SPEED)
                 {
-                    float fl = _sdk.Data.GetFloat(_datumWheelVertVelFL);
-                    float fr = _sdk.Data.GetFloat(_datumWheelVertVelFR);
+                    float fl = _sdk.Data.GetFloat(_datumRumbleFL);
+                    float fr = _sdk.Data.GetFloat(_datumRumbleFR);
 
                     float rmsLeft = _rmsLeft.Add(fl);
                     float rmsRight = _rmsRight.Add(fr);
@@ -212,7 +206,6 @@ namespace BeltTensionTest.WPF.Services
                     rumbleRight = rmsRight >= RUMBLE_RMS_THRESHOLD;
                 }
 
-                // Fire event when state changes
                 if (rumbleLeft != _rumbleLeftPrev || rumbleRight != _rumbleRightPrev)
                 {
                     _rumbleLeftPrev = rumbleLeft;
@@ -247,9 +240,6 @@ namespace BeltTensionTest.WPF.Services
         }
     }
 
-    /// <summary>
-    /// Simple rolling RMS filter for vibration detection.
-    /// </summary>
     public class RmsFilter
     {
         private readonly float[] _buffer;
