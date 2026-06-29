@@ -656,6 +656,37 @@ namespace BeltAPI
             }
         }
 
+        public void SendRumble(float value, bool left)
+        {
+            if (!isConnected)
+                return;
+
+            try
+            {
+                var sp = serialPort;
+                if (sp != null && sp.IsOpen)
+                {
+                    value = Math.Clamp(value, 0, 255);
+                    ushort v = (ushort)value;
+
+                    Log($"TX: Rumble - left {left} ({value})");
+                    if (left)
+                        SendPacket(0x13, v);
+                    else
+                        SendPacket(0x14, v);
+                }
+                else
+                {
+                    MessageReceived?.Invoke("DEVICE_UNPLUGGED");
+                    Disconnect();
+                }
+            }
+            catch
+            {
+                MessageReceived?.Invoke("DEVICE_UNPLUGGED");
+                Disconnect();
+            }
+        }
 
         public void SendSlowMode()
         {

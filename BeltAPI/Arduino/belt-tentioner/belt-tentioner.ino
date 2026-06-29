@@ -2,7 +2,7 @@
 #include <EEPROM.h>
 
 // Firmware version
-#define FIRMWARE_VERSION "1.0.2"
+#define FIRMWARE_VERSION "1.0.4"
 #define FIRMWARE_NAME "BBT"
 
 uint8_t WindPower = 0;
@@ -24,12 +24,19 @@ unsigned long lastDataTime = 0;
 
 bool slow = true;
 
+// ABS parameters
 int ABS_STRENGTH = 20;
-bool ABS_ACTIVATED = true;
-int ABS_FRQ = 2;
-int_fast16_t abs_frame = 0;
 
-byte ABS_RUNNING_FRAME = 0;
+// NEW: per‑motor ABS enable flags
+bool ABS_ENABLED_L = false;
+bool ABS_ENABLED_R = false;
+
+unsigned long abs_startTime = 0;
+unsigned long abs_lastTime = 0;
+
+const unsigned long ABS_DURATION = 100;   // ABS runs for 100ms
+int ABS_FREQUENCY = 40;                   // Hz
+int ABS_PULSE_WIDTH = 6;                  // ms
 
 bool _isConnected = false;
 bool _isDisconecting = false;
@@ -40,41 +47,30 @@ long slowTimeout = 0;
 // Save settings to EEPROM
 void saveSettings() {
   int addr = 200;
-  EEPROM.put(addr, L_MIN);
-  addr += sizeof(L_MIN);
-  EEPROM.put(addr, L_MAX);
-  addr += sizeof(L_MAX);
-  EEPROM.put(addr, R_MIN);
-  addr += sizeof(R_MIN);
-  EEPROM.put(addr, R_MAX);
-  addr += sizeof(R_MAX);
-  EEPROM.put(addr, L_INVERT);
-  addr += sizeof(L_INVERT);
-  EEPROM.put(addr, R_INVERT);
-  addr += sizeof(R_INVERT);
+  EEPROM.put(addr, L_MIN); addr += sizeof(L_MIN);
+  EEPROM.put(addr, L_MAX); addr += sizeof(L_MAX);
+  EEPROM.put(addr, R_MIN); addr += sizeof(R_MIN);
+  EEPROM.put(addr, R_MAX); addr += sizeof(R_MAX);
+  EEPROM.put(addr, L_INVERT); addr += sizeof(L_INVERT);
+  EEPROM.put(addr, R_INVERT); addr += sizeof(R_INVERT);
   EEPROM.put(addr, DUAL_MOTORS);
 }
 
 // Load settings from EEPROM
 void loadSettings() {
   int addr = 200;
-  EEPROM.get(addr, L_MIN);
-  addr += sizeof(L_MIN);
-  EEPROM.get(addr, L_MAX);
-  addr += sizeof(L_MAX);
-  EEPROM.get(addr, R_MIN);
-  addr += sizeof(R_MIN);
-  EEPROM.get(addr, R_MAX);
-  addr += sizeof(R_MAX);
-  EEPROM.get(addr, L_INVERT);
-  addr += sizeof(L_INVERT);
-  EEPROM.get(addr, R_INVERT);
-  addr += sizeof(R_INVERT);
+  EEPROM.get(addr, L_MIN); addr += sizeof(L_MIN);
+  EEPROM.get(addr, L_MAX); addr += sizeof(L_MAX);
+  EEPROM.get(addr, R_MIN); addr += sizeof(R_MIN);
+  EEPROM.get(addr, R_MAX); addr += sizeof(R_MAX);
+  EEPROM.get(addr, L_INVERT); addr += sizeof(L_INVERT);
+  EEPROM.get(addr, R_INVERT); addr += sizeof(R_INVERT);
   EEPROM.get(addr, DUAL_MOTORS);
 }
 
 void ResetMotors() {
-  ABS_ACTIVATED = false;
+  ABS_ENABLED_L = false;
+  ABS_ENABLED_R = false;
   L_TARGET = L_MIN;
   R_TARGET = R_MIN;
 }
@@ -82,9 +78,9 @@ void ResetMotors() {
 int last_TargetL, last_TargetR;
 
 void SetUPServos() {
- 
-   ServoLeft.attach(LEFT_MOTOR);
+  ServoLeft.attach(LEFT_MOTOR);
   ServoRight.attach(RIGHT_MOTOR);
+
   ResetMotors();
   last_TargetL = L_TARGET;
   last_TargetR = R_TARGET;
@@ -95,8 +91,6 @@ void SetUPServos() {
   ServoLeft.writeMicroseconds(pulseL);
   if (DUAL_MOTORS)
     ServoRight.writeMicroseconds(pulseR);
-
-  
 }
 
 void EnableSlowMode() {
@@ -125,20 +119,14 @@ void ProcessSerial() {
     uint8_t key = Serial.peek();
 
     if (key == 0x00) {
-      Serial.read();
-      Serial.read();
-      Serial.read();
+      Serial.read(); Serial.read(); Serial.read();
 
       handshakeComplete = true;
       SetUPServos();
 
-      ABS_ACTIVATED = false;
-      ABS_RUNNING_FRAME = 0;
-      abs_frame = 0;
+      ABS_ENABLED_L = false;
+      ABS_ENABLED_R = false;
 
-
-      // Send READY with firmware name and version so the PC can parse version info
-      // Format: READY#<NAME>-<VERSION>\r\n (matches PC handshake parsing)
       Serial.print("READY#");
       Serial.print(FIRMWARE_NAME);
       Serial.print("-");
@@ -167,21 +155,13 @@ void ProcessSerial() {
     switch (key) {
 
       case 0x01:
-        if (value >= L_MIN && value <= L_MAX) {
-          if (L_INVERT)
-           L_TARGET = L_MIN + (L_MAX - value);
-          else
-            L_TARGET = value;
-        }
+        if (value >= L_MIN && value <= L_MAX)
+          L_TARGET = L_INVERT ? L_MIN + (L_MAX - value) : value;
         break;
 
       case 0x02:
-        if (value >= R_MIN && value <= R_MAX) {
-          if (R_INVERT)
-            R_TARGET = R_MIN + (R_MAX - value);
-          else
-            R_TARGET = value;
-        }
+        if (value >= R_MIN && value <= R_MAX)
+          R_TARGET = R_INVERT ? R_MIN + (R_MAX - value) : value;
         break;
 
       case 0x03:
@@ -190,10 +170,12 @@ void ProcessSerial() {
         analogWrite(WIND_PIN, value);
         break;
 
-      case 0x04:
+      case 0x04:   // ABS BOTH
         ABS_STRENGTH = value;
-        ABS_ACTIVATED = true;
-        ABS_RUNNING_FRAME = 0;
+        ABS_ENABLED_L = true;
+        ABS_ENABLED_R = true;
+        abs_startTime = millis();
+        abs_lastTime = millis();
         break;
 
       case 0x05:
@@ -213,18 +195,12 @@ void ProcessSerial() {
 
       case 0x11:
         Serial.print("S");
-        Serial.print(L_MIN);
-        Serial.print("\t");
-        Serial.print(L_MAX);
-        Serial.print("\t");
-        Serial.print(R_MIN);
-        Serial.print("\t");
-        Serial.print(R_MAX);
-        Serial.print("\t");
-        Serial.print(L_INVERT);
-        Serial.print("\t");
-        Serial.print(R_INVERT);
-        Serial.print("\t");
+        Serial.print(L_MIN); Serial.print("\t");
+        Serial.print(L_MAX); Serial.print("\t");
+        Serial.print(R_MIN); Serial.print("\t");
+        Serial.print(R_MAX); Serial.print("\t");
+        Serial.print(L_INVERT); Serial.print("\t");
+        Serial.print(R_INVERT); Serial.print("\t");
         Serial.print(DUAL_MOTORS);
         Serial.println();
         break;
@@ -251,23 +227,18 @@ void ProcessSerial() {
         }
         break;
 
-
-        case 0x13:
-        {
-            if (value >= L_MIN && value <= L_MAX) {
-                int pulse = map(value, 0, 180, 500, 2500);
-                 ServoLeft.writeMicroseconds(pulse);
-            }
-        }
+      case 0x13:   // ABS LEFT ONLY
+        ABS_STRENGTH = value;
+        ABS_ENABLED_L = true;
+        abs_startTime = millis();
+        abs_lastTime = millis();
         break;
 
-        case 0x14:
-        {
-            if (value >= R_MIN && value <= R_MAX) {
-                int pulse = map(value, 0, 180, 500, 2500);
-                 ServoRight.writeMicroseconds(pulse);
-            }
-        }
+      case 0x14:   // ABS RIGHT ONLY
+        ABS_STRENGTH = value;
+        ABS_ENABLED_R = true;
+        abs_startTime = millis();
+        abs_lastTime = millis();
         break;
     }
   }
@@ -303,31 +274,45 @@ void loop() {
       WindPower = 0;
       analogWrite(WIND_PIN, 0);
 
-       ResetMotors();
+      ResetMotors();
     }
   }
 
-  int abs_l = 0, abs_r = 0;
+  // ---------------------------
+  // NEW ABS SYSTEM (100ms duration)
+  // ---------------------------
+  int abs_l = 0;
+  int abs_r = 0;
 
-  if (!_isDisconecting) {
+  if ((ABS_ENABLED_L || ABS_ENABLED_R) && !_isDisconecting) {
 
-    if (ABS_ACTIVATED) {
-      ABS_RUNNING_FRAME++;
-      if (ABS_RUNNING_FRAME > 3)
-        ABS_ACTIVATED = false;
+    if (now - abs_startTime >= ABS_DURATION) {
+        ABS_ENABLED_L = false;
+        ABS_ENABLED_R = false;
+    } else {
 
-      if (abs_frame > ABS_FRQ) {
-        abs_l = (L_INVERT ? -ABS_STRENGTH : ABS_STRENGTH);
-      } else {
-        abs_r = (R_INVERT ? -ABS_STRENGTH : ABS_STRENGTH);
-      }
+        unsigned long period = 1000UL / ABS_FREQUENCY;
+
+        if (now - abs_lastTime < ABS_PULSE_WIDTH) {
+
+            // Random jitter per motor
+            int jitterL = random(-5, 6);
+            int jitterR = random(-5, 6);
+
+            if (ABS_ENABLED_L)
+                abs_l = (L_INVERT ? -(ABS_STRENGTH + jitterL) : (ABS_STRENGTH + jitterL));
+
+            if (ABS_ENABLED_R)
+                abs_r = (R_INVERT ? -(ABS_STRENGTH + jitterR) : (ABS_STRENGTH + jitterR));
+        }
+
+        if (now - abs_lastTime >= period) {
+            abs_lastTime = now;
+        }
     }
-
-    abs_frame++;
-    if (abs_frame >= ABS_FRQ * 2)
-      abs_frame = 0;
   }
 
+  // Slow mode slew limiting
   if (slow) {
     slowTimeout -= elapsed;
     if (slowTimeout <= 0) {
@@ -356,11 +341,8 @@ void loop() {
     R_TARGET = last_TargetR + diff_r;
   }
 
-  int l_output = L_TARGET + abs_l;
-  int r_output = R_TARGET + abs_r;
-
-  l_output = constrain(l_output, L_MIN, L_MAX);
-  r_output = constrain(r_output, R_MIN, R_MAX);
+  int l_output = constrain(L_TARGET + abs_l, L_MIN, L_MAX);
+  int r_output = constrain(R_TARGET + abs_r, R_MIN, R_MAX);
 
   int pulseL = map(l_output, 0, 180, 500, 2500);
   int pulseR = map(r_output, 0, 180, 500, 2500);

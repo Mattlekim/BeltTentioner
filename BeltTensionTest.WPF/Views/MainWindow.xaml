@@ -333,13 +333,13 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="Rubble Strip" Style="{StaticResource LabelStyle}"/>
+                                            <TextBlock Grid.Column="0" Text="Rumble Strip" Style="{StaticResource LabelStyle}"/>
                                             <CheckBox Grid.Column="2" Content="Enabled"
                                                       IsChecked="{Binding RubbleStripEnabled}"
                                                       Margin="8,0,0,0"
                                                       ToolTip="Enable rubble strip behavior."/>
                                         </Grid>
-                                        <views:SliderRow Label="Rubble Str." Min="1" Max="200"
+                                        <views:SliderRow Label="Rumble Str." Min="1" Max="30"
                                                          IsInteger="True"
                                                      Value="{Binding RubbleStripStrength, Mode=TwoWay}"
                                                      FillBrush="CornflowerBlue" Margin="0,3"/>
@@ -350,7 +350,7 @@
                                                 HorizontalAlignment="Left"
                                                 Width="80" Margin="4,6,4,2"
                                                 Style="{DynamicResource RedButton}"/>
-                                            <Button Content="Test Rubble"
+                                            <Button Content="Test Rumble"
                                                 Command="{Binding TestRubbleCommand}"
                                                 HorizontalAlignment="Left"
                                                 Width="90" Margin="4,6,4,2" Style="{DynamicResource BlueButton}"/>      

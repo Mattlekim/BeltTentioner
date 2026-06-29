@@ -57,6 +57,8 @@ namespace BeltTensionTest.WPF.ViewModels
         private bool _haveTestingData;
         private bool _isLoading;
         private bool _testAbs;
+        private bool _testRubble;
+        private bool _testRubbleLeft = true;
         private bool _simHubConnected;
         private string _lastGameName = string.Empty;
 
@@ -451,6 +453,21 @@ namespace BeltTensionTest.WPF.ViewModels
             set { if (SetField(ref _masterTiltStrength, value)) OnCarSettingChanged(); }
         }
 
+        // Rubble / Rumble strip settings (UI uses the name "RubbleStrip" in XAML)
+        private float _rubbleStripStrength = 1f;
+        public float RubbleStripStrength
+        {
+            get => _rubbleStripStrength;
+            set { if (SetField(ref _rubbleStripStrength, value)) OnCarSettingChanged(); }
+        }
+
+        private bool _rubbleStripEnabled;
+        public bool RubbleStripEnabled
+        {
+            get => _rubbleStripEnabled;
+            set { if (SetField(ref _rubbleStripEnabled, value)) OnCarSettingChanged(); }
+        }
+
         // Motor settings
         private int _motorStart;
         public int MotorStart
@@ -534,6 +551,7 @@ namespace BeltTensionTest.WPF.ViewModels
         public ICommand ConnectCommand { get; }
         public ICommand ApplyMotorSettingsCommand { get; }
         public ICommand TestAbsCommand { get; }
+        public ICommand TestRubbleCommand { get; }
         public ICommand CheckUpdatesCommand { get; }
         public ICommand OpenUpdateCommand { get; }
         private ICommand _updateButtonCommand = null!;
@@ -555,6 +573,7 @@ namespace BeltTensionTest.WPF.ViewModels
             ConnectCommand          = new AsyncRelayCommand(DoConnectAsync);
             ApplyMotorSettingsCommand = new RelayCommand(DoApplyMotorSettings, _ => ControlsEnabled);
             TestAbsCommand          = new RelayCommand(DoTestAbs);
+            TestRubbleCommand = new RelayCommand(DoTestRubble);
             CheckUpdatesCommand     = new AsyncRelayCommand(DoCheckUpdatesAsync);
             OpenUpdateCommand       = new RelayCommand(DoOpenUpdate);
             // default update button behavior (app update)
@@ -721,6 +740,8 @@ namespace BeltTensionTest.WPF.ViewModels
             _negativeSway      = s.NegativeSway;
             _absStrength       = Math.Max(3f, s.AbsStrength);
             _absEnabled        = s.AbsEnabled;
+            _rubbleStripStrength = s.RumbleStrength;
+            _rubbleStripEnabled = s.RumbleStripEnabled;
             _pitchStrength     = s.PitchStrength;
             _invertPitch       = s.InvertPitch;
             _rollStrength      = s.RollStrength;
@@ -749,6 +770,8 @@ namespace BeltTensionTest.WPF.ViewModels
             OnPropertyChanged(nameof(NegativeSway));
             OnPropertyChanged(nameof(AbsStrength));
             OnPropertyChanged(nameof(AbsEnabled));
+            OnPropertyChanged(nameof(RubbleStripStrength));
+            OnPropertyChanged(nameof(RubbleStripEnabled));
             OnPropertyChanged(nameof(PitchStrength));
             OnPropertyChanged(nameof(InvertPitch));
             OnPropertyChanged(nameof(RollStrength));
@@ -785,6 +808,9 @@ namespace BeltTensionTest.WPF.ViewModels
             s.NegativeSway      = _negativeSway;
             s.AbsStrength       = _absStrength;
             s.AbsEnabled        = _absEnabled;
+            // Map Rubble (Rumble) strip UI values into car settings
+            s.RumbleStrength    = _rubbleStripStrength;
+            s.RumbleStripEnabled = _rubbleStripEnabled;
             s.PitchStrength     = _pitchStrength;
             s.InvertPitch       = _invertPitch;
             s.RollStrength      = _rollStrength;
@@ -1043,6 +1069,12 @@ namespace BeltTensionTest.WPF.ViewModels
             if (!_motorSettingsLoaded || !Device.IsConnected) return;
             if (_testAbs) { Device.SendABS((int)_absStrength); return; }
 
+            if (_testRubble)
+            {
+                Device.SendRumble((int)_rubbleStripStrength, _testRubbleLeft);
+                return;
+            }
+
             BeltMotorData value;
             if (_wasInCar || _haveTestingData)
             {
@@ -1279,6 +1311,23 @@ namespace BeltTensionTest.WPF.ViewModels
             _testAbs = true;
             Task.Delay(2000).ContinueWith(_ => _testAbs = false);
         }
+
+        private void DoTestRubble(object? _)
+        {
+            if (_testRubble) return;
+            _testRubble = true;
+            _testRubbleLeft = true;
+            Task.Delay(2000).ContinueWith(_ =>
+            {
+                _testRubbleLeft = false;
+                Task.Delay(2000).ContinueWith(__ =>
+                {
+                    _testRubble = false;
+                });
+            });
+        }
+
+
 
         private async Task DoCheckUpdatesAsync(object? _)
         {
