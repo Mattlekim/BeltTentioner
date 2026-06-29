@@ -49,6 +49,12 @@ namespace BeltTensionTest.WPF.ViewModels
             set => SetField(ref _statusText, value);
         }
 
+        private string _absStatus = "ABS Inactive";
+        public string AbsStatus { get => _absStatus; set => SetField(ref _absStatus, value); }
+
+        private string _rumbleStatus = "Rumble: None";
+        public string RumbleStatus { get => _rumbleStatus; set => SetField(ref _rumbleStatus, value); }
+
         private bool _surgeActive;
         public bool SurgeActive { get => _surgeActive; set => SetField(ref _surgeActive, value); }
         private bool _swayActive;
@@ -85,6 +91,11 @@ namespace BeltTensionTest.WPF.ViewModels
             // Subscribe to live updates from main view model
             _main.LivePreviewUpdated += UpdateLivePreview;
             _main.MotorOutputUpdated += UpdateMotorOutput;
+            // reflect ABS and Rumble status from main viewmodel
+            _main.PropertyChanged += Main_PropertyChanged;
+            // initialize
+            AbsStatus = _main.AbsStatusText;
+            RumbleStatus = _main.RumbleStatusText;
 
             StartSurgeCommand = new RelayCommand(() => StartMode(TestMode.Surge));
             StartSwayCommand  = new RelayCommand(() => StartMode(TestMode.Sway));
@@ -93,6 +104,18 @@ namespace BeltTensionTest.WPF.ViewModels
 
             _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(60) };
             _timer.Tick += OnTick;
+        }
+
+        private void Main_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(MainViewModel.AbsStatusText) || e.PropertyName == nameof(MainViewModel.AbsActive))
+            {
+                AbsStatus = _main.AbsStatusText;
+            }
+            else if (e.PropertyName == nameof(MainViewModel.RumbleStatusText) || e.PropertyName == nameof(MainViewModel.RumbleLeftActive) || e.PropertyName == nameof(MainViewModel.RumbleRightActive))
+            {
+                RumbleStatus = _main.RumbleStatusText;
+            }
         }
 
         private void StartMode(TestMode mode)
@@ -186,6 +209,7 @@ namespace BeltTensionTest.WPF.ViewModels
             _timer.Stop();
             _main.LivePreviewUpdated -= UpdateLivePreview;
             _main.MotorOutputUpdated -= UpdateMotorOutput;
+            _main.PropertyChanged -= Main_PropertyChanged;
         }
     }
 }

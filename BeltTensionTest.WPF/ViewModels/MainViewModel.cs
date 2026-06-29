@@ -547,6 +547,27 @@ namespace BeltTensionTest.WPF.ViewModels
             set => SetField(ref _absActive, value);
         }
 
+        private string _rumbleStatusText = "Rumble: None";
+        public string RumbleStatusText
+        {
+            get => _rumbleStatusText;
+            set => SetField(ref _rumbleStatusText, value);
+        }
+
+        private bool _rumbleLeftActive;
+        public bool RumbleLeftActive
+        {
+            get => _rumbleLeftActive;
+            set => SetField(ref _rumbleLeftActive, value);
+        }
+
+        private bool _rumbleRightActive;
+        public bool RumbleRightActive
+        {
+            get => _rumbleRightActive;
+            set => SetField(ref _rumbleRightActive, value);
+        }
+
         // ?? Commands ???????????????????????????????????????????????????????????
         public ICommand ConnectCommand { get; }
         public ICommand ApplyMotorSettingsCommand { get; }
@@ -600,6 +621,7 @@ namespace BeltTensionTest.WPF.ViewModels
                 d.InvokeAsync(() => DisplayGForce = g);
             };
             _iracing.AbsTriggered      += OnAbsTriggered;
+            _iracing.RumbleStripDetected += OnRumbleStripDetected;
             _iracing.CarNameChanged    += OnCarNameChanged;
 
             _iracing.Enabled = AppSettings.UseIracing;
@@ -957,6 +979,42 @@ namespace BeltTensionTest.WPF.ViewModels
         {
             if (_absEnabled)
                 Device.SendABS((int)_absStrength);
+            // reflect ABS activation in UI for a short time
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                AbsActive = true;
+                AbsStatusText = "ABS Active";
+            });
+            // clear after 600ms
+            Task.Delay(600).ContinueWith(_ => Application.Current.Dispatcher.Invoke(() =>
+            {
+                AbsActive = false;
+                AbsStatusText = "ABS Inactive";
+            }));
+        }
+
+        private void OnRumbleStripDetected(IracingService.RumbleSide side)
+        {
+            // Update UI properties based on detected side
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                switch (side)
+                {
+                    case IracingService.RumbleSide.Left:
+                        RumbleLeftActive = true; RumbleRightActive = false; RumbleStatusText = "Rumble: Left";
+                        break;
+                    case IracingService.RumbleSide.Right:
+                        RumbleLeftActive = false; RumbleRightActive = true; RumbleStatusText = "Rumble: Right";
+                        break;
+                    case IracingService.RumbleSide.Both:
+                        RumbleLeftActive = true; RumbleRightActive = true; RumbleStatusText = "Rumble: Both";
+                        break;
+                    case IracingService.RumbleSide.None:
+                    default:
+                        RumbleLeftActive = false; RumbleRightActive = false; RumbleStatusText = "Rumble: None";
+                        break;
+                }
+            });
         }
 
         // ?? Telemetry ?????????????????????????????????????????????????????????

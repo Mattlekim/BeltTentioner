@@ -68,20 +68,32 @@ namespace BeltTensionTest.WPF.Views
 
         private void Pin_Click(object sender, RoutedEventArgs e)
         {
+            SetPinned(BtnPin.IsChecked == true);
+        }
+
+        private void Pin_Checked(object sender, RoutedEventArgs e)
+        {
+            SetPinned(true);
+        }
+
+        private void Pin_Unchecked(object sender, RoutedEventArgs e)
+        {
+            SetPinned(false);
+        }
+
+        private void SetPinned(bool pinned)
+        {
             try
             {
-                if (BtnPin.IsChecked == true)
+                this.Topmost = pinned;
+                if (pinned)
                 {
-                    this.Topmost = true;
-                    // set overlay icon on taskbar button
                     var img = (System.Windows.Media.ImageSource)FindResource("PinOverlayImage");
                     TaskbarInfo.Overlay = img;
-                    // change pin glyph color to accent to show active
-                    PinPath.Fill = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(100,150,255));
+                    PinPath.Fill = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(100, 150, 255));
                 }
                 else
                 {
-                    this.Topmost = false;
                     TaskbarInfo.Overlay = null;
                     PinPath.Fill = (System.Windows.Media.Brush)FindResource("TextPrimaryBrush");
                 }
