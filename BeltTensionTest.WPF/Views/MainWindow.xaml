@@ -333,16 +333,42 @@
                                                      Value="{Binding RumbleStripStrength, Mode=TwoWay}"
                                                      FillBrush="CornflowerBlue" Margin="0,3"/>
 
+                                        <!-- Gear shift controls -->
+                                        <Grid Margin="0,4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="Gear Shift" Style="{StaticResource LabelStyle}"/>
+                                            <CheckBox Grid.Column="2" Content="Enabled"
+                                                      IsChecked="{Binding GearShiftEnabled, Mode=TwoWay}"
+                                                      Margin="8,0,0,0"
+                                                      ToolTip="Enable gear shift feedback."/>
+                                        </Grid>
+                                        <views:SliderRow Label="Gear Shift Str." Min="0.1" Max="3"
+
+                                                 Value="{Binding GearShiftStrength, Mode=TwoWay}"
+                                                 FillBrush="CornflowerBlue" Margin="0,3"/>
+                                        <views:SliderRow Label="Gear Shift Time (ms)" Min="100" Max="2000"
+                                                     IsInteger="True"
+                                                 Value="{Binding GearShiftTime, Mode=TwoWay}"
+                                                 FillBrush="CornflowerBlue" Margin="0,3"/>
+
                                         <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                                             <Button Content="Test ABS"
                                                 Command="{Binding TestAbsCommand}"
                                                 HorizontalAlignment="Left"
                                                 Width="80" Margin="4,6,4,2"
-                                                Style="{DynamicResource RedButton}"/>
+                                                Style="{DynamicResource BlueButton}"/>
                                             <Button Content="Test Rumble"
                                                 Command="{Binding TestRubbleCommand}"
                                                 HorizontalAlignment="Left"
                                                 Width="90" Margin="4,6,4,2" Style="{DynamicResource BlueButton}"/>      
+                                            <Button Content="Test Gear Shift"
+                                                Command="{Binding TestGearShiftCommand}"
+                                                HorizontalAlignment="Left"
+                                                Width="110" Margin="4,6,4,2" Style="{DynamicResource BlueButton}"/>
                                         </StackPanel>
                                     </StackPanel>
                                 </GroupBox>

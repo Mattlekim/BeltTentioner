@@ -33,6 +33,11 @@ namespace BeltAPI
         public float RumbleStrength { get; set; } = 1.0f; // strength for rumble strips
         public bool RumbleStripEnabled { get; set; } = false; // enable rumble strip handling
 
+        // Gear shift settings
+        public float GearShiftStrength { get; set; } = 1.0f; // strength for gear shift feedback
+        public bool GearShiftEnabled { get; set; } = false; // enable gear shift handling
+        public int GearShiftTimeMs { get; set; } = 100; // duration of gear shift feedback in ms
+
 
         public int RestingPoint { get; set; } = 0; // NEW: Resting point for the motor
         // Wind settings
@@ -68,6 +73,9 @@ namespace BeltAPI
                 AbsEnabled = this.AbsEnabled,
                 RumbleStrength = this.RumbleStrength,
                 RumbleStripEnabled = this.RumbleStripEnabled,
+                GearShiftStrength = this.GearShiftStrength,
+                GearShiftEnabled = this.GearShiftEnabled,
+                GearShiftTimeMs = this.GearShiftTimeMs,
                 RestingPoint = this.RestingPoint,
                 NegativeSway = this.NegativeSway,
                 PitchStrength = this.PitchStrength,

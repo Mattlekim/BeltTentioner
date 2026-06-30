@@ -474,6 +474,28 @@ namespace BeltTensionTest.WPF.ViewModels
             set { if (SetField(ref _rubbleStripEnabled, value)) OnCarSettingChanged(); }
         }
 
+        // Gear shift settings
+        private float _gearShiftStrength = 1f;
+        public float GearShiftStrength
+        {
+            get => _gearShiftStrength;
+            set { if (SetField(ref _gearShiftStrength, value)) OnCarSettingChanged(); }
+        }
+
+        private bool _gearShiftEnabled;
+        public bool GearShiftEnabled
+        {
+            get => _gearShiftEnabled;
+            set { if (SetField(ref _gearShiftEnabled, value)) OnCarSettingChanged(); }
+        }
+
+        private int _gearShiftTime = 100;
+        public int GearShiftTime
+        {
+            get => _gearShiftTime;
+            set { if (SetField(ref _gearShiftTime, value)) OnCarSettingChanged(); }
+        }
+
         // Motor settings
         private int _motorStart;
         public int MotorStart
@@ -574,11 +596,15 @@ namespace BeltTensionTest.WPF.ViewModels
             set => SetField(ref _rumbleRightActive, value);
         }
 
+        private bool _testGearShift;
+
+
         // ?? Commands ???????????????????????????????????????????????????????????
         public ICommand ConnectCommand { get; }
         public ICommand ApplyMotorSettingsCommand { get; }
         public ICommand TestAbsCommand { get; }
         public ICommand TestRubbleCommand { get; }
+        public ICommand TestGearShiftCommand { get; }
         public ICommand CheckUpdatesCommand { get; }
         public ICommand OpenUpdateCommand { get; }
         private ICommand _updateButtonCommand = null!;
@@ -601,6 +627,7 @@ namespace BeltTensionTest.WPF.ViewModels
             ApplyMotorSettingsCommand = new RelayCommand(DoApplyMotorSettings, _ => ControlsEnabled);
             TestAbsCommand          = new RelayCommand(DoTestAbs);
             TestRubbleCommand = new RelayCommand(DoTestRubble);
+            TestGearShiftCommand = new RelayCommand(DoTestGearShift);
             CheckUpdatesCommand     = new AsyncRelayCommand(DoCheckUpdatesAsync);
             OpenUpdateCommand       = new RelayCommand(DoOpenUpdate);
             // default update button behavior (app update)
@@ -618,6 +645,7 @@ namespace BeltTensionTest.WPF.ViewModels
             _iracing.ConnectionChanged += OnIracingConnectionChanged;
             _iracing.TelemetryUpdated  += UpdateBeltTensionerForces;
             _iracing.OnDriverInCarChange += UpdateCarDriveState;
+            _iracing.GearChanged += _iracing_GearChanged;
             _iracing.GForceUpdated     += g =>
             {
                 var app = Application.Current;
@@ -634,7 +662,7 @@ namespace BeltTensionTest.WPF.ViewModels
 
             // WPF message bridge
             WpfMessageBridge.BeltMessageReceived += OnBridgeMessage;
-
+            LoadCarSettingsFromDisk();
             // Timers
             _feedbackTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
             _feedbackTimer.Tick += (_, _) => UpdateBeltFeedback();
@@ -688,6 +716,15 @@ namespace BeltTensionTest.WPF.ViewModels
             });
         }
 
+        
+
+        private void _iracing_GearChanged(int arg1, int arg2)
+        {
+            if (GearShiftEnabled)
+                _testGearShift = true;
+
+        }
+
         private void OnGForceUpdated(float g)
         {
             var app = Application.Current;
@@ -697,6 +734,12 @@ namespace BeltTensionTest.WPF.ViewModels
             d.InvokeAsync(() => DisplayGForce = g);
         }
 
+
+        private void LoadCarSettingsFromDisk()
+        {
+
+         //   _carSettingsSvc.LoadFromDisk();
+        }
 
         // ?? Car Settings Load / Save ????????????????????????????????????????????
         public void LoadCarSettings(string carName)
@@ -713,7 +756,7 @@ namespace BeltTensionTest.WPF.ViewModels
             if (_carSettingsSvc.Settings.Count == 0)
                 return;
 
-            if (!_carSettingsSvc.Settings.ContainsKey(carName) && carName != "NA")
+            if (!_carSettingsSvc.Settings.ContainsKey(carName))
             {
                 // Show a dialog allowing the user to pick an existing save to assign to this car.
                 var available = _carSettingsSvc.GetAvailableCarNames()
@@ -730,36 +773,37 @@ namespace BeltTensionTest.WPF.ViewModels
                     {
                         // If main window hasn't finished loading yet (app startup), delay showing
                         // the dialog for a short time so the main window can render first.
-                        var mainWin = Application.Current?.MainWindow;
-                        if (mainWin != null && !mainWin.IsLoaded)
+                        Window mainWin = null;
+                        d.Invoke(() =>
                         {
-                            // Run on the UI dispatcher so dialog is created on STA thread.
-                            d.Invoke(() =>
+                            mainWin = Application.Current?.MainWindow;
+
+                            if (mainWin != null && !mainWin.IsLoaded)
                             {
-                                try
-                                {
-                                    // Brief pause to allow main window to finish rendering
-                                    System.Threading.Thread.Sleep(1000);
+                                // Run on the UI dispatcher so dialog is created on STA thread.
+                               
+                                    try
+                                    {
+                                        // Brief pause to allow main window to finish rendering
+                                        System.Threading.Thread.Sleep(1000);
+                                        var dlg = new SelectCarSaveWindow(available, carName);
+                                        // Ensure owner is set on the UI thread to avoid cross-thread Owner.set
+                                        try { dlg.Owner = Application.Current?.MainWindow; } catch { }
+                                        var res = dlg.ShowDialog();
+                                        if (res == true) chosenSource = dlg.SelectedCarName;
+                                    }
+                                    catch { }
+                                
+                            }
+                            else
+                            {
                                     var dlg = new SelectCarSaveWindow(available, carName);
-                                    // Ensure owner is set on the UI thread to avoid cross-thread Owner.set
                                     try { dlg.Owner = Application.Current?.MainWindow; } catch { }
                                     var res = dlg.ShowDialog();
-                                    if (res == true) chosenSource = dlg.SelectedCarName;
-                                }
-                                catch { }
-                            });
-                        }
-                        else
-                        {
-                            d.Invoke(() =>
-                            {
-                            var dlg = new SelectCarSaveWindow(available, carName);
-                            try { dlg.Owner = Application.Current?.MainWindow; } catch { }
-                            var res = dlg.ShowDialog();
-                            if (res == true)
-                                chosenSource = dlg.SelectedCarName;
-                            });
-                        }
+                                    if (res == true)
+                                        chosenSource = dlg.SelectedCarName;
+                            }
+                        });
                     }
                 }
 
@@ -799,11 +843,16 @@ namespace BeltTensionTest.WPF.ViewModels
             _absEnabled        = s.AbsEnabled;
             _rubbleStripStrength = s.RumbleStrength;
             _rubbleStripEnabled = s.RumbleStripEnabled;
+            _gearShiftStrength = s.GearShiftStrength;
+            _gearShiftEnabled = s.GearShiftEnabled;
             _pitchStrength     = s.PitchStrength;
             _invertPitch       = s.InvertPitch;
             _rollStrength      = s.RollStrength;
             _invertRoll        = s.InvertRoll;
             _masterTiltStrength = s.MasterTiltStrength;
+            _gearShiftStrength = s.GearShiftStrength;
+            _gearShiftEnabled = s.GearShiftEnabled;
+            _gearShiftTime = s.GearShiftTimeMs;
             // Wind settings
             _enableForCar = s.EnableForCar;
             _windMinSpeed = (double)s.WindMinSpeed;
@@ -829,6 +878,9 @@ namespace BeltTensionTest.WPF.ViewModels
             OnPropertyChanged(nameof(AbsEnabled));
             OnPropertyChanged(nameof(RumbleStripStrength));
             OnPropertyChanged(nameof(RumbleStripEnabled));
+            OnPropertyChanged(nameof(GearShiftStrength));
+            OnPropertyChanged(nameof(GearShiftEnabled));
+            OnPropertyChanged(nameof(GearShiftTime));
             OnPropertyChanged(nameof(PitchStrength));
             OnPropertyChanged(nameof(InvertPitch));
             OnPropertyChanged(nameof(RollStrength));
@@ -868,6 +920,9 @@ namespace BeltTensionTest.WPF.ViewModels
             // Map Rubble (Rumble) strip UI values into car settings
             s.RumbleStrength    = _rubbleStripStrength;
             s.RumbleStripEnabled = _rubbleStripEnabled;
+            s.GearShiftStrength = _gearShiftStrength;
+            s.GearShiftEnabled = _gearShiftEnabled;
+            s.GearShiftTimeMs = _gearShiftTime;
             s.PitchStrength     = _pitchStrength;
             s.InvertPitch       = _invertPitch;
             s.RollStrength      = _rollStrength;
@@ -1162,6 +1217,8 @@ namespace BeltTensionTest.WPF.ViewModels
             if (!_motorSettingsLoaded || !Device.IsConnected) return;
             if (_testAbs) { Device.SendABS((int)_absStrength); return; }
 
+           
+
             if (_testRubble)
             {
                 Device.SendRumble((int)_rubbleStripStrength, _testRubbleLeft);
@@ -1171,8 +1228,13 @@ namespace BeltTensionTest.WPF.ViewModels
             BeltMotorData value;
             if (_wasInCar || _haveTestingData)
             {
+                float surg = _simSurge;
+                if (_testGearShift && GearShiftEnabled)
+                {
+                    surg += GearShiftStrength / 3f;
+                }
                 value = Device.DeviceMotorSettings.Setup(
-                    _simSurge, _simSway, _simHeave,
+                    surg, _simSway, _simHeave,
                     _carSettingsSvc.CurrentSettings, _simRotation);
             }
             else
@@ -1184,7 +1246,10 @@ namespace BeltTensionTest.WPF.ViewModels
                 int gravity = 1;
                 if (!IracingIsOn || SimHubIsOn)
                     gravity = 0;
-                value = Device.DeviceMotorSettings.Setup(0, 0, gravity, s, _simRotation);
+                float su = 0;
+                if (_testGearShift && GearShiftEnabled)
+                    su = GearShiftStrength / 3f;
+                    value = Device.DeviceMotorSettings.Setup(su, 0, gravity, s, _simRotation);
                 s.RestingPoint = rp;
             }
 
@@ -1426,6 +1491,14 @@ namespace BeltTensionTest.WPF.ViewModels
                     _testRubble = false;
                 });
             });
+        }
+
+        private void DoTestGearShift(object? _)
+        {
+            if (_testGearShift) return;
+                _testGearShift = true;
+            // Simple visual/test flag; integrate with device outputs here if needed
+            Task.Delay(GearShiftTime).ContinueWith(_ => _testGearShift = false);
         }
 
 

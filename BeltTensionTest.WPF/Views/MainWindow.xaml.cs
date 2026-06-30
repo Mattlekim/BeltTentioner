@@ -124,7 +124,7 @@ namespace BeltTensionTest.WPF.Views
             LocationChanged += MainWindow_LocationChanged;
             StateChanged += MainWindow_StateChanged;
 
-            
+            VM?.LoadCarSettings(VM?.CarNameDisplay);
         }
 
         private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e)

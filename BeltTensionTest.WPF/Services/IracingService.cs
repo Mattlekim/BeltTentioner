@@ -201,8 +201,8 @@ namespace BeltTensionTest.WPF.Services
                 if (_datumGear != null)
                 {
                     // read as float and convert to int (SDK exposes gear as float)
-                    float gf = _sdk.Data.GetFloat(_datumGear);
-                    int gear = (int)Math.Round(gf);
+                    
+                    int gear = _sdk.Data.GetInt(_datumGear);
                     if (!_haveGear)
                     {
                         _lastGear = gear;
