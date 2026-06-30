@@ -486,7 +486,15 @@ namespace BeltTensionTest.WPF.ViewModels
         public bool GearShiftEnabled
         {
             get => _gearShiftEnabled;
-            set { if (SetField(ref _gearShiftEnabled, value)) OnCarSettingChanged(); }
+            set
+            {
+                if (SetField(ref _gearShiftEnabled, value))
+                {
+                    OnCarSettingChanged();
+                    // Re-evaluate command can-execute state when gear-shift toggle changes
+                    System.Windows.Input.CommandManager.InvalidateRequerySuggested();
+                }
+            }
         }
 
         private int _gearShiftTime = 100;
@@ -627,7 +635,8 @@ namespace BeltTensionTest.WPF.ViewModels
             ApplyMotorSettingsCommand = new RelayCommand(DoApplyMotorSettings, _ => ControlsEnabled);
             TestAbsCommand          = new RelayCommand(DoTestAbs);
             TestRubbleCommand = new RelayCommand(DoTestRubble);
-            TestGearShiftCommand = new RelayCommand(DoTestGearShift);
+            // Only allow testing gear shift when GearShift is enabled
+            TestGearShiftCommand = new RelayCommand(DoTestGearShift, _ => GearShiftEnabled);
             CheckUpdatesCommand     = new AsyncRelayCommand(DoCheckUpdatesAsync);
             OpenUpdateCommand       = new RelayCommand(DoOpenUpdate);
             // default update button behavior (app update)
