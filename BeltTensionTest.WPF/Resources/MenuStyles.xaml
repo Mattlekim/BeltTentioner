@@ -31,7 +31,7 @@
 					<Border Background="{DynamicResource AppBackground}"
                             BorderBrush="{DynamicResource AppBackground}"
                             BorderThickness="1">
-						<StackPanel Background="{DynamicResource AppBackground}" ClipToBounds="True" Orientation="Vertical" IsItemsHost="True"/>
+						<StackPanel Background="{DynamicResource AppBackground}" ClipToBounds="True" Orientation="Horizontal" IsItemsHost="True"/>
 					</Border>
 				</ControlTemplate>
 			</Setter.Value>

@@ -420,7 +420,14 @@ namespace BeltTensionTest.WPF.ViewModels
         public bool AbsEnabled
         {
             get => _absEnabled;
-            set { if (SetField(ref _absEnabled, value)) OnCarSettingChanged(); }
+            set
+            {
+                if (SetField(ref _absEnabled, value))
+                {
+                    OnCarSettingChanged();
+                    System.Windows.Input.CommandManager.InvalidateRequerySuggested();
+                }
+            }
         }
 
         // Tilt
@@ -471,7 +478,14 @@ namespace BeltTensionTest.WPF.ViewModels
         public bool RumbleStripEnabled
         {
             get => _rubbleStripEnabled;
-            set { if (SetField(ref _rubbleStripEnabled, value)) OnCarSettingChanged(); }
+            set
+            {
+                if (SetField(ref _rubbleStripEnabled, value))
+                {
+                    OnCarSettingChanged();
+                    System.Windows.Input.CommandManager.InvalidateRequerySuggested();
+                }
+            }
         }
 
         // Gear shift settings
@@ -633,8 +647,8 @@ namespace BeltTensionTest.WPF.ViewModels
             // Commands
             ConnectCommand          = new AsyncRelayCommand(DoConnectAsync);
             ApplyMotorSettingsCommand = new RelayCommand(DoApplyMotorSettings, _ => ControlsEnabled);
-            TestAbsCommand          = new RelayCommand(DoTestAbs);
-            TestRubbleCommand = new RelayCommand(DoTestRubble);
+            TestAbsCommand          = new RelayCommand(DoTestAbs, _ => AbsEnabled);
+            TestRubbleCommand = new RelayCommand(DoTestRubble, _ => RumbleStripEnabled);
             // Only allow testing gear shift when GearShift is enabled
             TestGearShiftCommand = new RelayCommand(DoTestGearShift, _ => GearShiftEnabled);
             CheckUpdatesCommand     = new AsyncRelayCommand(DoCheckUpdatesAsync);
@@ -902,6 +916,9 @@ namespace BeltTensionTest.WPF.ViewModels
             OnPropertyChanged(nameof(WindPowerPercentage));
             OnPropertyChanged(nameof(WindCurve));
             CarNameDisplay = carName;
+
+            // Re-evaluate command can-execute state now that settings (e.g. GearShiftEnabled) are loaded
+            System.Windows.Input.CommandManager.InvalidateRequerySuggested();
 
             // Start wind loop if enabled for this car
             if (_enableForCar) StartWindLoop();

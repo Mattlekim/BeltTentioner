@@ -22,7 +22,6 @@
                 <ResourceDictionary Source="/Resources/Styles.xaml"/>
             </ResourceDictionary.MergedDictionaries>
 
-            <!-- MenuItem uses default template to preserve submenu behavior; custom styling removed -->
             <!-- Value converters inline -->
             <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         </ResourceDictionary>
