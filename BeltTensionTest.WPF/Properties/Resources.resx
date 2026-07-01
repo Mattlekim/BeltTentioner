@@ -135,4 +135,79 @@
   <data name="Curve" xml:space="preserve">
     <value>Controls the response curve. Higher values: fast rise at the start, then slower. Lower values: slow start, then speeds up toward the end.</value>
   </data>
+  <data name="MinimizeToolTip" xml:space="preserve">
+    <value>Minimize</value>
+  </data>
+  <data name="MaximizeToolTip" xml:space="preserve">
+    <value>Maximize</value>
+  </data>
+  <data name="PinOnTopToolTip" xml:space="preserve">
+    <value>Pin on top</value>
+  </data>
+  <data name="DualMotorsToolTip" xml:space="preserve">
+    <value>Enable control of both motors (left and right).</value>
+  </data>
+  <data name="InvertMotorToolTip" xml:space="preserve">
+    <value>Invert motor rotation direction.</value>
+  </data>
+  <data name="MotorTestModeToolTip" xml:space="preserve">
+    <value>Enable motor test mode; move motor to the test angle while checked.</value>
+  </data>
+  <data name="AutoConnectToolTip" xml:space="preserve">
+    <value>Automatically connect to the device on application startup.</value>
+  </data>
+  <data name="StartWithWindowsToolTip" xml:space="preserve">
+    <value>Start the application automatically when Windows starts.</value>
+  </data>
+  <data name="MinimizeToTaskbarToolTip" xml:space="preserve">
+    <value>When closed, minimize the app to the taskbar instead of exiting.</value>
+  </data>
+  <data name="SendBeltMotorCommandsToolTip" xml:space="preserve">
+    <value>When unchecked, no belt motor commands are sent to the nano. Wind is unaffected.</value>
+  </data>
+  <data name="InvertSurgeToolTip" xml:space="preserve">
+    <value>Invert braking (surge) direction.</value>
+  </data>
+  <data name="InvertSwayToolTip" xml:space="preserve">
+    <value>Invert cornering (sway) direction.</value>
+  </data>
+  <data name="InvertHeaveToolTip" xml:space="preserve">
+    <value>Invert vertical (heave) direction.</value>
+  </data>
+  <data name="PitchStrengthToolTip" xml:space="preserve">
+    <value>Adjust pitch strength applied by gravity (tilt).</value>
+  </data>
+  <data name="InvertPitchToolTip" xml:space="preserve">
+    <value>Invert pitch tilt effect.</value>
+  </data>
+  <data name="RollStrengthToolTip" xml:space="preserve">
+    <value>Adjust roll strength applied by gravity (tilt).</value>
+  </data>
+  <data name="InvertRollToolTip" xml:space="preserve">
+    <value>Invert roll tilt effect.</value>
+  </data>
+  <data name="AbsEnabledToolTip" xml:space="preserve">
+    <value>Enable ABS behavior which reduces output during braking events.</value>
+  </data>
+  <data name="RumbleStripToolTip" xml:space="preserve">
+    <value>Enable rumble strip behavior.</value>
+  </data>
+  <data name="GearShiftToolTip" xml:space="preserve">
+    <value>Enable gear shift feedback.</value>
+  </data>
+  <data name="WindEnableForCarToolTip" xml:space="preserve">
+    <value>Enable wind effects for this car.</value>
+  </data>
+  <data name="ShowBrakingCurveToolTip" xml:space="preserve">
+    <value>Show braking curve on the graph.</value>
+  </data>
+  <data name="ShowCorneringCurveToolTip" xml:space="preserve">
+    <value>Show cornering curve on the graph.</value>
+  </data>
+  <data name="ShowVerticalCurveToolTip" xml:space="preserve">
+    <value>Show vertical/heave curve on the graph.</value>
+  </data>
+  <data name="LivePreviewToolTip" xml:space="preserve">
+    <value>Enable live preview drawing while testing.</value>
+  </data>
 </root>

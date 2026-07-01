@@ -49,11 +49,11 @@
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0"
                             WindowChrome.IsHitTestVisibleInChrome="True">
-                    <Button Width="36" Height="24" Margin="2,0" Click="Minimize_Click" Content="─" ToolTip="Minimize" Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
+                    <Button Width="36" Height="24" Margin="2,0" Click="Minimize_Click" Content="─" ToolTip="{x:Static properties:Resources.MinimizeToolTip}" Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
                             WindowChrome.IsHitTestVisibleInChrome="True"
                             FontSize="14" FontWeight="SemiBold" Padding="0" BorderThickness="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
                     
-                    <Button Width="36" Height="24" Margin="2,0" Click="Close_Click" Content="X" ToolTip="Close" Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
+                    <Button Width="36" Height="24" Margin="2,0" Click="Close_Click" Content="X" ToolTip="{x:Static properties:Resources.CloseToolTip}" Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
                             WindowChrome.IsHitTestVisibleInChrome="True"
                             FontSize="14" FontWeight="SemiBold" Padding="0" BorderThickness="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
                 </StackPanel>
@@ -175,7 +175,7 @@
                                           FontWeight="SemiBold"
                                           Foreground="#D0D0F0"
                                           Margin="0,0,0,8"
-                                          ToolTip="When unchecked, no belt motor commands are sent to the nano. Wind is unaffected."/>
+                                          ToolTip="{x:Static properties:Resources.SendBeltMotorCommandsToolTip}"/>
 
                                 <!-- Car Settings -->
                                 <GroupBox Header="Car Settings" IsEnabled="{Binding ControlsEnabled}" Margin="0,0,0,6">
@@ -217,7 +217,7 @@
                                                       IsChecked="{Binding InvertSurge}"
                                                       Foreground="#6496FF"
                                                       Margin="0,4,0,2"
-                                                      ToolTip="Invert braking (surge) direction."/>
+                                                      ToolTip="{x:Static properties:Resources.InvertSurgeToolTip}"/>
                                             </StackPanel>
                                         </GroupBox>
 
@@ -237,7 +237,7 @@
                                                       IsChecked="{Binding InvertSway}"
                                                       Foreground="#50C878"
                                                       Margin="0,4,0,2"
-                                                      ToolTip="Invert cornering (sway) direction."/>
+                                                      ToolTip="{x:Static properties:Resources.InvertSwayToolTip}"/>
                                             </StackPanel>
                                         </GroupBox>
 
@@ -254,7 +254,7 @@
                                                       IsChecked="{Binding InvertHeave}"
                                                       Foreground="#FF8040"
                                                       Margin="0,4,0,2"
-                                                      ToolTip="Invert vertical (heave) direction."/>
+                                                      ToolTip="{x:Static properties:Resources.InvertHeaveToolTip}"/>
                                             </StackPanel>
                                         </GroupBox>
 
@@ -272,11 +272,11 @@
 
                                                         Value="{Binding PitchStrength, Mode=TwoWay}"
                                                         Tag="#6496FF" Margin="4,0"
-                                                        ToolTip="Adjust pitch strength applied by gravity (tilt)."/>
+                                                        ToolTip="{x:Static properties:Resources.PitchStrengthToolTip}"/>
                                                     <CheckBox Grid.Column="2" Content="Invert"
                                                           IsChecked="{Binding InvertPitch}"
                                                           Margin="4,0,0,0"
-                                                          ToolTip="Invert pitch tilt effect."/>
+                                                          ToolTip="{x:Static properties:Resources.InvertPitchToolTip}"/>
                                                 </Grid>
                                                 <Grid Margin="0,2">
                                                     <Grid.ColumnDefinitions>
@@ -288,11 +288,11 @@
                                                     <Slider Grid.Column="1" Minimum="1" Maximum="200"
                                                         Value="{Binding RollStrength, Mode=TwoWay}"
                                                         Tag="#50C878" Margin="4,0"
-                                                        ToolTip="Adjust roll strength applied by gravity (tilt)."/>
+                                                        ToolTip="{x:Static properties:Resources.RollStrengthToolTip}"/>
                                                     <CheckBox Grid.Column="2" Content="Invert"
                                                           IsChecked="{Binding InvertRoll}"
                                                           Margin="4,0,0,0"
-                                                          ToolTip="Invert roll tilt effect."/>
+                                                          ToolTip="{x:Static properties:Resources.InvertRollToolTip}"/>
                                                 </Grid>
                                             </StackPanel>
                                         </GroupBox>
@@ -319,7 +319,7 @@
                                                       IsChecked="{Binding AbsEnabled}"
                                                       Foreground="#DC3C3C"
                                                       Margin="0,2,0,4"
-                                                      ToolTip="Enable ABS behavior which reduces output during braking events."/>
+                                                      ToolTip="{x:Static properties:Resources.AbsEnabledToolTip}"/>
                                                 <views:SliderRow Label="Strength" Min="3" Max="30"
                                                                  IsInteger="True"
                                                              Value="{Binding AbsStrength, Mode=TwoWay}"
@@ -341,7 +341,7 @@
                                                       IsChecked="{Binding RumbleStripEnabled, Mode=TwoWay}"
                                                       Foreground="CornflowerBlue"
                                                       Margin="0,2,0,4"
-                                                      ToolTip="Enable rumble strip behavior."/>
+                                                      ToolTip="{x:Static properties:Resources.RumbleStripToolTip}"/>
                                                 <views:SliderRow Label="Strength" Min="1" Max="30"
                                                                  IsInteger="True"
                                                              Value="{Binding RumbleStripStrength, Mode=TwoWay}"
@@ -363,7 +363,7 @@
                                                       IsChecked="{Binding GearShiftEnabled, Mode=TwoWay}"
                                                       Foreground="CornflowerBlue"
                                                       Margin="0,2,0,4"
-                                                      ToolTip="Enable gear shift feedback."/>
+                                                      ToolTip="{x:Static properties:Resources.GearShiftToolTip}"/>
                                                 <views:SliderRow Label="Strength" Min="0.1" Max="3"
                                                              Value="{Binding GearShiftStrength, Mode=TwoWay}"
                                                              FillBrush="CornflowerBlue" Margin="0,3"/>
@@ -395,7 +395,7 @@
                                 <TextBlock Text="Wind controls" Style="{StaticResource LabelStyle}" Margin="0,0,0,6"/>
                                 <StackPanel>
                                     <CheckBox Content="Enable for Car" IsChecked="{Binding EnableForCar, Mode=TwoWay}" Margin="0,0,6,6"
-                                              ToolTip="Enable wind effects for this car."/>
+                                              ToolTip="{x:Static properties:Resources.WindEnableForCarToolTip}"/>
                                     <views:SliderRow Label="Resting Power" IsInteger="True" Min="0" Max="255" Value="{Binding WindRestingPower, Mode=TwoWay}" Margin="0,0,0,6"/>
                                     <views:SliderRow Label="Min Speed" IsInteger="True" Min="0" Max="255" Value="{Binding WindMinSpeed, Mode=TwoWay}" Margin="0,0,0,6" />
                                     <views:SliderRow Label="Min Power" IsInteger="True" Min="0" Max="255" Value="{Binding WindMinPower, Mode=TwoWay}" Margin="0,0,0,6" />

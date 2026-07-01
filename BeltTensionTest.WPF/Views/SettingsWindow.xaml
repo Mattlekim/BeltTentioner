@@ -4,6 +4,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         xmlns:views="clr-namespace:BeltTensionTest.WPF.Views"
+        xmlns:properties="clr-namespace:BeltTensionTest.WPF.Properties"
         Title="Preferences" Height="225" Width="360" WindowStartupLocation="CenterOwner"
         Background="#12121E" Foreground="#A0A0BE" FontFamily="Segoe UI" WindowStyle="None">
 
@@ -21,7 +22,7 @@
                 <TextBlock VerticalAlignment="Center" Margin="12,0,0,0" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Text="Preferences" MouseDown="TitleBar_MouseDown"/>
                 <StackPanel Orientation="Horizontal" Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0"
                             shell:WindowChrome.IsHitTestVisibleInChrome="True">
-                    <Button Width="36" Height="24" Margin="2,0" Click="Close_Click" Content="X" ToolTip="Close" Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
+                    <Button Width="36" Height="24" Margin="2,0" Click="Close_Click" Content="X" ToolTip="{x:Static properties:Resources.CloseToolTip}" Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
                             shell:WindowChrome.IsHitTestVisibleInChrome="True"
                             FontSize="14" FontWeight="SemiBold" Padding="0" BorderThickness="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
                 </StackPanel>
@@ -39,11 +40,11 @@
                         </Grid.RowDefinitions>
                         <StackPanel Grid.Row="0" Orientation="Vertical" Margin="0,0,0,8">
                             <CheckBox x:Name="chk_AutoConnect" Content="Connect On Startup" Foreground="#A0A0BE" Margin="0,4"
-                                      ToolTip="Automatically connect to the device on application startup."/>
+                                      ToolTip="{x:Static properties:Resources.AutoConnectToolTip}"/>
                             <CheckBox x:Name="chk_StartWithWindows" Content="Start with Windows" Foreground="#A0A0BE" Margin="0,4"
-                                      ToolTip="Start the application automatically when Windows starts."/>
+                                      ToolTip="{x:Static properties:Resources.StartWithWindowsToolTip}"/>
                             <CheckBox x:Name="chk_MinimizeToTaskbar" Content="Minimize to taskbar when closed" Foreground="#A0A0BE" Margin="0,4"
-                                      ToolTip="When closed, minimize the app to the taskbar instead of exiting."/>
+                                      ToolTip="{x:Static properties:Resources.MinimizeToTaskbarToolTip}"/>
                         </StackPanel>
                         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
                             <Button x:Name="btn_Ok" Content="OK" Width="80" Margin="0,0,8,0" Click="Ok_Click" Style="{DynamicResource GreenButton}"/>

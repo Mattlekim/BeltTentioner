@@ -38,5 +38,30 @@ namespace BeltTensionTest.WPF.Properties
         public static string SupportProjectTitle => ResourceManager.GetString("SupportProjectTitle", Culture ?? CultureInfo.CurrentUICulture) ?? string.Empty;
         public static string WindowTitle => ResourceManager.GetString("WindowTitle", Culture ?? CultureInfo.CurrentUICulture) ?? string.Empty;
         public static string Curve => ResourceManager.GetString("Curve", Culture ?? CultureInfo.CurrentUICulture) ?? string.Empty;
+        public static string MinimizeToolTip => ResourceManager.GetString("MinimizeToolTip", Culture ?? CultureInfo.CurrentUICulture) ?? string.Empty;
+        public static string MaximizeToolTip => ResourceManager.GetString("MaximizeToolTip", Culture ?? CultureInfo.CurrentUICulture) ?? string.Empty;
+        public static string PinOnTopToolTip => ResourceManager.GetString("PinOnTopToolTip", Culture ?? CultureInfo.CurrentUICulture) ?? string.Empty;
+        public static string DualMotorsToolTip => ResourceManager.GetString("DualMotorsToolTip", Culture ?? CultureInfo.CurrentUICulture) ?? string.Empty;
+        public static string InvertMotorToolTip => ResourceManager.GetString("InvertMotorToolTip", Culture ?? CultureInfo.CurrentUICulture) ?? string.Empty;
+        public static string MotorTestModeToolTip => ResourceManager.GetString("MotorTestModeToolTip", Culture ?? CultureInfo.CurrentUICulture) ?? string.Empty;
+        public static string AutoConnectToolTip => ResourceManager.GetString("AutoConnectToolTip", Culture ?? CultureInfo.CurrentUICulture) ?? string.Empty;
+        public static string StartWithWindowsToolTip => ResourceManager.GetString("StartWithWindowsToolTip", Culture ?? CultureInfo.CurrentUICulture) ?? string.Empty;
+        public static string MinimizeToTaskbarToolTip => ResourceManager.GetString("MinimizeToTaskbarToolTip", Culture ?? CultureInfo.CurrentUICulture) ?? string.Empty;
+        public static string SendBeltMotorCommandsToolTip => ResourceManager.GetString("SendBeltMotorCommandsToolTip", Culture ?? CultureInfo.CurrentUICulture) ?? string.Empty;
+        public static string InvertSurgeToolTip => ResourceManager.GetString("InvertSurgeToolTip", Culture ?? CultureInfo.CurrentUICulture) ?? string.Empty;
+        public static string InvertSwayToolTip => ResourceManager.GetString("InvertSwayToolTip", Culture ?? CultureInfo.CurrentUICulture) ?? string.Empty;
+        public static string InvertHeaveToolTip => ResourceManager.GetString("InvertHeaveToolTip", Culture ?? CultureInfo.CurrentUICulture) ?? string.Empty;
+        public static string PitchStrengthToolTip => ResourceManager.GetString("PitchStrengthToolTip", Culture ?? CultureInfo.CurrentUICulture) ?? string.Empty;
+        public static string InvertPitchToolTip => ResourceManager.GetString("InvertPitchToolTip", Culture ?? CultureInfo.CurrentUICulture) ?? string.Empty;
+        public static string RollStrengthToolTip => ResourceManager.GetString("RollStrengthToolTip", Culture ?? CultureInfo.CurrentUICulture) ?? string.Empty;
+        public static string InvertRollToolTip => ResourceManager.GetString("InvertRollToolTip", Culture ?? CultureInfo.CurrentUICulture) ?? string.Empty;
+        public static string AbsEnabledToolTip => ResourceManager.GetString("AbsEnabledToolTip", Culture ?? CultureInfo.CurrentUICulture) ?? string.Empty;
+        public static string RumbleStripToolTip => ResourceManager.GetString("RumbleStripToolTip", Culture ?? CultureInfo.CurrentUICulture) ?? string.Empty;
+        public static string GearShiftToolTip => ResourceManager.GetString("GearShiftToolTip", Culture ?? CultureInfo.CurrentUICulture) ?? string.Empty;
+        public static string WindEnableForCarToolTip => ResourceManager.GetString("WindEnableForCarToolTip", Culture ?? CultureInfo.CurrentUICulture) ?? string.Empty;
+        public static string ShowBrakingCurveToolTip => ResourceManager.GetString("ShowBrakingCurveToolTip", Culture ?? CultureInfo.CurrentUICulture) ?? string.Empty;
+        public static string ShowCorneringCurveToolTip => ResourceManager.GetString("ShowCorneringCurveToolTip", Culture ?? CultureInfo.CurrentUICulture) ?? string.Empty;
+        public static string ShowVerticalCurveToolTip => ResourceManager.GetString("ShowVerticalCurveToolTip", Culture ?? CultureInfo.CurrentUICulture) ?? string.Empty;
+        public static string LivePreviewToolTip => ResourceManager.GetString("LivePreviewToolTip", Culture ?? CultureInfo.CurrentUICulture) ?? string.Empty;
     }
 }

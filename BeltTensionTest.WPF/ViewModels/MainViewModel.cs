@@ -504,7 +504,7 @@ namespace BeltTensionTest.WPF.ViewModels
 
         // Master toggle: only when enabled are belt motor commands sent to the nano.
         // Wind is handled on a separate loop and is unaffected by this.
-        private bool _beltMotorEnabled;
+        private bool _beltMotorEnabled = true;
         public bool BeltMotorEnabled
         {
             get => _beltMotorEnabled;
