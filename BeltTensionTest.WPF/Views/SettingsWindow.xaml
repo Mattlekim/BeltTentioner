@@ -53,6 +53,16 @@
                     </Grid>
                 </TabItem>
 
+                <TabItem Header="Telemetry">
+                    <StackPanel Margin="8">
+                        <TextBlock Text="Telemetry source" Foreground="#A0A0BE" Margin="0,4,0,8" FontWeight="SemiBold"/>
+                        <RadioButton x:Name="rb_Iracing" GroupName="TelemetrySource" Content="Use iRacing Telemetry"
+                                     Foreground="#A0A0BE" Margin="0,4" Checked="Telemetry_Checked"/>
+                        <RadioButton x:Name="rb_SimHub" GroupName="TelemetrySource" Content="Use SimHub Telemetry"
+                                     Foreground="#A0A0BE" Margin="0,4" Checked="Telemetry_Checked"/>
+                    </StackPanel>
+                </TabItem>
+
                 <TabItem Header="KeyBindings">
                     <Grid Margin="8">
                         <Grid.RowDefinitions>

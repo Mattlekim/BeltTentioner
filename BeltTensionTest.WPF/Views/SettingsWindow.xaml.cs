@@ -14,6 +14,7 @@ namespace BeltTensionTest.WPF.Views
     {
         private readonly MainViewModel _vm;
         private readonly SettingsService _settingsSvc = new();
+        private bool _initializing;
 
         public SettingsWindow(MainViewModel vm)
         {
@@ -24,6 +25,13 @@ namespace BeltTensionTest.WPF.Views
             chk_AutoConnect.IsChecked = _vm.AppSettings?.AutoConnectOnStartup ?? false;
             chk_StartWithWindows.IsChecked = _vm.AppSettings?.StartWithWindows ?? false;
             chk_MinimizeToTaskbar.IsChecked = _vm.AppSettings?.MinimizeToTaskbarOnClose ?? false;
+
+            // Initialize telemetry source radio buttons from the current view model state.
+            // The VM already enforces that iRacing and SimHub cannot both be enabled.
+            _initializing = true;
+            if (_vm.UseIracing) rb_Iracing.IsChecked = true;
+            else if (_vm.UseSimHub) rb_SimHub.IsChecked = true;
+            _initializing = false;
 
             // Initialize keybinding boxes
             if (_vm.AppSettings != null)
@@ -167,6 +175,24 @@ namespace BeltTensionTest.WPF.Views
         {
             DialogResult = false;
             Close();
+        }
+
+        // Telemetry source selection. Applies immediately to the view model, which
+        // enforces mutual exclusivity and persists the change.
+        private void Telemetry_Checked(object sender, RoutedEventArgs e)
+        {
+            if (_initializing || _vm == null) return;
+
+            if (sender == rb_Iracing)
+            {
+                _vm.UseIracing = true;
+                _vm.UseSimHub = false;
+            }
+            else if (sender == rb_SimHub)
+            {
+                _vm.UseSimHub = true;
+                _vm.UseIracing = false;
+            }
         }
 
         private void Kb_GestureChanged(object? sender, EventArgs e)

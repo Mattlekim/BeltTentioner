@@ -73,13 +73,6 @@
                 <MenuItem Header="Settings" Click="MenuItem_Click">
                     <MenuItem Header="Preferences..." Click="OpenPreferences_Click"/>
                     <Separator/>
-                    <MenuItem Header="Use iRacing Telemetry"
-              IsCheckable="True"
-              IsChecked="{Binding UseIracing}"/>
-                    <MenuItem Header="Use SimHub Telemetry"
-              IsCheckable="True"
-              IsChecked="{Binding UseSimHub}"/>
-                    <Separator/>
                     <MenuItem Header="Open Testing Window..." Click="OpenTestingWindow_Click"/>
                     <MenuItem Header="Show Debug Log..." Click="OpenDebugLog_Click"/>
                     <MenuItem Header="Flash Nano..." Click="OpenFlashNano_Click"/>
