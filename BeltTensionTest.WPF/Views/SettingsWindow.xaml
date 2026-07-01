@@ -5,7 +5,7 @@
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         xmlns:views="clr-namespace:BeltTensionTest.WPF.Views"
         xmlns:properties="clr-namespace:BeltTensionTest.WPF.Properties"
-        Title="Preferences" Height="225" Width="360" WindowStartupLocation="CenterOwner"
+        Title="Preferences" Height="311" Width="461" WindowStartupLocation="CenterOwner"
         Background="#12121E" Foreground="#A0A0BE" FontFamily="Segoe UI" WindowStyle="None">
 
     <shell:WindowChrome.WindowChrome>

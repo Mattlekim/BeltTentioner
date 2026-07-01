@@ -6,9 +6,16 @@
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="Auto"/>
         </Grid.ColumnDefinitions>
-        <TextBox x:Name="PART_Text" Grid.Column="0" Margin="6,4" IsReadOnly="True" Focusable="False" IsTabStop="False"
-                 Background="{StaticResource BgLightBrush}" Foreground="{StaticResource TextPrimaryBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="4,2"/>
-        <CheckBox x:Name="PART_Global" Grid.Column="1" Content="Global" VerticalAlignment="Center" Margin="8,0,0,0" Foreground="{StaticResource TextPrimaryBrush}"/>
+        <Border x:Name="PART_Box" Grid.Column="0" Margin="6,4" MinHeight="32" Cursor="Hand"
+                Background="{StaticResource BgLightBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="3"
+                ToolTip="Click to set this binding">
+            <TextBlock x:Name="PART_Text" VerticalAlignment="Center" HorizontalAlignment="Center"
+                       Margin="8,0" FontSize="15" FontWeight="SemiBold"/>
+        </Border>
+        <Button x:Name="PART_Clear" Grid.Column="1" Content="Clear" VerticalAlignment="Center" Margin="4,0,0,0" Padding="8,2"
+                Click="PART_Clear_Click" ToolTip="Clear this binding" Style="{DynamicResource BlueButton}"/>
+        <CheckBox x:Name="PART_Global" Grid.Column="2" Content="Global" VerticalAlignment="Center" Margin="8,0,0,0" Foreground="{StaticResource TextPrimaryBrush}"/>
     </Grid>
 </UserControl>

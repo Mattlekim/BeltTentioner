@@ -66,6 +66,8 @@ namespace BeltTensionTest.WPF.Views
             Loaded += MainWindow_Loaded;
             // Capture key presses when window has focus
             PreviewKeyDown += MainWindow_PreviewKeyDown;
+            // Gamepad bindings are polled globally (independent of window focus)
+            GlobalHotKeyManager_GamepadInit();
             Closing += MainWindow_Closing;
 
             // Save size/position when closing
@@ -269,6 +271,42 @@ namespace BeltTensionTest.WPF.Views
                 vm.MenuStateText = $"Hotkey triggered: DecreaseRest ({currentGesture})";
                 e.Handled = true;
                 return;
+            }
+        }
+
+        // Start polling gamepads and route pad-button presses to the bound actions.
+        private void GlobalHotKeyManager_GamepadInit()
+        {
+            GamepadService.Instance.ButtonPressed += MainWindow_GamepadButtonPressed;
+            GamepadService.Instance.Start();
+        }
+
+        private void MainWindow_GamepadButtonPressed(string name)
+        {
+            // Ignore live presses while a binding is being assigned in the settings window.
+            if (KeyBindingControl.CapturingActive) return;
+
+            var vm = VM;
+            if (vm?.AppSettings == null) return;
+
+            var gesture = "Pad:" + name;
+            bool Match(string g) => !string.IsNullOrWhiteSpace(g)
+                && string.Equals(g.Trim(), gesture, StringComparison.OrdinalIgnoreCase);
+
+            if (Match(vm.AppSettings.ToggleFanKey))
+            {
+                vm.EnableForCar = !vm.EnableForCar;
+                vm.MenuStateText = $"Gamepad triggered: ToggleFan ({gesture})";
+            }
+            else if (Match(vm.AppSettings.IncreaseWindRestingKey))
+            {
+                vm.WindRestingPower = vm.WindRestingPower + 1;
+                vm.MenuStateText = $"Gamepad triggered: IncreaseRest ({gesture})";
+            }
+            else if (Match(vm.AppSettings.DecreaseWindRestingKey))
+            {
+                vm.WindRestingPower = vm.WindRestingPower - 1;
+                vm.MenuStateText = $"Gamepad triggered: DecreaseRest ({gesture})";
             }
         }
 
