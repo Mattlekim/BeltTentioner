@@ -286,6 +286,20 @@ namespace BeltTensionTest.WPF.ViewModels
             }
         }
 
+        private bool _effectsExpanded = true;
+        public bool EffectsExpanded
+        {
+            get => _effectsExpanded;
+            set
+            {
+                if (SetField(ref _effectsExpanded, value))
+                {
+                    AppSettings.EffectsExpanded = value;
+                    _settingsSvc.Save(AppSettings);
+                }
+            }
+        }
+
         private bool _useIracing;
         public bool UseIracing
         {
@@ -488,6 +502,15 @@ namespace BeltTensionTest.WPF.ViewModels
             }
         }
 
+        // Master toggle: only when enabled are belt motor commands sent to the nano.
+        // Wind is handled on a separate loop and is unaffected by this.
+        private bool _beltMotorEnabled;
+        public bool BeltMotorEnabled
+        {
+            get => _beltMotorEnabled;
+            set => SetField(ref _beltMotorEnabled, value);
+        }
+
         // Gear shift settings
         private float _gearShiftStrength = 1f;
         public float GearShiftStrength
@@ -643,6 +666,7 @@ namespace BeltTensionTest.WPF.ViewModels
             _autoConnect = AppSettings.AutoConnectOnStartup;
             _useIracing  = AppSettings.UseIracing;
             _useSimHub   = AppSettings.UseSimHub;
+            _effectsExpanded = AppSettings.EffectsExpanded;
 
             // Commands
             ConnectCommand          = new AsyncRelayCommand(DoConnectAsync);
@@ -1234,6 +1258,8 @@ namespace BeltTensionTest.WPF.ViewModels
                 return;
             }
 
+            // Only send belt motor commands to the nano when explicitly enabled.
+            if (!BeltMotorEnabled) return;
 
             if (_carSettingsSvc.CurrentSettings == null) return;
             if (!_haveTestingData && !_iracing.IsConnected && !_simHubConnected)

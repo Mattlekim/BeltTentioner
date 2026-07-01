@@ -169,6 +169,14 @@
                                   PanningMode="VerticalFirst" Margin="2,0,1,0">
                             <StackPanel Margin="10,8" Width="332">
 
+                                <!-- Master enable: only when checked are belt motor commands sent to the nano -->
+                                <CheckBox Content="Send belt motor commands"
+                                          IsChecked="{Binding BeltMotorEnabled, Mode=TwoWay}"
+                                          FontWeight="SemiBold"
+                                          Foreground="#D0D0F0"
+                                          Margin="0,0,0,8"
+                                          ToolTip="When unchecked, no belt motor commands are sent to the nano. Wind is unaffected."/>
+
                                 <!-- Car Settings -->
                                 <GroupBox Header="Car Settings" IsEnabled="{Binding ControlsEnabled}" Margin="0,0,0,6">
                                     <StackPanel>
@@ -292,85 +300,86 @@
                                 </GroupBox>
 
                                 <!-- ?? Other (ABS + Negative Sway) ???????????????????????? -->
-                                <GroupBox Header="Other" IsEnabled="{Binding ControlsEnabled}" Margin="0,0,0,6">
-                                    <StackPanel>
+                                <Expander IsExpanded="{Binding EffectsExpanded, Mode=TwoWay}" IsEnabled="{Binding ControlsEnabled}" Margin="0,0,0,6" Foreground="#D0D0F0">
+                                    <Expander.Header>
+                                        <TextBlock Text="Effects" FontWeight="SemiBold" Foreground="#D0D0F0"/>
+                                    </Expander.Header>
+                                    <StackPanel Margin="0,6,0,0">
                                         <views:SliderRow Label="Neg. Sway" Min="0" Max="100"
                                                          IsInteger="True"
                                                      Value="{Binding NegativeSway, Mode=TwoWay}"
                                                      FillBrush="#50C878" Margin="0,3"/>
-                                        <Grid Margin="0,4">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="80"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="ABS Effect" Style="{StaticResource LabelStyle}"/>
-                                            <CheckBox  Grid.Column="2" Content="Enabled"
-                                                   IsChecked="{Binding AbsEnabled}"
-                                                   Margin="8,0,0,0"
-                                                   ToolTip="Enable ABS behavior which reduces output during braking events."/>
-                                        </Grid>
-                                        <views:SliderRow Label="ABS Str." Min="3" Max="30"
-                                                         IsInteger="True"
-                                                     Value="{Binding AbsStrength, Mode=TwoWay}"
-                                                     FillBrush="#DC3C3C" Margin="0,3"/>
-                                        <!-- Rubble / Rumble strip controls -->
-                                        <Grid Margin="0,4">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="80"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                                <TextBlock Grid.Column="0" Text="Kerbs Strip" Style="{StaticResource LabelStyle}"/>
-                                            <CheckBox Grid.Column="2" Content="Enabled"
+
+                                        <!-- ABS: enable + strength + test grouped together -->
+                                        <GroupBox Header="ABS"
+                                              Style="{StaticResource BlueBorderGroupStyle}"
+                                              Margin="0,4">
+                                            <StackPanel>
+                                                <CheckBox Content="Enabled"
+                                                      IsChecked="{Binding AbsEnabled}"
+                                                      Foreground="#DC3C3C"
+                                                      Margin="0,2,0,4"
+                                                      ToolTip="Enable ABS behavior which reduces output during braking events."/>
+                                                <views:SliderRow Label="Strength" Min="3" Max="30"
+                                                                 IsInteger="True"
+                                                             Value="{Binding AbsStrength, Mode=TwoWay}"
+                                                             FillBrush="#DC3C3C" Margin="0,3"/>
+                                                <Button Content="Test ABS"
+                                                    Command="{Binding TestAbsCommand}"
+                                                    HorizontalAlignment="Left"
+                                                    Width="110" Margin="0,6,0,2"
+                                                    Style="{DynamicResource BlueButton}"/>
+                                            </StackPanel>
+                                        </GroupBox>
+
+                                        <!-- Kerbs Strip: enable + strength + test grouped together -->
+                                        <GroupBox Header="Kerbs Strip"
+                                              Style="{StaticResource GreenBorderGroupStyle}"
+                                              Margin="0,4">
+                                            <StackPanel>
+                                                <CheckBox Content="Enabled"
                                                       IsChecked="{Binding RumbleStripEnabled, Mode=TwoWay}"
-                                                      Margin="8,0,0,0"
+                                                      Foreground="CornflowerBlue"
+                                                      Margin="0,2,0,4"
                                                       ToolTip="Enable rumble strip behavior."/>
-                                        </Grid>
-                                            <views:SliderRow Label="Kerbs Str." Min="1" Max="30"
-                                                         IsInteger="True"
-                                                     Value="{Binding RumbleStripStrength, Mode=TwoWay}"
-                                                     FillBrush="CornflowerBlue" Margin="0,3"/>
+                                                <views:SliderRow Label="Strength" Min="1" Max="30"
+                                                                 IsInteger="True"
+                                                             Value="{Binding RumbleStripStrength, Mode=TwoWay}"
+                                                             FillBrush="CornflowerBlue" Margin="0,3"/>
+                                                <Button Content="Test Rumble"
+                                                    Command="{Binding TestRubbleCommand}"
+                                                    HorizontalAlignment="Left"
+                                                    Width="110" Margin="0,6,0,2"
+                                                    Style="{DynamicResource BlueButton}"/>
+                                            </StackPanel>
+                                        </GroupBox>
 
-                                        <!-- Gear shift controls -->
-                                        <Grid Margin="0,4">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="80"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="Gear Shift" Style="{StaticResource LabelStyle}"/>
-                                            <CheckBox Grid.Column="2" Content="Enabled"
+                                        <!-- Gear Shift: enable + strength + time + test grouped together -->
+                                        <GroupBox Header="Gear Shift"
+                                              Style="{StaticResource OrangeBorderGroupStyle}"
+                                              Margin="0,4">
+                                            <StackPanel>
+                                                <CheckBox Content="Enabled"
                                                       IsChecked="{Binding GearShiftEnabled, Mode=TwoWay}"
-                                                      Margin="8,0,0,0"
+                                                      Foreground="CornflowerBlue"
+                                                      Margin="0,2,0,4"
                                                       ToolTip="Enable gear shift feedback."/>
-                                        </Grid>
-                                        <views:SliderRow Label="Gear Shift Str." Min="0.1" Max="3"
-
-                                                 Value="{Binding GearShiftStrength, Mode=TwoWay}"
-                                                 FillBrush="CornflowerBlue" Margin="0,3"/>
-                                        <views:SliderRow Label="Gear Shift Time (ms)" Min="100" Max="2000"
-                                                     IsInteger="True"
-                                                 Value="{Binding GearShiftTime, Mode=TwoWay}"
-                                                 FillBrush="CornflowerBlue" Margin="0,3"/>
-
-                                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                            <Button Content="Test ABS"
-                                                Command="{Binding TestAbsCommand}"
-                                                HorizontalAlignment="Left"
-                                                Width="80" Margin="4,6,4,2"
-                                                Style="{DynamicResource BlueButton}"/>
-                                            <Button Content="Test Rumble"
-                                                Command="{Binding TestRubbleCommand}"
-                                                HorizontalAlignment="Left"
-                                                Width="90" Margin="4,6,4,2" Style="{DynamicResource BlueButton}"/>      
-                                            <Button Content="Test Gear Shift"
-                                                Command="{Binding TestGearShiftCommand}"
-                                                HorizontalAlignment="Left"
-                                                Width="110" Margin="4,6,4,2" Style="{DynamicResource BlueButton}"/>
-                                        </StackPanel>
+                                                <views:SliderRow Label="Strength" Min="0.1" Max="3"
+                                                             Value="{Binding GearShiftStrength, Mode=TwoWay}"
+                                                             FillBrush="CornflowerBlue" Margin="0,3"/>
+                                                <views:SliderRow Label="Time (ms)" Min="100" Max="2000"
+                                                                 IsInteger="True"
+                                                             Value="{Binding GearShiftTime, Mode=TwoWay}"
+                                                             FillBrush="CornflowerBlue" Margin="0,3"/>
+                                                <Button Content="Test Gear Shift"
+                                                    Command="{Binding TestGearShiftCommand}"
+                                                    HorizontalAlignment="Left"
+                                                    Width="120" Margin="0,6,0,2"
+                                                    Style="{DynamicResource BlueButton}"/>
+                                            </StackPanel>
+                                        </GroupBox>
                                     </StackPanel>
-                                </GroupBox>
+                                </Expander>
 
                                 <!-- Bottom padding -->
                                 <Border Height="16"/>

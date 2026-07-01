@@ -34,5 +34,7 @@ namespace BeltTensionTest.WPF.Models
         public double WindowTop { get; set; } = double.NaN;
         // Stored as string to keep JSON simple (e.g. "Normal", "Maximized")
         public string WindowState { get; set; } = "Normal";
+        // Whether the Effects section on the Belt Tensioner tab is expanded
+        public bool EffectsExpanded { get; set; } = true;
     }
 }
