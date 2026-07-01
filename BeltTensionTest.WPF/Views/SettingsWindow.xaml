@@ -29,28 +29,21 @@
             </Grid>
         </Border>
 
-        <Grid Margin="12">
+        <DockPanel Margin="12">
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button x:Name="btn_Ok" Content="OK" Width="80" Margin="0,0,8,0" Click="Ok_Click" Style="{DynamicResource GreenButton}"/>
+            <Button x:Name="btn_Cancel" Content="Cancel" Width="80" Click="Cancel_Click" Style="{DynamicResource BlueButton}"/>
+        </StackPanel>
         <TabControl Style="{StaticResource MyTabControl}" Background="Transparent" BorderBrush="Transparent">
                 <TabItem Header="General">
-                    <Grid Margin="6">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <StackPanel Grid.Row="0" Orientation="Vertical" Margin="0,0,0,8">
-                            <CheckBox x:Name="chk_AutoConnect" Content="Connect On Startup" Foreground="#A0A0BE" Margin="0,4"
-                                      ToolTip="{x:Static properties:Resources.AutoConnectToolTip}"/>
-                            <CheckBox x:Name="chk_StartWithWindows" Content="Start with Windows" Foreground="#A0A0BE" Margin="0,4"
-                                      ToolTip="{x:Static properties:Resources.StartWithWindowsToolTip}"/>
-                            <CheckBox x:Name="chk_MinimizeToTaskbar" Content="Minimize to taskbar when closed" Foreground="#A0A0BE" Margin="0,4"
-                                      ToolTip="{x:Static properties:Resources.MinimizeToTaskbarToolTip}"/>
-                        </StackPanel>
-                        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-                            <Button x:Name="btn_Ok" Content="OK" Width="80" Margin="0,0,8,0" Click="Ok_Click" Style="{DynamicResource GreenButton}"/>
-                            <Button x:Name="btn_Cancel" Content="Cancel" Width="80" Click="Cancel_Click" Style="{DynamicResource BlueButton}"/>
-                        </StackPanel>
-                    </Grid>
+                    <StackPanel Margin="6" Orientation="Vertical">
+                        <CheckBox x:Name="chk_AutoConnect" Content="Connect On Startup" Foreground="#A0A0BE" Margin="0,4"
+                                  ToolTip="{x:Static properties:Resources.AutoConnectToolTip}"/>
+                        <CheckBox x:Name="chk_StartWithWindows" Content="Start with Windows" Foreground="#A0A0BE" Margin="0,4"
+                                  ToolTip="{x:Static properties:Resources.StartWithWindowsToolTip}"/>
+                        <CheckBox x:Name="chk_MinimizeToTaskbar" Content="Minimize to taskbar when closed" Foreground="#A0A0BE" Margin="0,4"
+                                  ToolTip="{x:Static properties:Resources.MinimizeToTaskbarToolTip}"/>
+                    </StackPanel>
                 </TabItem>
 
                 <TabItem Header="Telemetry">
@@ -88,6 +81,6 @@
                     </Grid>
                 </TabItem>
             </TabControl>
-        </Grid>
+        </DockPanel>
     </DockPanel>
 </Window>
