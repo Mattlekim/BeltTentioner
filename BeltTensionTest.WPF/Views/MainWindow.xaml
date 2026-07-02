@@ -180,13 +180,13 @@
                                         </DockPanel>
 
                                         <!-- Max Output -->
-                                        <views:SliderRow Label="Max Output" Min="1" Max="100"
+                                        <views:SliderRow Label="Power Scale" Min="1" Max="100"
                                                          IsInteger="True"
                                                      Value="{Binding MaxOutput, Mode=TwoWay}"
                                                      FillBrush="#DC3C3C"
                                                      Margin="0,3"/>
                                         <!-- Resting Point -->
-                                        <views:SliderRow Label="Resting Pt" Min="0" Max="30"
+                                        <views:SliderRow Label="Neutral Pt" Min="0" Max="30"
                                                          IsInteger="True"
                                                      Value="{Binding RestingPoint, Mode=TwoWay}"
                                                      FillBrush="#00BFFF"
