@@ -1,175 +1,133 @@
 using System;
-using System.Numerics;
 using System.Windows;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using System.Windows.Threading;
-using MonoXR.Client;
-using MonoXR.Shared;
+using BeltTensionTest.WPF.Services;
+using Microsoft.Xna.Framework.Graphics;
+using XnaColor = Microsoft.Xna.Framework.Color;
+using XnaRectangle = Microsoft.Xna.Framework.Rectangle;
 
 namespace BeltTensionTest.WPF.Views
 {
     /// <summary>
-    /// Example window: renders an animated square and publishes it as an OpenXR
-    /// overlay via MonoXR. MonoXR's client takes raw RGBA pixels, so no MonoGame
-    /// host is needed here — we draw the square straight into the overlay buffer
-    /// and show a live preview.
+    /// Hosts the OpenXR overlay. The window itself only shows the layer/log
+    /// status; all visual content comes from MonoGame render targets that are
+    /// composited onto the overlay canvas (see the render section below).
     /// </summary>
     public partial class OverlayWindow : Window
     {
-        private const int Size = 512;
+        private const int CanvasSize = 1024; // pixel size of the overlay canvas
 
-        private OverlayManager? _mgr;
-        private Overlay? _overlay;
-        private readonly byte[] _rgba = new byte[Size * Size * 4];
-        private readonly byte[] _bgra = new byte[Size * Size * 4];
-        private WriteableBitmap? _preview;
+        private MonoGameOverlayHost? _host;
+        private SpriteBatch? _sb;
+        private Texture2D? _white;
 
-        private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(16) };
-        private double _time;
-        private ulong _frames;
-        private string? _initError;
+        private readonly DispatcherTimer _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+        private float _time;
+        private bool _lastAttached;
 
         public OverlayWindow()
         {
             InitializeComponent();
 
-            _preview = new WriteableBitmap(Size, Size, 96, 96, PixelFormats.Bgra32, null);
-            PreviewImage.Source = _preview;
-
             try
             {
-                ClientLog("OverlayWindow init: creating OverlayManager...");
-                _mgr = new OverlayManager();
-                ClientLog(_mgr.AttachedToExisting
-                    ? "OverlayManager attached to existing control block; creating overlay..."
-                    : "OverlayManager created new control block; creating overlay...");
-                _overlay = _mgr.CreateOverlay(Size, Size);
-                // World space = the recentered headset origin (OpenXR LOCAL space:
-                // origin and forward are set when the user recenters). -Z is
-                // forward, so this places the panel ~3 m ahead of the recenter
-                // point, at recenter eye height, facing the driver.
-                _overlay.Space = MonoXrSpace.World;
-                _overlay.Position = new Vector3(0f, 0f, -3f);
-                _overlay.Size = new Vector2(2.5f, 2.5f); // large (2.5 m) so it's unmistakable while debugging visibility
-                _overlay.Visible = true;
-                ClientLog("MonoXR init OK: overlay published (World, -3m, 1x1m).");
+                Log("Creating MonoGame overlay host...");
+                _host = new MonoGameOverlayHost(CanvasSize, CanvasSize);
+                Log("Host ready: MonoGame device up, overlay published (World, 3m ahead, 2.5m).");
+
+                SetupRenderTargets();
             }
             catch (Exception ex)
             {
-                _initError = ex.Message;
-                ClientLog("MonoXR INIT FAILED: " + ex);
+                Log("INIT FAILED: " + ex);
+                StatusLabel.Text = "Init failed — see log.";
             }
 
             _timer.Tick += OnTick;
             _timer.Start();
-
             Closed += OnClosed;
         }
 
+        // =====================================================================
+        //  MONOGAME RENDER SECTION
+        //
+        //  Add as many render targets as you like with
+        //      var rt = _host.AddRenderTarget(width, height, x, y);
+        //  (x, y) is the pixel location of the target inside the 1024x1024
+        //  overlay canvas, changeable at runtime via rt.X / rt.Y.
+        //
+        //  Each target gets a Render callback that runs once per frame with the
+        //  target already bound — just draw with normal MonoGame code.
+        // =====================================================================
+        private void SetupRenderTargets()
+        {
+            if (_host == null) return;
+
+            _sb = new SpriteBatch(_host.GraphicsDevice);
+            _white = new Texture2D(_host.GraphicsDevice, 1, 1);
+            _white.SetData(new[] { XnaColor.White });
+
+            // Example target A: wide panel, top-left area of the overlay.
+            OverlayRenderTarget rtA = _host.AddRenderTarget(768, 256, x: 128, y: 96);
+            rtA.Render = (gd, target, t) =>
+            {
+                gd.Clear(new XnaColor(20, 40, 80));
+                _sb!.Begin();
+                int bw = target.Width / 6;
+                int bx = (int)((MathF.Sin(t * 1.5f) * 0.5f + 0.5f) * (target.Width - bw));
+                _sb.Draw(_white, new XnaRectangle(bx, target.Height / 2 - bw / 2, bw, bw), XnaColor.Gold);
+                _sb.End();
+            };
+
+            // Example target B: square panel, lower-right area of the overlay.
+            OverlayRenderTarget rtB = _host.AddRenderTarget(320, 320, x: 576, y: 576);
+            rtB.Render = (gd, target, t) =>
+            {
+                gd.Clear(new XnaColor(80, 20, 40));
+                _sb!.Begin();
+                int s = (int)(target.Width * 0.5f * (0.75f + 0.25f * MathF.Sin(t * 2f)));
+                _sb.Draw(_white, new XnaRectangle((target.Width - s) / 2, (target.Height - s) / 2, s, s),
+                         new XnaColor(120, 90, 230));
+                _sb.End();
+            };
+        }
+        // ===================== END MONOGAME RENDER SECTION ===================
+
         private void OnTick(object? sender, EventArgs e)
         {
-            _time += _timer.Interval.TotalSeconds;
-            DrawSquare(_time);
-            UpdatePreview();
+            if (_host == null) return;
+            _time += (float)_timer.Interval.TotalSeconds;
 
-            if (_overlay != null && _mgr != null)
+            try
             {
-                if (SpinCheck.IsChecked == true)
-                    _overlay.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, (float)Math.Sin(_time) * 0.7f);
-                else
-                    _overlay.Rotation = Quaternion.Identity;
-
-                _overlay.Update(_rgba);
-                _mgr.Heartbeat();
-                _frames++;
+                _host.RenderFrame(_time);
+            }
+            catch (Exception ex)
+            {
+                _timer.Stop();
+                Log("RENDER FAILED: " + ex);
+                StatusLabel.Text = "Render failed — see log.";
+                return;
             }
 
-            StatusLabel.Text = _initError != null
-                ? "MonoXR init failed: " + _initError
-                : (_mgr!.LayerAttached
-                    ? "Layer attached — overlay is live in VR."
-                    : "Waiting for an OpenXR app (layer not attached yet).");
-            FrameLabel.Text = "Frames: " + _frames;
-        }
-
-        // Draw a dark translucent panel with a pulsing bordered square in the centre.
-        private void DrawSquare(double t)
-        {
-            Array.Clear(_rgba, 0, _rgba.Length);
-            FillRect(0, 0, Size, Size, 20, 24, 48, 255);            // opaque panel background (easy to spot)
-
-            int s = (int)(Size * 0.45);
-            int x0 = (Size - s) / 2;
-            byte pulse = (byte)(120 + 120 * (0.5 + 0.5 * Math.Sin(t * 2.0)));
-            FillRect(x0, x0, s, s, pulse, 90, 230, 255);            // square
-            DrawBorder(x0, x0, s, s, 6, 255, 255, 255, 255);       // white border
-        }
-
-        private void FillRect(int x, int y, int w, int h, byte r, byte g, byte b, byte a)
-        {
-            int x1 = Math.Min(x + w, Size), y1 = Math.Min(y + h, Size);
-            for (int py = Math.Max(0, y); py < y1; py++)
+            bool attached = _host.LayerAttached;
+            if (attached != _lastAttached || _host.FramesPublished == 1)
             {
-                int row = py * Size * 4;
-                for (int px = Math.Max(0, x); px < x1; px++)
-                {
-                    int i = row + px * 4;
-                    _rgba[i] = r; _rgba[i + 1] = g; _rgba[i + 2] = b; _rgba[i + 3] = a;
-                }
+                _lastAttached = attached;
+                Log(attached ? "Layer attached — overlay is live in VR."
+                             : "Waiting for an OpenXR app (layer not attached yet).");
             }
-        }
-
-        private void DrawBorder(int x, int y, int w, int h, int t, byte r, byte g, byte b, byte a)
-        {
-            FillRect(x, y, w, t, r, g, b, a);
-            FillRect(x, y + h - t, w, t, r, g, b, a);
-            FillRect(x, y, t, h, r, g, b, a);
-            FillRect(x + w - t, y, t, h, r, g, b, a);
-        }
-
-        // Copy the RGBA overlay buffer into the BGRA preview bitmap.
-        private void UpdatePreview()
-        {
-            if (_preview == null) return;
-            for (int i = 0; i < Size * Size; i++)
-            {
-                int s = i * 4;
-                _bgra[s + 0] = _rgba[s + 2]; // B
-                _bgra[s + 1] = _rgba[s + 1]; // G
-                _bgra[s + 2] = _rgba[s + 0]; // R
-                _bgra[s + 3] = _rgba[s + 3]; // A
-            }
-            _preview.WritePixels(new Int32Rect(0, 0, Size, Size), _bgra, Size * 4, 0);
-        }
-
-        private void Space_Changed(object sender, RoutedEventArgs e)
-        {
-            if (_overlay == null) return;
-            _overlay.Space = HeadRadio.IsChecked == true ? MonoXrSpace.Head : MonoXrSpace.World;
-            // Move a head-locked overlay off to the side so it doesn't fill the view.
-            _overlay.Position = _overlay.Space == MonoXrSpace.Head
-                ? new Vector3(0.35f, -0.2f, -1.0f)
-                : new Vector3(0f, 0f, -3f);
-        }
-
-        private void Start_Click(object sender, RoutedEventArgs e)
-        {
-            if (_overlay != null) _overlay.Visible = true;
-            if (!_timer.IsEnabled) _timer.Start();
-        }
-
-        private void Stop_Click(object sender, RoutedEventArgs e)
-        {
-            if (_overlay != null) _overlay.Visible = false;
+            StatusLabel.Text = (attached ? "Layer attached — live in VR." : "Waiting for OpenXR app…")
+                               + $"   Frames: {_host.FramesPublished}";
         }
 
         private void OnClosed(object? sender, EventArgs e)
         {
             _timer.Stop();
-            _overlay?.Dispose();
-            _mgr?.Dispose();
+            _white?.Dispose();
+            _sb?.Dispose();
+            _host?.Dispose();
         }
 
         private void TitleBar_MouseDown(object sender, MouseButtonEventArgs e)
@@ -182,21 +140,22 @@ namespace BeltTensionTest.WPF.Views
 
         private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
 
-        // Client-side log (separate from the native layer's %TEMP%\MonoXR\layer.log).
-        // Captures init failures with full exception detail so they can be read
-        // after the fact. Opened shared so it can be tailed live.
-        private static void ClientLog(string message)
+        // Log to the window and to %TEMP%\MonoXR\client.log (the native layer
+        // logs separately to %TEMP%\MonoXR\layer.log).
+        private void Log(string message)
         {
+            string stamped = $"{DateTime.Now:HH:mm:ss.fff} {message}";
+            LogBox.AppendText(stamped + Environment.NewLine);
+            LogBox.ScrollToEnd();
             try
             {
                 string dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "MonoXR");
                 System.IO.Directory.CreateDirectory(dir);
-                string line = $"{DateTime.Now:HH:mm:ss.fff} [pid {Environment.ProcessId}] {message}{Environment.NewLine}";
                 using var fs = new System.IO.FileStream(
                     System.IO.Path.Combine(dir, "client.log"),
                     System.IO.FileMode.Append, System.IO.FileAccess.Write, System.IO.FileShare.ReadWrite);
                 using var sw = new System.IO.StreamWriter(fs);
-                sw.Write(line);
+                sw.Write($"{DateTime.Now:HH:mm:ss.fff} [pid {Environment.ProcessId}] {message}{Environment.NewLine}");
             }
             catch { /* logging must never throw */ }
         }
