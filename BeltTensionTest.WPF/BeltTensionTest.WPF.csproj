@@ -33,6 +33,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BeltAPI\BeltAPI.csproj" />
+    <ProjectReference Include="..\MonoXR\client\MonoXR.Client.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -40,5 +41,41 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+
+  <!--
+    Auto-build the native MonoXR OpenXR API layer (C++/CMake) as part of this
+    build. The C# client is a normal ProjectReference above; the layer DLL is
+    not a .NET project, so we drive CMake here. Inputs/Outputs make this
+    incremental: it only runs when a layer source is newer than the built DLL,
+    so ordinary WPF builds are not slowed down. Requires CMake + VS 2022 C++
+    tools on the machine. The layer is always built Release because the
+    registered manifest (install-layer.ps1) points at the Release DLL.
+  -->
+  <PropertyGroup>
+    <MonoXRLayerDir>$(MSBuildProjectDirectory)\..\MonoXR\layer</MonoXRLayerDir>
+    <MonoXRLayerDll>$(MonoXRLayerDir)\build\Release\XR_APILAYER_NOVELTY_monoxr.dll</MonoXRLayerDll>
+  </PropertyGroup>
+
+  <Target Name="BuildMonoXRLayer" BeforeTargets="BeforeBuild"
+          Inputs="$(MonoXRLayerDir)\src\layer.cpp;$(MonoXRLayerDir)\CMakeLists.txt;$(MonoXRLayerDir)\manifest\MonoXR.json.in;$(MonoXRLayerDir)\cmake\GenManifest.cmake;$(MSBuildProjectDirectory)\..\MonoXR\shared\monoxr_abi.h"
+          Outputs="$(MonoXRLayerDll)">
+    <Message Importance="high" Text="MonoXR: building native OpenXR layer (Release)..." />
+    <!-- Configure once. -->
+    <Exec Condition="!Exists('$(MonoXRLayerDir)\build\CMakeCache.txt')"
+          Command="cmake -S &quot;$(MonoXRLayerDir)&quot; -B &quot;$(MonoXRLayerDir)\build&quot; -G &quot;Visual Studio 17 2022&quot; -A x64"
+          ContinueOnError="true">
+      <Output TaskParameter="ExitCode" PropertyName="_MonoXRConfigExit" />
+    </Exec>
+    <!-- Build. ContinueOnError so a locked DLL (a VR app has the layer loaded)
+         does not fail the whole WPF build — we fall back to the existing DLL. -->
+    <Exec Command="cmake --build &quot;$(MonoXRLayerDir)\build&quot; --config Release"
+          ContinueOnError="true">
+      <Output TaskParameter="ExitCode" PropertyName="_MonoXRBuildExit" />
+    </Exec>
+    <Warning Condition="'$(_MonoXRBuildExit)' != '0' and Exists('$(MonoXRLayerDll)')"
+             Text="MonoXR: native layer did not rebuild (cmake exit $(_MonoXRBuildExit)) — usually because a running OpenXR app (e.g. iRacing) has the DLL locked. Using the existing layer DLL. Close the VR app and rebuild to apply layer changes." />
+    <Error Condition="'$(_MonoXRBuildExit)' != '0' and !Exists('$(MonoXRLayerDll)')"
+           Text="MonoXR: native layer failed to build and no existing DLL is present (cmake exit $(_MonoXRBuildExit)). Ensure CMake + VS2022 C++ tools are installed." />
+  </Target>
 
 </Project>

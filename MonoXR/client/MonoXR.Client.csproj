@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Platforms>x64</Platforms>
+    <RootNamespace>MonoXR.Client</RootNamespace>
+    <AssemblyName>MonoXR.Client</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Vortice.Direct3D11" Version="3.6.2" />
+    <PackageReference Include="Vortice.DXGI" Version="3.6.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Single source of truth for the cross-process ABI. -->
+    <Compile Include="..\shared\MonoXrAbi.cs" Link="Shared\MonoXrAbi.cs" />
+  </ItemGroup>
+
+</Project>

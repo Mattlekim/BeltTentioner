@@ -78,6 +78,7 @@
                     <MenuItem Header="Flash Nano..." Click="OpenFlashNano_Click"/>
                     <MenuItem Header="Motor Settings..." Click="OpenMotorSettings_Click"/>
                     <Separator/>
+                    <MenuItem Header="OpenXR Overlay..." Click="OpenOverlayWindow_Click"/>
                 </MenuItem>
 
                 <!-- Help menu moved out from Settings -->
@@ -186,7 +187,7 @@
                                                      FillBrush="#DC3C3C"
                                                      Margin="0,3"/>
                                         <!-- Resting Point -->
-                                        <views:SliderRow Label="Neutral Pt" Min="0" Max="30"
+                                        <views:SliderRow Label="Nutral Pt" Min="0" Max="30"
                                                          IsInteger="True"
                                                      Value="{Binding RestingPoint, Mode=TwoWay}"
                                                      FillBrush="#00BFFF"

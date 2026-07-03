@@ -17,6 +17,7 @@ namespace BeltTensionTest.WPF.Views
         private DebugLogWindow? _debugWindow;
         private FlashNanoWindow? _flashWindow;
         private MotorSettingsWindow? _motorSettingsWindow;
+        private OverlayWindow? _overlayWindow;
         private BuyMeCoffeeWindow? _buyWindow;
         private TrayIcon? _trayIcon;
         private bool _isExitRequested = false;
@@ -328,6 +329,20 @@ namespace BeltTensionTest.WPF.Views
             else
             {
                 _motorSettingsWindow.Activate();
+            }
+        }
+
+        private void OpenOverlayWindow_Click(object sender, RoutedEventArgs e)
+        {
+            if (_overlayWindow == null || !_overlayWindow.IsLoaded)
+            {
+                _overlayWindow = new OverlayWindow();
+                _overlayWindow.Owner = this;
+                _overlayWindow.Show();
+            }
+            else
+            {
+                _overlayWindow.Activate();
             }
         }
 
