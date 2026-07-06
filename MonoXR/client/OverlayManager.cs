@@ -1,5 +1,6 @@
 using System.IO;
 using System.IO.MemoryMappedFiles;
+using System.Runtime.InteropServices;
 using MonoXR.Shared;
 using SharpGen.Runtime;
 using Vortice.Direct3D;
@@ -30,20 +31,49 @@ public sealed unsafe class OverlayManager : IDisposable
     /// </summary>
     public bool AttachedToExisting { get; }
 
+    /// <summary>
+    /// True when this manager wraps the game's own D3D11 device, which is what
+    /// makes the GPU-to-GPU <see cref="Overlay.Update(IntPtr)"/> path valid.
+    /// </summary>
+    public bool UsesExternalDevice { get; }
+
     private MonoXrControlHeader* Header => (MonoXrControlHeader*)_base;
     internal MonoXrOverlaySlot* Slot(int i) =>
         (MonoXrOverlaySlot*)(_base + MonoXrConstants.HeaderSize + i * MonoXrConstants.SlotSize);
 
-    public OverlayManager()
+    public OverlayManager() : this(IntPtr.Zero) { }
+
+    /// <summary>
+    /// Create a manager on an existing D3D11 device (e.g. MonoGame's, obtained
+    /// via <see cref="MonoGameInterop.GetDevicePointer"/>). Overlay textures are
+    /// then created on that device, which enables the zero-copy
+    /// <see cref="Overlay.Update(IntPtr)"/> path: a GPU-side CopyResource from a
+    /// render target straight into the shared texture, with no CPU readback.
+    /// Pass <see cref="IntPtr.Zero"/> to create a private device instead (CPU
+    /// upload path only).
+    /// </summary>
+    public OverlayManager(IntPtr d3d11Device)
     {
-        // Own D3D11 device on the default adapter. Shared keyed-mutex textures
-        // are visible to the game's device as long as it is the same adapter.
-        FeatureLevel[] levels = { FeatureLevel.Level_11_1, FeatureLevel.Level_11_0 };
-        D3D11.D3D11CreateDevice(
-            null, DriverType.Hardware, DeviceCreationFlags.BgraSupport, levels,
-            out ID3D11Device device, out ID3D11DeviceContext context).CheckError();
-        Device = device;
-        Context = context;
+        if (d3d11Device != IntPtr.Zero)
+        {
+            // Wrap the caller's device. AddRef so our Dispose doesn't pull the
+            // rug out from under the game; ImmediateContext also AddRefs.
+            Marshal.AddRef(d3d11Device);
+            Device = new ID3D11Device(d3d11Device);
+            Context = Device.ImmediateContext;
+            UsesExternalDevice = true;
+        }
+        else
+        {
+            // Own D3D11 device on the default adapter. Shared keyed-mutex textures
+            // are visible to the game's device as long as it is the same adapter.
+            FeatureLevel[] levels = { FeatureLevel.Level_11_1, FeatureLevel.Level_11_0 };
+            D3D11.D3D11CreateDevice(
+                null, DriverType.Hardware, DeviceCreationFlags.BgraSupport, levels,
+                out ID3D11Device device, out ID3D11DeviceContext context).CheckError();
+            Device = device;
+            Context = context;
+        }
 
         // Attach to the existing control block if one is already present,
         // otherwise create it. The block can outlive the client that created it:
@@ -87,11 +117,94 @@ public sealed unsafe class OverlayManager : IDisposable
         Header->ClientPid = (uint)Environment.ProcessId;
     }
 
-    /// <summary>True once an OpenXR session with the MonoXR layer is running.</summary>
-    public bool LayerAttached => Header->LayerActive != 0;
+    /// <summary>
+    /// True while an OpenXR session with the MonoXR layer is running AND the
+    /// game process is still alive. The layer clears its flag on clean session
+    /// shutdown; if the game crashes or is killed, we notice the published PID
+    /// is dead (checked at most every 500 ms) and report detached anyway.
+    /// </summary>
+    public bool LayerAttached
+    {
+        get
+        {
+            if (Header->LayerActive == 0) return false;
+            uint pid = Header->LayerPid;
+            if (pid == 0) return true; // layer build that predates LayerPid
 
-    /// <summary>Call once per frame so the layer can tell the client is alive.</summary>
-    public void Heartbeat() => Header->ClientHeartbeat++;
+            int now = Environment.TickCount;
+            if (pid != _watchedLayerPid || now - _nextLivenessCheck >= 0)
+            {
+                _watchedLayerPid = pid;
+                _nextLivenessCheck = now + 500;
+                _layerProcessAlive = IsProcessAlive(pid);
+                if (!_layerProcessAlive)
+                {
+                    // Game died without cleanup — clear the stale flags so a
+                    // future game start is detected as a fresh attach.
+                    Header->LayerActive = 0;
+                    Header->LayerPid = 0;
+                }
+            }
+            return _layerProcessAlive;
+        }
+    }
+
+    /// <summary>
+    /// Raised (from the thread that calls <see cref="Heartbeat"/>) when the
+    /// OpenXR game attaches or goes away — true = attached, false = closed.
+    /// </summary>
+    public event Action<bool>? LayerAttachedChanged;
+
+    private uint _watchedLayerPid;
+    private int _nextLivenessCheck;
+    private bool _layerProcessAlive;
+    private bool _lastAttached;
+
+    /// <summary>
+    /// Call once per frame: lets the layer see the client is alive, and fires
+    /// <see cref="LayerAttachedChanged"/> on attach/detach transitions.
+    /// </summary>
+    public void Heartbeat()
+    {
+        Header->ClientHeartbeat++;
+        bool attached = LayerAttached;
+        if (attached != _lastAttached)
+        {
+            _lastAttached = attached;
+            LayerAttachedChanged?.Invoke(attached);
+        }
+    }
+
+    private const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+    private const uint STILL_ACTIVE = 259;
+
+    private const int ERROR_INVALID_PARAMETER = 87; // OpenProcess: no such pid
+
+    private static bool IsProcessAlive(uint pid)
+    {
+        IntPtr h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+        if (h == IntPtr.Zero)
+        {
+            // Anti-cheat-protected games (e.g. iRacing) deny even limited query
+            // access. Access-denied means the process exists — only a missing
+            // pid means it is gone. Fail open on anything ambiguous.
+            return Marshal.GetLastWin32Error() != ERROR_INVALID_PARAMETER;
+        }
+        try
+        {
+            return GetExitCodeProcess(h, out uint code) && code == STILL_ACTIVE;
+        }
+        finally { CloseProcessHandle(h); }
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr OpenProcess(uint desiredAccess, bool inheritHandle, uint processId);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GetExitCodeProcess(IntPtr process, out uint exitCode);
+
+    [DllImport("kernel32.dll", EntryPoint = "CloseHandle", SetLastError = true)]
+    private static extern bool CloseProcessHandle(IntPtr handle);
 
     /// <summary>
     /// Allocate an overlay backed by a shared texture of the given size.

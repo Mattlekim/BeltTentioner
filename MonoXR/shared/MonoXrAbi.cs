@@ -61,6 +61,6 @@ public struct MonoXrControlHeader
     public uint ClientPid;
     public ulong ClientHeartbeat;
     public uint LayerActive;
-    public uint Pad0;
+    public uint LayerPid; // game's pid while LayerActive; 0 otherwise
     // slots[MaxOverlays] follow at offset HeaderSize.
 }

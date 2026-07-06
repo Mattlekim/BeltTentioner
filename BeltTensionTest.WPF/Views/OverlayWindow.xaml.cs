@@ -21,6 +21,7 @@ namespace BeltTensionTest.WPF.Views
         private MonoGameOverlayHost? _host;
         private SpriteBatch? _sb;
         private Texture2D? _white;
+        private SpriteFont? _font;
 
         private readonly DispatcherTimer _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         private float _time;
@@ -68,10 +69,28 @@ namespace BeltTensionTest.WPF.Views
             _white = new Texture2D(_host.GraphicsDevice, 1, 1);
             _white.SetData(new[] { XnaColor.White });
 
+            // Runtime-baked sprite font (no content pipeline needed).
+            _font = RuntimeSpriteFont.Bake(_host.GraphicsDevice, "Segoe UI", 64f);
+
+            // Text panel across the top of the overlay canvas.
+            OverlayRenderTarget rtText = _host.AddRenderTarget(768, 96, x: 128, y: 8);
+            rtText.Render = (gd, target, t) =>
+            {
+                gd.Clear(new XnaColor(10, 10, 20));
+                _sb!.Begin();
+                var size = _font!.MeasureString("hello");
+                _sb.DrawString(_font, "hello",
+                    new Microsoft.Xna.Framework.Vector2(
+                        (target.Width - size.X) / 2f, (target.Height - size.Y) / 2f),
+                    XnaColor.White);
+                _sb.End();
+            };
+
             // Example target A: wide panel, top-left area of the overlay.
             OverlayRenderTarget rtA = _host.AddRenderTarget(768, 256, x: 128, y: 96);
             rtA.Render = (gd, target, t) =>
             {
+                
                 gd.Clear(new XnaColor(20, 40, 80));
                 _sb!.Begin();
                 int bw = target.Width / 6;
@@ -99,6 +118,7 @@ namespace BeltTensionTest.WPF.Views
             if (_host == null) return;
             _time += (float)_timer.Interval.TotalSeconds;
 
+            
             try
             {
                 _host.RenderFrame(_time);
@@ -125,6 +145,7 @@ namespace BeltTensionTest.WPF.Views
         private void OnClosed(object? sender, EventArgs e)
         {
             _timer.Stop();
+            _font?.Texture.Dispose();
             _white?.Dispose();
             _sb?.Dispose();
             _host?.Dispose();

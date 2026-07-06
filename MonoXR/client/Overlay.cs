@@ -29,6 +29,7 @@ public sealed unsafe class Overlay : IDisposable
     private readonly IntPtr _sharedHandle;
     private ulong _frame;
     private bool _disposed;
+    private ID3D11Resource? _cachedSrc;   // wrapper for the last Update(IntPtr) source
 
     // Pose is applied every Update(). Defaults: 1m in front, ~1m wide.
     public Vector3 Position = new(0f, 0f, -1f);
@@ -100,6 +101,53 @@ public sealed unsafe class Overlay : IDisposable
 
         if (_mutexPtr != IntPtr.Zero)
             KeyedMutex.ReleaseSync(_mutexPtr, MonoXrConstants.KeyConsumer);
+
+        _frame++;
+        slot->FrameIndex = _frame;
+    }
+
+    /// <summary>
+    /// Zero-copy frame update: GPU-side CopyResource from a native
+    /// ID3D11Texture2D (e.g. a MonoGame RenderTarget2D, via
+    /// <see cref="MonoGameInterop.GetTexturePointer"/>) into the shared texture.
+    /// No CPU readback or upload happens — both textures are R8G8B8A8_UNORM so
+    /// the copy is a straight GPU blit. Requires the manager to have been
+    /// created on the game's device (<see cref="OverlayManager(IntPtr)"/>), and
+    /// the source must match the overlay's width/height exactly and not be
+    /// multisampled.
+    /// </summary>
+    public void Update(IntPtr nativeTexture)
+    {
+        if (_disposed) return;
+        if (nativeTexture == IntPtr.Zero)
+            throw new ArgumentNullException(nameof(nativeTexture));
+        if (!_mgr.UsesExternalDevice)
+            throw new InvalidOperationException(
+                "GPU-copy updates need the OverlayManager to wrap the game's D3D11 device " +
+                "(use the OverlayManager(IntPtr) constructor); CopyResource cannot cross devices.");
+
+        var slot = _mgr.Slot(_index);
+        WriteMetadata(slot);
+
+        // Same non-blocking handoff as the CPU path: skip the frame if the
+        // layer still holds the texture.
+        if (_mutexPtr != IntPtr.Zero &&
+            KeyedMutex.AcquireSync(_mutexPtr, MonoXrConstants.KeyProducer, 0) != 0)
+            return;
+
+        if (_cachedSrc is null || _cachedSrc.NativePointer != nativeTexture)
+            _cachedSrc = new ID3D11Resource(nativeTexture); // borrowed ref — never disposed
+
+        _mgr.Context.CopyResource(_tex, _cachedSrc);
+
+        if (_mutexPtr != IntPtr.Zero)
+            KeyedMutex.ReleaseSync(_mutexPtr, MonoXrConstants.KeyConsumer);
+
+        // Submit now. Without this, on a device that never Presents (e.g. the
+        // WPF host renders offscreen only) the copy and mutex release can sit
+        // in the driver's command buffer indefinitely — the layer's AcquireSync
+        // then times out every frame and the overlay never shows content.
+        _mgr.Context.Flush();
 
         _frame++;
         slot->FrameIndex = _frame;

@@ -178,12 +178,13 @@ static void TryOpenControl(SessionState& s) {
     }
     s.mapping = h;
     s.control = cb;
+    s.control->layerPid = GetCurrentProcessId();
     s.control->layerActive = 1;
     LogLine("attached to MonoXR control block, client pid=%u", cb->clientPid);
 }
 
 static void CloseControl(SessionState& s) {
-    if (s.control) { s.control->layerActive = 0; UnmapViewOfFile(s.control); s.control = nullptr; }
+    if (s.control) { s.control->layerActive = 0; s.control->layerPid = 0; UnmapViewOfFile(s.control); s.control = nullptr; }
     if (s.mapping) { CloseHandle(s.mapping); s.mapping = nullptr; }
 }
 
@@ -341,6 +342,11 @@ static XrResult XRAPI_CALL MonoXr_xrEndFrame(XrSession session, const XrFrameEnd
     TryOpenControl(s);
     if (!s.control)
         return down_xrEndFrame(session, frameEndInfo);
+
+    // Re-assert liveness every frame so the client's view self-heals even if
+    // something cleared these (e.g. a client that wrongly decided we died).
+    s.control->layerActive = 1;
+    s.control->layerPid = GetCurrentProcessId();
 
     // Storage must outlive the down-call; reserve so pointers stay stable.
     static std::vector<XrCompositionLayerQuad> quads;

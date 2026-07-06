@@ -1,5 +1,4 @@
 using System.Numerics;
-using System.Runtime.InteropServices;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -26,7 +25,6 @@ public sealed class OverlayGame : Game
     private SpriteFont? _font;
 
     private RenderTarget2D _rtA = null!, _rtB = null!;
-    private XnaColor[] _bufA = null!, _bufB = null!;
 
     private OverlayManager _mgr = null!;
     private Overlay _ovA = null!, _ovB = null!;
@@ -46,7 +44,11 @@ public sealed class OverlayGame : Game
 
     protected override void Initialize()
     {
-        _mgr = new OverlayManager();
+        // Share MonoGame's own D3D11 device so overlay updates are a pure
+        // GPU-side CopyResource — MonoGame's SurfaceFormat.Color render targets
+        // are already R8G8B8A8_UNORM, the same format as the shared textures
+        // and the OpenXR swapchains, so no readback or conversion is needed.
+        _mgr = new OverlayManager(MonoGameInterop.GetDevicePointer(GraphicsDevice));
         base.Initialize();
     }
 
@@ -58,8 +60,6 @@ public sealed class OverlayGame : Game
 
         _rtA = new RenderTarget2D(GraphicsDevice, 1024, 512);
         _rtB = new RenderTarget2D(GraphicsDevice, 512, 512);
-        _bufA = new XnaColor[_rtA.Width * _rtA.Height];
-        _bufB = new XnaColor[_rtB.Width * _rtB.Height];
 
         // World-locked wide panel, 1.5 m in front, ~1.2 m wide.
         _ovA = _mgr.CreateOverlay(_rtA.Width, _rtA.Height);
@@ -84,7 +84,7 @@ public sealed class OverlayGame : Game
         base.Update(gameTime);
     }
 
-    private void RenderOverlay(RenderTarget2D rt, XnaColor[] buffer, Overlay overlay, XnaColor bg)
+    private void RenderOverlay(RenderTarget2D rt, Overlay overlay, XnaColor bg)
     {
         GraphicsDevice.SetRenderTarget(rt);
         GraphicsDevice.Clear(bg);
@@ -97,9 +97,10 @@ public sealed class OverlayGame : Game
         _sb.End();
         GraphicsDevice.SetRenderTarget(null);
 
-        // Public MonoGame API only: read back the pixels and hand them to MonoXR.
-        rt.GetData(buffer);
-        overlay.Update(MemoryMarshal.AsBytes<XnaColor>(buffer));
+        // Zero-copy: GPU CopyResource from the render target into the shared
+        // texture. Re-fetch the pointer each frame in case MonoGame recreated
+        // the target (device reset); the lookup is cached and cheap.
+        overlay.Update(MonoGameInterop.GetTexturePointer(rt));
     }
 
     private void DrawBorder(int w, int h, int t, XnaColor c)
@@ -112,8 +113,8 @@ public sealed class OverlayGame : Game
 
     protected override void Draw(GameTime gameTime)
     {
-        RenderOverlay(_rtA, _bufA, _ovA, new XnaColor(20, 40, 80));
-        RenderOverlay(_rtB, _bufB, _ovB, new XnaColor(80, 20, 40));
+        RenderOverlay(_rtA, _ovA, new XnaColor(20, 40, 80));
+        RenderOverlay(_rtB, _ovB, new XnaColor(80, 20, 40));
         _mgr.Heartbeat();
 
         // Mirror both targets to the window.

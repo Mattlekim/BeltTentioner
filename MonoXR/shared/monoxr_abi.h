@@ -63,7 +63,8 @@ struct MonoXrControlBlock {
     uint32_t clientPid;     // 0 when no client attached
     uint64_t clientHeartbeat;   // client bumps periodically; layer can detect death
     uint32_t layerActive;   // layer sets 1 while a session is running
-    uint32_t _pad0;
+    uint32_t layerPid;      // game's process id while layerActive; lets the client
+                            // detect a game that died without clearing layerActive
     struct MonoXrOverlaySlot slots[MONOXR_MAX_OVERLAYS];
 };
 

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Numerics;
-using System.Runtime.InteropServices;
 using Microsoft.Xna.Framework.Graphics;
 using MonoXR.Client;
 using MonoXR.Shared;
@@ -16,8 +15,6 @@ namespace BeltTensionTest.WPF.Services
     /// </summary>
     public sealed class OverlayRenderTarget : IDisposable
     {
-        internal readonly XnaColor[] Pixels;
-
         public RenderTarget2D Target { get; }
 
         /// <summary>Pixel location of this target's top-left corner in the overlay canvas.</summary>
@@ -35,7 +32,6 @@ namespace BeltTensionTest.WPF.Services
         internal OverlayRenderTarget(GraphicsDevice device, int width, int height, int x, int y)
         {
             Target = new RenderTarget2D(device, width, height);
-            Pixels = new XnaColor[width * height];
             X = x;
             Y = y;
         }
@@ -60,9 +56,8 @@ namespace BeltTensionTest.WPF.Services
         private readonly OverlayManager _mgr;
         private readonly Overlay _overlay;
         private readonly List<OverlayRenderTarget> _targets = new List<OverlayRenderTarget>();
-        private readonly byte[] _canvas;
-        private readonly int _canvasWidth;
-        private readonly int _canvasHeight;
+        private readonly RenderTarget2D _canvasTarget;
+        private readonly SpriteBatch _compositor;
         private bool _disposed;
 
         /// <summary>Shared device for creating textures, SpriteBatches, fonts, etc.</summary>
@@ -71,8 +66,19 @@ namespace BeltTensionTest.WPF.Services
         /// <summary>The published overlay quad — set Position/Rotation/Size/Space/Visible on it.</summary>
         public Overlay Overlay => _overlay;
 
-        /// <summary>True once an OpenXR app with the MonoXR layer is running.</summary>
+        /// <summary>True while an OpenXR app with the MonoXR layer is running (and its process is alive).</summary>
         public bool LayerAttached => _mgr.LayerAttached;
+
+        /// <summary>
+        /// Raised when the OpenXR game attaches (true) or closes/crashes (false).
+        /// Fires from the thread that calls <see cref="RenderFrame"/>; marshal to
+        /// the UI thread with Dispatcher before touching WPF state.
+        /// </summary>
+        public event Action<bool>? LayerAttachedChanged
+        {
+            add => _mgr.LayerAttachedChanged += value;
+            remove => _mgr.LayerAttachedChanged -= value;
+        }
 
         public ulong FramesPublished { get; private set; }
 
@@ -81,10 +87,6 @@ namespace BeltTensionTest.WPF.Services
 
         public MonoGameOverlayHost(int canvasWidth, int canvasHeight)
         {
-            _canvasWidth = canvasWidth;
-            _canvasHeight = canvasHeight;
-            _canvas = new byte[canvasWidth * canvasHeight * 4];
-
             // MonoGame needs a real HWND for its swap chain; a hidden WinForms
             // window (never shown) satisfies it. All output goes to render
             // targets, nothing is ever presented to this window.
@@ -98,7 +100,13 @@ namespace BeltTensionTest.WPF.Services
             };
             GraphicsDevice = new GraphicsDevice(GraphicsAdapter.DefaultAdapter, GraphicsProfile.HiDef, pp);
 
-            _mgr = new OverlayManager();
+            // GPU-side canvas the targets are composited into; published to the
+            // overlay with a device-local CopyResource (both are R8G8B8A8_UNORM),
+            // so no frame ever crosses to the CPU.
+            _canvasTarget = new RenderTarget2D(GraphicsDevice, canvasWidth, canvasHeight);
+            _compositor = new SpriteBatch(GraphicsDevice);
+
+            _mgr = new OverlayManager(MonoGameInterop.GetDevicePointer(GraphicsDevice));
             _overlay = _mgr.CreateOverlay(canvasWidth, canvasHeight);
             _overlay.Space = MonoXrSpace.World;
             _overlay.Position = new Vector3(0f, 0f, -3f);
@@ -132,40 +140,25 @@ namespace BeltTensionTest.WPF.Services
                 GraphicsDevice.SetRenderTarget(rt.Target);
                 rt.Render(GraphicsDevice, rt.Target, totalSeconds);
             }
-            GraphicsDevice.SetRenderTarget(null);
 
-            // Compose: background fill, then each visible target blitted at (X, Y).
-            uint bg = BackgroundColor.PackedValue; // ABGR packed = RGBA byte order in memory
-            MemoryMarshal.Cast<byte, uint>(_canvas.AsSpan()).Fill(bg);
+            // Compose on the GPU: background fill, then each visible target
+            // drawn at (X, Y). Opaque blend matches the old CPU blit (targets
+            // overwrite the background, later targets overwrite earlier ones).
+            GraphicsDevice.SetRenderTarget(_canvasTarget);
+            GraphicsDevice.Clear(BackgroundColor);
+            _compositor.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.PointClamp);
             foreach (var rt in _targets)
             {
                 if (!rt.Visible) continue;
-                rt.Target.GetData(rt.Pixels);
-                Blit(rt);
+                _compositor.Draw(rt.Target, new Microsoft.Xna.Framework.Vector2(rt.X, rt.Y), XnaColor.White);
             }
+            _compositor.End();
+            GraphicsDevice.SetRenderTarget(null);
 
-            _overlay.Update(_canvas);
+            // Publish with a device-local GPU copy — no readback, no upload.
+            _overlay.Update(MonoGameInterop.GetTexturePointer(_canvasTarget));
             _mgr.Heartbeat();
             FramesPublished++;
-        }
-
-        // Copy a target's pixels into the canvas at its location, clipped to the canvas.
-        private void Blit(OverlayRenderTarget rt)
-        {
-            int w = rt.Target.Width, h = rt.Target.Height;
-            int srcX = Math.Max(0, -rt.X), srcY = Math.Max(0, -rt.Y);
-            int dstX = Math.Max(0, rt.X), dstY = Math.Max(0, rt.Y);
-            int copyW = Math.Min(w - srcX, _canvasWidth - dstX);
-            int copyH = Math.Min(h - srcY, _canvasHeight - dstY);
-            if (copyW <= 0 || copyH <= 0) return;
-
-            ReadOnlySpan<byte> src = MemoryMarshal.AsBytes<XnaColor>(rt.Pixels);
-            for (int row = 0; row < copyH; row++)
-            {
-                int srcOffset = ((srcY + row) * w + srcX) * 4;
-                int dstOffset = ((dstY + row) * _canvasWidth + dstX) * 4;
-                src.Slice(srcOffset, copyW * 4).CopyTo(_canvas.AsSpan(dstOffset, copyW * 4));
-            }
         }
 
         public void Dispose()
@@ -174,6 +167,8 @@ namespace BeltTensionTest.WPF.Services
             _disposed = true;
             foreach (var rt in _targets) rt.Dispose();
             _targets.Clear();
+            _compositor.Dispose();
+            _canvasTarget.Dispose();
             _overlay.Dispose();
             _mgr.Dispose();
             GraphicsDevice.Dispose();
