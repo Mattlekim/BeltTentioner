@@ -57,26 +57,19 @@
     <MonoXRLayerDll>$(MonoXRLayerDir)\build\Release\XR_APILAYER_NOVELTY_monoxr.dll</MonoXRLayerDll>
   </PropertyGroup>
 
-  <Target Name="BuildMonoXRLayer" BeforeTargets="BeforeBuild"
-          Inputs="$(MonoXRLayerDir)\src\layer.cpp;$(MonoXRLayerDir)\CMakeLists.txt;$(MonoXRLayerDir)\manifest\MonoXR.json.in;$(MonoXRLayerDir)\cmake\GenManifest.cmake;$(MSBuildProjectDirectory)\..\MonoXR\shared\monoxr_abi.h"
-          Outputs="$(MonoXRLayerDll)">
+  <Target Name="BuildMonoXRLayer" BeforeTargets="BeforeBuild" Inputs="$(MonoXRLayerDir)\src\layer.cpp;$(MonoXRLayerDir)\CMakeLists.txt;$(MonoXRLayerDir)\manifest\MonoXR.json.in;$(MonoXRLayerDir)\cmake\GenManifest.cmake;$(MSBuildProjectDirectory)\..\MonoXR\shared\monoxr_abi.h" Outputs="$(MonoXRLayerDll)">
     <Message Importance="high" Text="MonoXR: building native OpenXR layer (Release)..." />
     <!-- Configure once. -->
-    <Exec Condition="!Exists('$(MonoXRLayerDir)\build\CMakeCache.txt')"
-          Command="cmake -S &quot;$(MonoXRLayerDir)&quot; -B &quot;$(MonoXRLayerDir)\build&quot; -G &quot;Visual Studio 17 2022&quot; -A x64"
-          ContinueOnError="true">
+    <Exec Condition="!Exists('$(MonoXRLayerDir)\build\CMakeCache.txt')" Command="cmake -S &quot;$(MonoXRLayerDir)&quot; -B &quot;$(MonoXRLayerDir)\build&quot; -G &quot;Visual Studio 17 2022&quot; -A x64" ContinueOnError="true">
       <Output TaskParameter="ExitCode" PropertyName="_MonoXRConfigExit" />
     </Exec>
     <!-- Build. ContinueOnError so a locked DLL (a VR app has the layer loaded)
          does not fail the whole WPF build — we fall back to the existing DLL. -->
-    <Exec Command="cmake --build &quot;$(MonoXRLayerDir)\build&quot; --config Release"
-          ContinueOnError="true">
+    <Exec Command="cmake --build &quot;$(MonoXRLayerDir)\build&quot; --config Release" ContinueOnError="true">
       <Output TaskParameter="ExitCode" PropertyName="_MonoXRBuildExit" />
     </Exec>
-    <Warning Condition="'$(_MonoXRBuildExit)' != '0' and Exists('$(MonoXRLayerDll)')"
-             Text="MonoXR: native layer did not rebuild (cmake exit $(_MonoXRBuildExit)) — usually because a running OpenXR app (e.g. iRacing) has the DLL locked. Using the existing layer DLL. Close the VR app and rebuild to apply layer changes." />
-    <Error Condition="'$(_MonoXRBuildExit)' != '0' and !Exists('$(MonoXRLayerDll)')"
-           Text="MonoXR: native layer failed to build and no existing DLL is present (cmake exit $(_MonoXRBuildExit)). Ensure CMake + VS2022 C++ tools are installed." />
+    <Warning Condition="'$(_MonoXRBuildExit)' != '0' and Exists('$(MonoXRLayerDll)')" Text="MonoXR: native layer did not rebuild (cmake exit $(_MonoXRBuildExit)) — usually because a running OpenXR app (e.g. iRacing) has the DLL locked. Using the existing layer DLL. Close the VR app and rebuild to apply layer changes." />
+    <Error Condition="'$(_MonoXRBuildExit)' != '0' and !Exists('$(MonoXRLayerDll)')" Text="MonoXR: native layer failed to build and no existing DLL is present (cmake exit $(_MonoXRBuildExit)). Ensure CMake + VS2022 C++ tools are installed." />
   </Target>
 
 </Project>

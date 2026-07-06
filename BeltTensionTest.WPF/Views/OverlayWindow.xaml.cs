@@ -3,7 +3,9 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
 using BeltTensionTest.WPF.Services;
+using BeltTensionTest.WPF.Services.Overlays;
 using Microsoft.Xna.Framework.Graphics;
+using GameTime = Microsoft.Xna.Framework.GameTime;
 using XnaColor = Microsoft.Xna.Framework.Color;
 using XnaRectangle = Microsoft.Xna.Framework.Rectangle;
 
@@ -53,13 +55,11 @@ namespace BeltTensionTest.WPF.Views
         // =====================================================================
         //  MONOGAME RENDER SECTION
         //
-        //  Add as many render targets as you like with
-        //      var rt = _host.AddRenderTarget(width, height, x, y);
+        //  Subclass OverlayRenderTarget, override Update (game logic) and
+        //  Render (drawing, target already bound), then register it with
+        //      _host.AddRenderTarget(new MyTarget(_host.GraphicsDevice, ...));
         //  (x, y) is the pixel location of the target inside the 1024x1024
         //  overlay canvas, changeable at runtime via rt.X / rt.Y.
-        //
-        //  Each target gets a Render callback that runs once per frame with the
-        //  target already bound — just draw with normal MonoGame code.
         // =====================================================================
         private void SetupRenderTargets()
         {
@@ -73,43 +73,105 @@ namespace BeltTensionTest.WPF.Views
             _font = RuntimeSpriteFont.Bake(_host.GraphicsDevice, "Segoe UI", 64f);
 
             // Text panel across the top of the overlay canvas.
-            OverlayRenderTarget rtText = _host.AddRenderTarget(768, 96, x: 128, y: 8);
-            rtText.Render = (gd, target, t) =>
-            {
-                gd.Clear(new XnaColor(10, 10, 20));
-                _sb!.Begin();
-                var size = _font!.MeasureString("hello");
-                _sb.DrawString(_font, "hello",
-                    new Microsoft.Xna.Framework.Vector2(
-                        (target.Width - size.X) / 2f, (target.Height - size.Y) / 2f),
-                    XnaColor.White);
-                _sb.End();
-            };
+            _host.AddRenderTarget(new TextPanelTarget(_host.GraphicsDevice, _sb, _font, 768, 96, x: 128, y: 8));
 
             // Example target A: wide panel, top-left area of the overlay.
-            OverlayRenderTarget rtA = _host.AddRenderTarget(768, 256, x: 128, y: 96);
-            rtA.Render = (gd, target, t) =>
-            {
-                
-                gd.Clear(new XnaColor(20, 40, 80));
-                _sb!.Begin();
-                int bw = target.Width / 6;
-                int bx = (int)((MathF.Sin(t * 1.5f) * 0.5f + 0.5f) * (target.Width - bw));
-                _sb.Draw(_white, new XnaRectangle(bx, target.Height / 2 - bw / 2, bw, bw), XnaColor.Gold);
-                _sb.End();
-            };
+            _host.AddRenderTarget(new BouncingBarTarget(_host.GraphicsDevice, _sb, _white, 768, 256, x: 128, y: 96));
 
             // Example target B: square panel, lower-right area of the overlay.
-            OverlayRenderTarget rtB = _host.AddRenderTarget(320, 320, x: 576, y: 576);
-            rtB.Render = (gd, target, t) =>
+            _host.AddRenderTarget(new PulsingSquareTarget(_host.GraphicsDevice, _sb, _white, 320, 320, x: 576, y: 576));
+        }
+
+        /// <summary>Centered "hello" text on a dark panel.</summary>
+        private sealed class TextPanelTarget : OverlayRenderTarget
+        {
+            private readonly SpriteBatch _sb;
+            private readonly SpriteFont _font;
+
+            public TextPanelTarget(GraphicsDevice device, SpriteBatch sb, SpriteFont font,
+                                   int width, int height, int x, int y)
+                : base(device, width, height, x, y)
             {
-                gd.Clear(new XnaColor(80, 20, 40));
-                _sb!.Begin();
-                int s = (int)(target.Width * 0.5f * (0.75f + 0.25f * MathF.Sin(t * 2f)));
-                _sb.Draw(_white, new XnaRectangle((target.Width - s) / 2, (target.Height - s) / 2, s, s),
+                _sb = sb;
+                _font = font;
+            }
+
+            public override void Update(GameTime gameTime) { }
+
+            public override void Render(GameTime gameTime)
+            {
+                GraphicsDevice.Clear(new XnaColor(10, 10, 20));
+                _sb.Begin();
+                var size = _font.MeasureString("hello");
+                _sb.DrawString(_font, "hello",
+                    new Microsoft.Xna.Framework.Vector2(
+                        (Width - size.X) / 2f, (Height - size.Y) / 2f),
+                    XnaColor.White);
+                _sb.End();
+            }
+        }
+
+        /// <summary>Gold square sweeping left/right across a blue panel.</summary>
+        private sealed class BouncingBarTarget : OverlayRenderTarget
+        {
+            private readonly SpriteBatch _sb;
+            private readonly Texture2D _white;
+            private int _barX;
+
+            public BouncingBarTarget(GraphicsDevice device, SpriteBatch sb, Texture2D white,
+                                     int width, int height, int x, int y)
+                : base(device, width, height, x, y)
+            {
+                _sb = sb;
+                _white = white;
+            }
+
+            private int BarSize => Width / 6;
+
+            public override void Update(GameTime gameTime)
+            {
+                float t = (float)gameTime.TotalGameTime.TotalSeconds;
+                _barX = (int)((MathF.Sin(t * 1.5f) * 0.5f + 0.5f) * (Width - BarSize));
+            }
+
+            public override void Render(GameTime gameTime)
+            {
+                GraphicsDevice.Clear(new XnaColor(20, 40, 80));
+                _sb.Begin();
+                _sb.Draw(_white, new XnaRectangle(_barX, Height / 2 - BarSize / 2, BarSize, BarSize), XnaColor.Gold);
+                _sb.End();
+            }
+        }
+
+        /// <summary>Purple square pulsing in size on a red panel.</summary>
+        private sealed class PulsingSquareTarget : OverlayRenderTarget
+        {
+            private readonly SpriteBatch _sb;
+            private readonly Texture2D _white;
+            private int _size;
+
+            public PulsingSquareTarget(GraphicsDevice device, SpriteBatch sb, Texture2D white,
+                                       int width, int height, int x, int y)
+                : base(device, width, height, x, y)
+            {
+                _sb = sb;
+                _white = white;
+            }
+
+            public override void Update(GameTime gameTime)
+            {
+                float t = (float)gameTime.TotalGameTime.TotalSeconds;
+                _size = (int)(Width * 0.5f * (0.75f + 0.25f * MathF.Sin(t * 2f)));
+            }
+
+            public override void Render(GameTime gameTime)
+            {
+                GraphicsDevice.Clear(new XnaColor(80, 20, 40));
+                _sb.Begin();
+                _sb.Draw(_white, new XnaRectangle((Width - _size) / 2, (Height - _size) / 2, _size, _size),
                          new XnaColor(120, 90, 230));
                 _sb.End();
-            };
+            }
         }
         // ===================== END MONOGAME RENDER SECTION ===================
 

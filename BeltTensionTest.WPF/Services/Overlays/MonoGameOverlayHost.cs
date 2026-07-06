@@ -2,20 +2,28 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 using Microsoft.Xna.Framework.Graphics;
+using GameTime = Microsoft.Xna.Framework.GameTime;
 using MonoXR.Client;
 using MonoXR.Shared;
 using XnaColor = Microsoft.Xna.Framework.Color;
 
-namespace BeltTensionTest.WPF.Services
+namespace BeltTensionTest.WPF.Services.Overlays
 {
     /// <summary>
     /// One MonoGame render target placed somewhere on the overlay canvas.
-    /// Set <see cref="Render"/> to draw into it each frame; move it at runtime
+    /// Inherit from this and override <see cref="Update"/> (game logic) and
+    /// <see cref="Render"/> (drawing, target already bound). Move it at runtime
     /// by changing <see cref="X"/>/<see cref="Y"/>.
     /// </summary>
-    public sealed class OverlayRenderTarget : IDisposable
+    public abstract class OverlayRenderTarget : IDisposable
     {
         public RenderTarget2D Target { get; }
+
+        /// <summary>Shared device for creating textures, SpriteBatches, fonts, etc.</summary>
+        public GraphicsDevice GraphicsDevice { get; }
+
+        public int Width => Target.Width;
+        public int Height => Target.Height;
 
         /// <summary>Pixel location of this target's top-left corner in the overlay canvas.</summary>
         public int X { get; set; }
@@ -23,20 +31,21 @@ namespace BeltTensionTest.WPF.Services
 
         public bool Visible { get; set; } = true;
 
-        /// <summary>
-        /// Called once per frame with the render target already bound, so just
-        /// draw. Arguments: the shared GraphicsDevice, this target, total seconds.
-        /// </summary>
-        public Action<GraphicsDevice, RenderTarget2D, float>? Render { get; set; }
-
-        internal OverlayRenderTarget(GraphicsDevice device, int width, int height, int x, int y)
+        protected OverlayRenderTarget(GraphicsDevice device, int width, int height, int x, int y)
         {
+            GraphicsDevice = device;
             Target = new RenderTarget2D(device, width, height);
             X = x;
             Y = y;
         }
 
-        public void Dispose() => Target.Dispose();
+        /// <summary>Called once per frame, before any target renders. Put game/animation logic here.</summary>
+        public abstract void Update(GameTime gameTime);
+
+        /// <summary>Called once per frame with this render target already bound — just draw.</summary>
+        public abstract void Render(GameTime gameTime);
+
+        public virtual void Dispose() => Target.Dispose();
     }
 
     /// <summary>
@@ -45,9 +54,9 @@ namespace BeltTensionTest.WPF.Services
     /// render targets, each at its own pixel location on the overlay canvas.
     ///
     /// Usage:
+    ///   class MyPanel : OverlayRenderTarget { ... override Update/Render ... }
     ///   var host = new MonoGameOverlayHost(1024, 1024);
-    ///   var rt = host.AddRenderTarget(512, 256, x: 32, y: 32);
-    ///   rt.Render = (gd, target, t) => { /* MonoGame drawing */ };
+    ///   var rt = host.AddRenderTarget(new MyPanel(host.GraphicsDevice, 512, 256, x: 32, y: 32));
     ///   ... call host.RenderFrame(totalSeconds) on a timer ...
     /// </summary>
     public sealed class MonoGameOverlayHost : IDisposable
@@ -58,6 +67,7 @@ namespace BeltTensionTest.WPF.Services
         private readonly List<OverlayRenderTarget> _targets = new List<OverlayRenderTarget>();
         private readonly RenderTarget2D _canvasTarget;
         private readonly SpriteBatch _compositor;
+        private TimeSpan _lastTotal;
         private bool _disposed;
 
         /// <summary>Shared device for creating textures, SpriteBatches, fonts, etc.</summary>
@@ -115,30 +125,36 @@ namespace BeltTensionTest.WPF.Services
         }
 
         /// <summary>
-        /// Create a render target of the given size, placed at pixel (x, y) in
-        /// the overlay canvas. Assign its <see cref="OverlayRenderTarget.Render"/>
-        /// callback to draw into it.
+        /// Register an <see cref="OverlayRenderTarget"/> subclass instance so its
+        /// Update/Render run each frame and it is composited onto the canvas.
+        /// Returns the same instance for convenience.
         /// </summary>
-        public OverlayRenderTarget AddRenderTarget(int width, int height, int x, int y)
+        public T AddRenderTarget<T>(T renderTarget) where T : OverlayRenderTarget
         {
-            var rt = new OverlayRenderTarget(GraphicsDevice, width, height, x, y);
-            _targets.Add(rt);
-            return rt;
+            _targets.Add(renderTarget);
+            return renderTarget;
         }
 
         /// <summary>
-        /// Run every registered target's Render callback, composite all targets
-        /// into the overlay canvas at their locations, and publish the frame.
+        /// Run every registered target's Update then Render, composite all
+        /// targets into the overlay canvas at their locations, and publish the
+        /// frame.
         /// </summary>
         public void RenderFrame(float totalSeconds)
         {
             if (_disposed) return;
 
+            var total = TimeSpan.FromSeconds(totalSeconds);
+            var gameTime = new GameTime(total, total - _lastTotal);
+            _lastTotal = total;
+
+            foreach (var rt in _targets)
+                rt.Update(gameTime);
+
             foreach (var rt in _targets)
             {
-                if (rt.Render == null) continue;
                 GraphicsDevice.SetRenderTarget(rt.Target);
-                rt.Render(GraphicsDevice, rt.Target, totalSeconds);
+                rt.Render(gameTime);
             }
 
             // Compose on the GPU: background fill, then each visible target
