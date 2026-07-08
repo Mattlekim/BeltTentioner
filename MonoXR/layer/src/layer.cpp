@@ -133,11 +133,13 @@ struct SlotResources {
     wchar_t  name[MONOXR_NAME_LEN] = {};
     uint32_t width = 0, height = 0, format = 0;
     uint64_t lastFrameIndex = ~0ull;
+    bool hasContent = false;    // at least one frame copied into the swapchain
 
     void releaseShared() {
         if (mutex) { mutex->Release(); mutex = nullptr; }
         if (sharedTex) { sharedTex->Release(); sharedTex = nullptr; }
         name[0] = 0; width = height = format = 0; lastFrameIndex = ~0ull;
+        hasContent = false;
     }
 };
 
@@ -232,6 +234,8 @@ static bool EnsureSwapchain(SessionState& s, SlotResources& r,
         down_xrDestroySwapchain(r.swapchain);
         r.swapchain = XR_NULL_HANDLE;
         r.images.clear();
+        r.lastFrameIndex = ~0ull;
+        r.hasContent = false;
     }
 
     int64_t chosenFormat = ChooseSwapchainFormat(s, slot.format);
@@ -291,37 +295,41 @@ static bool EnsureSharedTexture(SessionState& s, SlotResources& r,
     return true;
 }
 
-// Copy shared texture -> next swapchain image. Returns swapchain sub-image ready
-// for a quad layer, or false to skip this slot.
+// Copy shared texture -> next swapchain image, but ONLY when the client has
+// published a new frame (slot.frameIndex changed) since our last copy. When
+// nothing new arrived, the quad simply re-references the swapchain — the
+// runtime keeps showing the most recently released image at zero cost.
+// This must never stall the game's render thread, so the keyed mutex is taken
+// with a 0 timeout: if the client is mid-update we keep last frame's image
+// and try again next frame.
 static bool RenderSlot(SessionState& s, SlotResources& r, const MonoXrOverlaySlot& slot,
                        XrSwapchainSubImage& outSub) {
     if (!EnsureSwapchain(s, r, slot)) return false;
     if (!EnsureSharedTexture(s, r, slot)) return false;
 
-    uint32_t idx = 0;
-    XrSwapchainImageAcquireInfo ai{ XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO };
-    if (XR_FAILED(down_xrAcquireSwapchainImage(r.swapchain, &ai, &idx))) return false;
-    XrSwapchainImageWaitInfo wi{ XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO };
-    wi.timeout = XR_INFINITE_DURATION;
-    if (XR_FAILED(down_xrWaitSwapchainImage(r.swapchain, &wi))) {
-        XrSwapchainImageReleaseInfo ri{ XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO };
-        down_xrReleaseSwapchainImage(r.swapchain, &ri);
-        return false;
+    if (slot.frameIndex != r.lastFrameIndex) {
+        // Non-blocking producer/consumer handoff on the shared texture. If
+        // there is no keyed mutex we copy unsynchronised.
+        bool locked = !r.mutex || SUCCEEDED(r.mutex->AcquireSync(MONOXR_KEY_CONSUMER, 0));
+        if (locked) {
+            uint32_t idx = 0;
+            XrSwapchainImageAcquireInfo ai{ XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO };
+            if (XR_SUCCEEDED(down_xrAcquireSwapchainImage(r.swapchain, &ai, &idx))) {
+                XrSwapchainImageWaitInfo wi{ XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO };
+                wi.timeout = XR_INFINITE_DURATION;
+                if (XR_SUCCEEDED(down_xrWaitSwapchainImage(r.swapchain, &wi))) {
+                    s.context->CopyResource(r.images[idx], r.sharedTex);
+                    r.lastFrameIndex = slot.frameIndex;
+                    r.hasContent = true;
+                }
+                XrSwapchainImageReleaseInfo ri{ XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO };
+                down_xrReleaseSwapchainImage(r.swapchain, &ri);
+            }
+            if (r.mutex) r.mutex->ReleaseSync(MONOXR_KEY_PRODUCER);
+        }
     }
 
-    // Producer/consumer handoff on the shared texture.
-    bool locked = false;
-    if (r.mutex) locked = SUCCEEDED(r.mutex->AcquireSync(MONOXR_KEY_CONSUMER, 16));
-    // If there is no keyed mutex we copy unsynchronised (client should double-buffer).
-    if (!r.mutex || locked) {
-        s.context->CopyResource(r.images[idx], r.sharedTex);
-        if (r.mutex) r.mutex->ReleaseSync(MONOXR_KEY_PRODUCER);
-    }
-
-    XrSwapchainImageReleaseInfo ri{ XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO };
-    down_xrReleaseSwapchainImage(r.swapchain, &ri);
-
-    if (r.mutex && !locked) return false; // couldn't sync this frame; skip cleanly
+    if (!r.hasContent) return false; // nothing ever copied yet — no quad
 
     outSub.swapchain = r.swapchain;
     outSub.imageArrayIndex = 0;
@@ -390,12 +398,17 @@ static XrResult XRAPI_CALL MonoXr_xrEndFrame(XrSession session, const XrFrameEnd
     patched.layers = layers.data();
     XrResult efRes = down_xrEndFrame(session, &patched);
 
-    // Throttled visibility: report once a second what we're submitting (and the
-    // exact pose/size/space of each quad + the compositor's result), so a
-    // "quad submitted but nothing in VR" case shows whether it's mis-posed,
-    // zero-sized, in the wrong space, or rejected by the runtime.
-    static uint64_t frameCount = 0;
-    if ((frameCount++ % 90) == 0) {
+    // Log only when the submission actually changes (quad count or compositor
+    // result) — steady-state frames stay silent instead of repeating the same
+    // line every second. The quad detail still prints on each change, so a
+    // "quad submitted but nothing in VR" case remains diagnosable.
+    static size_t lastQuadCount = (size_t)-1;
+    static XrResult lastEfRes = XR_SUCCESS;
+    static bool loggedOnce = false;
+    if (!loggedOnce || quads.size() != lastQuadCount || efRes != lastEfRes) {
+        loggedOnce = true;
+        lastQuadCount = quads.size();
+        lastEfRes = efRes;
         LogLine("endFrame: appManaged=%u quads=%zu totalLayers=%zu down_xrEndFrame=%d",
                 frameEndInfo->layerCount, quads.size(), layers.size(), efRes);
         for (size_t qi = 0; qi < quads.size(); ++qi) {

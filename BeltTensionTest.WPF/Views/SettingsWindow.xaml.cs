@@ -1,5 +1,6 @@
 using BeltTensionTest.WPF.ViewModels;
 using BeltTensionTest.WPF.Services;
+using BeltTensionTest.WPF.Services.Overlays;
 using System.Windows;
 using Microsoft.Win32;
 using System;
@@ -42,6 +43,14 @@ namespace BeltTensionTest.WPF.Views
                 kb_IncreaseWindRest.IsGlobal = _vm.AppSettings.IncreaseWindRestingGlobal;
                 kb_DecreaseWindRest.Gesture = _vm.AppSettings.DecreaseWindRestingKey ?? string.Empty;
                 kb_DecreaseWindRest.IsGlobal = _vm.AppSettings.DecreaseWindRestingGlobal;
+                kb_NavUp.Gesture = _vm.AppSettings.NavUpKey ?? string.Empty;
+                kb_NavUp.IsGlobal = _vm.AppSettings.NavUpGlobal;
+                kb_NavDown.Gesture = _vm.AppSettings.NavDownKey ?? string.Empty;
+                kb_NavDown.IsGlobal = _vm.AppSettings.NavDownGlobal;
+                kb_NavIncrease.Gesture = _vm.AppSettings.NavIncreaseKey ?? string.Empty;
+                kb_NavIncrease.IsGlobal = _vm.AppSettings.NavIncreaseGlobal;
+                kb_NavDecrease.Gesture = _vm.AppSettings.NavDecreaseKey ?? string.Empty;
+                kb_NavDecrease.IsGlobal = _vm.AppSettings.NavDecreaseGlobal;
             }
 
             // Also load on-disk settings to ensure mappings saved from previous runs are shown
@@ -56,6 +65,14 @@ namespace BeltTensionTest.WPF.Views
                     kb_IncreaseWindRest.IsGlobal = disk.IncreaseWindRestingGlobal;
                     if (!string.IsNullOrWhiteSpace(disk.DecreaseWindRestingKey)) kb_DecreaseWindRest.Gesture = disk.DecreaseWindRestingKey;
                     kb_DecreaseWindRest.IsGlobal = disk.DecreaseWindRestingGlobal;
+                    if (!string.IsNullOrWhiteSpace(disk.NavUpKey)) kb_NavUp.Gesture = disk.NavUpKey;
+                    kb_NavUp.IsGlobal = disk.NavUpGlobal;
+                    if (!string.IsNullOrWhiteSpace(disk.NavDownKey)) kb_NavDown.Gesture = disk.NavDownKey;
+                    kb_NavDown.IsGlobal = disk.NavDownGlobal;
+                    if (!string.IsNullOrWhiteSpace(disk.NavIncreaseKey)) kb_NavIncrease.Gesture = disk.NavIncreaseKey;
+                    kb_NavIncrease.IsGlobal = disk.NavIncreaseGlobal;
+                    if (!string.IsNullOrWhiteSpace(disk.NavDecreaseKey)) kb_NavDecrease.Gesture = disk.NavDecreaseKey;
+                    kb_NavDecrease.IsGlobal = disk.NavDecreaseGlobal;
                 }
             }
             catch { }
@@ -67,10 +84,18 @@ namespace BeltTensionTest.WPF.Views
                 kb_ToggleFan.GestureChanged += Kb_GestureChanged;
                 kb_IncreaseWindRest.GestureChanged += Kb_GestureChanged;
                 kb_DecreaseWindRest.GestureChanged += Kb_GestureChanged;
+                kb_NavUp.GestureChanged += Kb_GestureChanged;
+                kb_NavDown.GestureChanged += Kb_GestureChanged;
+                kb_NavIncrease.GestureChanged += Kb_GestureChanged;
+                kb_NavDecrease.GestureChanged += Kb_GestureChanged;
 
                 kb_ToggleFan.GlobalChanged += Kb_GlobalChanged;
                 kb_IncreaseWindRest.GlobalChanged += Kb_GlobalChanged;
                 kb_DecreaseWindRest.GlobalChanged += Kb_GlobalChanged;
+                kb_NavUp.GlobalChanged += Kb_GlobalChanged;
+                kb_NavDown.GlobalChanged += Kb_GlobalChanged;
+                kb_NavIncrease.GlobalChanged += Kb_GlobalChanged;
+                kb_NavDecrease.GlobalChanged += Kb_GlobalChanged;
             }
             catch { }
 
@@ -115,6 +140,14 @@ namespace BeltTensionTest.WPF.Views
             _vm.AppSettings.IncreaseWindRestingGlobal = kb_IncreaseWindRest.IsGlobal;
             _vm.AppSettings.DecreaseWindRestingKey = kb_DecreaseWindRest.Gesture ?? string.Empty;
             _vm.AppSettings.DecreaseWindRestingGlobal = kb_DecreaseWindRest.IsGlobal;
+            _vm.AppSettings.NavUpKey = kb_NavUp.Gesture ?? string.Empty;
+            _vm.AppSettings.NavUpGlobal = kb_NavUp.IsGlobal;
+            _vm.AppSettings.NavDownKey = kb_NavDown.Gesture ?? string.Empty;
+            _vm.AppSettings.NavDownGlobal = kb_NavDown.IsGlobal;
+            _vm.AppSettings.NavIncreaseKey = kb_NavIncrease.Gesture ?? string.Empty;
+            _vm.AppSettings.NavIncreaseGlobal = kb_NavIncrease.IsGlobal;
+            _vm.AppSettings.NavDecreaseKey = kb_NavDecrease.Gesture ?? string.Empty;
+            _vm.AppSettings.NavDecreaseGlobal = kb_NavDecrease.IsGlobal;
 
             // Persist
             _settingsSvc.Save(_vm.AppSettings);
@@ -156,6 +189,10 @@ namespace BeltTensionTest.WPF.Views
                     _vm.AppSettings.ToggleFanKey = loaded.ToggleFanKey;
                     _vm.AppSettings.IncreaseWindRestingKey = loaded.IncreaseWindRestingKey;
                     _vm.AppSettings.DecreaseWindRestingKey = loaded.DecreaseWindRestingKey;
+                    _vm.AppSettings.NavUpKey = loaded.NavUpKey;
+                    _vm.AppSettings.NavDownKey = loaded.NavDownKey;
+                    _vm.AppSettings.NavIncreaseKey = loaded.NavIncreaseKey;
+                    _vm.AppSettings.NavDecreaseKey = loaded.NavDecreaseKey;
                 }
             }
             catch { }
@@ -228,10 +265,41 @@ namespace BeltTensionTest.WPF.Views
                         GlobalHotKeyManager.Register("DecreaseRest", kb_DecreaseWindRest.Gesture, () => { try { _vm.WindRestingPower = _vm.WindRestingPower - 1; _vm.MenuStateText = $"Hotkey triggered: DecreaseRest ({kb_DecreaseWindRest.Gesture})"; } catch { } });
                     }
                 }
+                else if (TryHandleNavBinding(sender)) { }
 
                 _settingsSvc.Save(_vm.AppSettings);
             }
             catch { }
+        }
+
+        // Store + (re)register a navigation binding. Shared by gesture and
+        // global-checkbox changes since both end in the same re-registration.
+        private bool TryHandleNavBinding(object? sender)
+        {
+            if (_vm?.AppSettings == null) return false;
+
+            string id;
+            OverlayNavAction action;
+            KeyBindingControl kb;
+            if (sender == kb_NavUp) { kb = kb_NavUp; id = "NavUp"; action = OverlayNavAction.Up; }
+            else if (sender == kb_NavDown) { kb = kb_NavDown; id = "NavDown"; action = OverlayNavAction.Down; }
+            else if (sender == kb_NavIncrease) { kb = kb_NavIncrease; id = "NavIncrease"; action = OverlayNavAction.Increase; }
+            else if (sender == kb_NavDecrease) { kb = kb_NavDecrease; id = "NavDecrease"; action = OverlayNavAction.Decrease; }
+            else return false;
+
+            string gesture = kb.Gesture ?? string.Empty;
+            switch (id)
+            {
+                case "NavUp": _vm.AppSettings.NavUpKey = gesture; _vm.AppSettings.NavUpGlobal = kb.IsGlobal; break;
+                case "NavDown": _vm.AppSettings.NavDownKey = gesture; _vm.AppSettings.NavDownGlobal = kb.IsGlobal; break;
+                case "NavIncrease": _vm.AppSettings.NavIncreaseKey = gesture; _vm.AppSettings.NavIncreaseGlobal = kb.IsGlobal; break;
+                case "NavDecrease": _vm.AppSettings.NavDecreaseKey = gesture; _vm.AppSettings.NavDecreaseGlobal = kb.IsGlobal; break;
+            }
+
+            GlobalHotKeyManager.Unregister(id);
+            if (kb.IsGlobal && !string.IsNullOrWhiteSpace(gesture))
+                GlobalHotKeyManager.Register(id, gesture, () => { try { OverlayNavigation.Raise(action); _vm.MenuStateText = $"Hotkey triggered: {id} ({gesture})"; } catch { } });
+            return true;
         }
 
         private void Kb_GlobalChanged(object? sender, EventArgs e)
@@ -260,6 +328,7 @@ namespace BeltTensionTest.WPF.Views
                     if (kb_DecreaseWindRest.IsGlobal && !string.IsNullOrWhiteSpace(kb_DecreaseWindRest.Gesture))
                         GlobalHotKeyManager.Register("DecreaseRest", kb_DecreaseWindRest.Gesture, () => { try { _vm.WindRestingPower = _vm.WindRestingPower - 1; _vm.MenuStateText = $"Hotkey triggered: DecreaseRest ({kb_DecreaseWindRest.Gesture})"; } catch { } });
                 }
+                else if (TryHandleNavBinding(sender)) { }
 
                 _settingsSvc.Save(_vm.AppSettings);
             }

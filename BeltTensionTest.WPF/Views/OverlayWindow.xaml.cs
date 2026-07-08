@@ -2,12 +2,8 @@ using System;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
-using BeltTensionTest.WPF.Services;
 using BeltTensionTest.WPF.Services.Overlays;
-using Microsoft.Xna.Framework.Graphics;
-using GameTime = Microsoft.Xna.Framework.GameTime;
-using XnaColor = Microsoft.Xna.Framework.Color;
-using XnaRectangle = Microsoft.Xna.Framework.Rectangle;
+using BeltTensionTest.WPF.ViewModels;
 
 namespace BeltTensionTest.WPF.Views
 {
@@ -18,25 +14,28 @@ namespace BeltTensionTest.WPF.Views
     /// </summary>
     public partial class OverlayWindow : Window
     {
-        private const int CanvasSize = 1024; // pixel size of the overlay canvas
+        private const int CanvasXSize = 1920; // pixel size of the overlay canvas
+        private const int CanvasYSize = 1024; // pixel size of the overlay canvas
 
         private MonoGameOverlayHost? _host;
-        private SpriteBatch? _sb;
-        private Texture2D? _white;
-        private SpriteFont? _font;
+        private readonly MainViewModel _vm;
 
-        private readonly DispatcherTimer _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
-        private float _time;
+        // 30 fps target; the host also caps via MaxFrameRate, so late/early
+        // DispatcherTimer ticks can never push the overlay above that rate.
+        private readonly DispatcherTimer _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };
+        private readonly System.Diagnostics.Stopwatch _clock = System.Diagnostics.Stopwatch.StartNew();
         private bool _lastAttached;
+        private bool _statusLogged;
 
-        public OverlayWindow()
+        public OverlayWindow(MainViewModel vm)
         {
+            _vm = vm;
             InitializeComponent();
 
             try
             {
                 Log("Creating MonoGame overlay host...");
-                _host = new MonoGameOverlayHost(CanvasSize, CanvasSize);
+                _host = new MonoGameOverlayHost(CanvasXSize, CanvasYSize);
                 Log("Host ready: MonoGame device up, overlay published (World, 3m ahead, 2.5m).");
 
                 SetupRenderTargets();
@@ -55,135 +54,46 @@ namespace BeltTensionTest.WPF.Views
         // =====================================================================
         //  MONOGAME RENDER SECTION
         //
-        //  Subclass OverlayRenderTarget, override Update (game logic) and
-        //  Render (drawing, target already bound), then register it with
+        //  Subclass OverlayRenderTarget (see Services/Overlays), override
+        //  Update (game logic) and Render (drawing, target already bound),
+        //  then register it with
         //      _host.AddRenderTarget(new MyTarget(_host.GraphicsDevice, ...));
-        //  (x, y) is the pixel location of the target inside the 1024x1024
-        //  overlay canvas, changeable at runtime via rt.X / rt.Y.
+        //  (x, y) is the pixel location of the target inside the overlay
+        //  canvas, changeable at runtime via rt.X / rt.Y.
         // =====================================================================
         private void SetupRenderTargets()
         {
             if (_host == null) return;
 
-            _sb = new SpriteBatch(_host.GraphicsDevice);
-            _white = new Texture2D(_host.GraphicsDevice, 1, 1);
-            _white.SetData(new[] { XnaColor.White });
-
-            // Runtime-baked sprite font (no content pipeline needed).
-            _font = RuntimeSpriteFont.Bake(_host.GraphicsDevice, "Segoe UI", 64f);
-
-            // Text panel across the top of the overlay canvas.
-            _host.AddRenderTarget(new TextPanelTarget(_host.GraphicsDevice, _sb, _font, 768, 96, x: 128, y: 8));
-
-            // Example target A: wide panel, top-left area of the overlay.
-            _host.AddRenderTarget(new BouncingBarTarget(_host.GraphicsDevice, _sb, _white, 768, 256, x: 128, y: 96));
-
-            // Example target B: square panel, lower-right area of the overlay.
-            _host.AddRenderTarget(new PulsingSquareTarget(_host.GraphicsDevice, _sb, _white, 320, 320, x: 576, y: 576));
-        }
-
-        /// <summary>Centered "hello" text on a dark panel.</summary>
-        private sealed class TextPanelTarget : OverlayRenderTarget
-        {
-            private readonly SpriteBatch _sb;
-            private readonly SpriteFont _font;
-
-            public TextPanelTarget(GraphicsDevice device, SpriteBatch sb, SpriteFont font,
-                                   int width, int height, int x, int y)
-                : base(device, width, height, x, y)
+            // Belt settings panel, centered on the overlay canvas. Rows read
+            // and write MainViewModel properties so the desktop sliders stay
+            // in sync and changes are saved through the normal path. Both the
+            // nav events and the render timer run on the UI thread.
+            var rows = new[]
             {
-                _sb = sb;
-                _font = font;
-            }
+                new BeltSettingRow("Surge Strength", () => _vm.BrakingStrength,   v => _vm.BrakingStrength   = v, 1f,   200f, 5f),
+                new BeltSettingRow("Surge Curve",    () => _vm.BrakingCurve,      v => _vm.BrakingCurve      = v, 0.1f, 5f,   0.1f, "0.0"),
+                new BeltSettingRow("Sway Strength",  () => _vm.CorneringStrength, v => _vm.CorneringStrength = v, 1f,   200f, 5f),
+                new BeltSettingRow("Sway Curve",     () => _vm.CorneringCurve,    v => _vm.CorneringCurve    = v, 0.1f, 10f,  0.1f, "0.0"),
+                new BeltSettingRow("Heave Strength", () => _vm.VerticalStrength,  v => _vm.VerticalStrength  = v, 1f,   200f, 5f),
+                new BeltSettingRow("Max Power",      () => _vm.MaxOutput,         v => _vm.MaxOutput         = v, 1f,   100f, 5f),
+            };
 
-            public override void Update(GameTime gameTime) { }
-
-            public override void Render(GameTime gameTime)
-            {
-                GraphicsDevice.Clear(new XnaColor(10, 10, 20));
-                _sb.Begin();
-                var size = _font.MeasureString("hello");
-                _sb.DrawString(_font, "hello",
-                    new Microsoft.Xna.Framework.Vector2(
-                        (Width - size.X) / 2f, (Height - size.Y) / 2f),
-                    XnaColor.White);
-                _sb.End();
-            }
-        }
-
-        /// <summary>Gold square sweeping left/right across a blue panel.</summary>
-        private sealed class BouncingBarTarget : OverlayRenderTarget
-        {
-            private readonly SpriteBatch _sb;
-            private readonly Texture2D _white;
-            private int _barX;
-
-            public BouncingBarTarget(GraphicsDevice device, SpriteBatch sb, Texture2D white,
-                                     int width, int height, int x, int y)
-                : base(device, width, height, x, y)
-            {
-                _sb = sb;
-                _white = white;
-            }
-
-            private int BarSize => Width / 6;
-
-            public override void Update(GameTime gameTime)
-            {
-                float t = (float)gameTime.TotalGameTime.TotalSeconds;
-                _barX = (int)((MathF.Sin(t * 1.5f) * 0.5f + 0.5f) * (Width - BarSize));
-            }
-
-            public override void Render(GameTime gameTime)
-            {
-                GraphicsDevice.Clear(new XnaColor(20, 40, 80));
-                _sb.Begin();
-                _sb.Draw(_white, new XnaRectangle(_barX, Height / 2 - BarSize / 2, BarSize, BarSize), XnaColor.Gold);
-                _sb.End();
-            }
-        }
-
-        /// <summary>Purple square pulsing in size on a red panel.</summary>
-        private sealed class PulsingSquareTarget : OverlayRenderTarget
-        {
-            private readonly SpriteBatch _sb;
-            private readonly Texture2D _white;
-            private int _size;
-
-            public PulsingSquareTarget(GraphicsDevice device, SpriteBatch sb, Texture2D white,
-                                       int width, int height, int x, int y)
-                : base(device, width, height, x, y)
-            {
-                _sb = sb;
-                _white = white;
-            }
-
-            public override void Update(GameTime gameTime)
-            {
-                float t = (float)gameTime.TotalGameTime.TotalSeconds;
-                _size = (int)(Width * 0.5f * (0.75f + 0.25f * MathF.Sin(t * 2f)));
-            }
-
-            public override void Render(GameTime gameTime)
-            {
-                GraphicsDevice.Clear(new XnaColor(80, 20, 40));
-                _sb.Begin();
-                _sb.Draw(_white, new XnaRectangle((Width - _size) / 2, (Height - _size) / 2, _size, _size),
-                         new XnaColor(120, 90, 230));
-                _sb.End();
-            }
+            const int panelWidth = 768, panelHeight = 512;
+            _host.AddRenderTarget(new BeltSettingsOverlay(
+                _host.GraphicsDevice, panelWidth, panelHeight,
+                x: (CanvasXSize - panelWidth) / 2, y: (CanvasYSize - panelHeight) / 2,
+                rows));
         }
         // ===================== END MONOGAME RENDER SECTION ===================
 
         private void OnTick(object? sender, EventArgs e)
         {
             if (_host == null) return;
-            _time += (float)_timer.Interval.TotalSeconds;
 
-            
             try
             {
-                _host.RenderFrame(_time);
+                _host.RenderFrame((float)_clock.Elapsed.TotalSeconds);
             }
             catch (Exception ex)
             {
@@ -193,9 +103,13 @@ namespace BeltTensionTest.WPF.Views
                 return;
             }
 
+            // Log the attach state once at startup and then only on changes.
+            // (Don't key this off FramesPublished — with dirty-flag rendering
+            // it stays constant while idle, so "== 1" would repeat every tick.)
             bool attached = _host.LayerAttached;
-            if (attached != _lastAttached || _host.FramesPublished == 1)
+            if (attached != _lastAttached || !_statusLogged)
             {
+                _statusLogged = true;
                 _lastAttached = attached;
                 Log(attached ? "Layer attached — overlay is live in VR."
                              : "Waiting for an OpenXR app (layer not attached yet).");
@@ -207,9 +121,6 @@ namespace BeltTensionTest.WPF.Views
         private void OnClosed(object? sender, EventArgs e)
         {
             _timer.Stop();
-            _font?.Texture.Dispose();
-            _white?.Dispose();
-            _sb?.Dispose();
             _host?.Dispose();
         }
 
@@ -222,6 +133,69 @@ namespace BeltTensionTest.WPF.Views
         }
 
         private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
+
+        private bool _syncingEditUi;
+
+        private void EditButton_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_host == null) return;
+            bool editing = EditButton.IsChecked == true;
+            _host.EditMode = editing;
+            EditPanel.Visibility = editing ? Visibility.Visible : Visibility.Collapsed;
+            if (editing) SyncEditPanel();
+            Log(editing ? "Edit mode ON — red border shown around overlay canvas."
+                        : "Edit mode OFF.");
+        }
+
+        /// <summary>Populate the edit panel from the host's current state.</summary>
+        private void SyncEditPanel()
+        {
+            if (_host == null) return;
+            _syncingEditUi = true;
+            SizeXSlider.Value = _host.DisplaySize.X;
+            SizeYSlider.Value = _host.DisplaySize.Y;
+            DistanceSlider.Value = _host.Distance;
+            ResWidthBox.Text = _host.CanvasWidth.ToString();
+            ResHeightBox.Text = _host.CanvasHeight.ToString();
+            _syncingEditUi = false;
+            UpdateEditValueLabels();
+        }
+
+        private void UpdateEditValueLabels()
+        {
+            SizeXValue.Text = SizeXSlider.Value.ToString("0.00");
+            SizeYValue.Text = SizeYSlider.Value.ToString("0.00");
+            DistanceValue.Text = DistanceSlider.Value.ToString("0.00");
+        }
+
+        private void DisplaySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (_host == null || _syncingEditUi) return;
+            _host.DisplaySize = new System.Numerics.Vector2((float)SizeXSlider.Value, (float)SizeYSlider.Value);
+            _host.Distance = (float)DistanceSlider.Value;
+            UpdateEditValueLabels();
+        }
+
+        private void ApplyResolution_Click(object sender, RoutedEventArgs e)
+        {
+            if (_host == null) return;
+            if (!int.TryParse(ResWidthBox.Text, out int w) || !int.TryParse(ResHeightBox.Text, out int h)
+                || w < 16 || h < 16 || w > 8192 || h > 8192)
+            {
+                Log("Invalid resolution — enter width/height between 16 and 8192.");
+                return;
+            }
+
+            try
+            {
+                _host.SetCanvasResolution(w, h);
+                Log($"Canvas resolution set to {w}×{h} (VR display size unchanged).");
+            }
+            catch (Exception ex)
+            {
+                Log("RESOLUTION CHANGE FAILED: " + ex);
+            }
+        }
 
         // Log to the window and to %TEMP%\MonoXR\client.log (the native layer
         // logs separately to %TEMP%\MonoXR\layer.log).

@@ -27,6 +27,15 @@ namespace BeltTensionTest.WPF.Models
         public bool ToggleFanGlobal { get; set; } = false;
         public bool IncreaseWindRestingGlobal { get; set; } = false;
         public bool DecreaseWindRestingGlobal { get; set; } = false;
+        // Overlay navigation keybindings (up/down move selection, increase/decrease change the selected value)
+        public string NavUpKey { get; set; } = string.Empty;
+        public string NavDownKey { get; set; } = string.Empty;
+        public string NavIncreaseKey { get; set; } = string.Empty;
+        public string NavDecreaseKey { get; set; } = string.Empty;
+        public bool NavUpGlobal { get; set; } = false;
+        public bool NavDownGlobal { get; set; } = false;
+        public bool NavIncreaseGlobal { get; set; } = false;
+        public bool NavDecreaseGlobal { get; set; } = false;
         // Window placement / size
         public double WindowWidth { get; set; } = 1100;
         public double WindowHeight { get; set; } = 400;

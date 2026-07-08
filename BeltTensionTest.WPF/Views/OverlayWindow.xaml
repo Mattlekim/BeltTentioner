@@ -37,14 +37,67 @@
             <Grid Margin="14">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
-                <TextBlock Grid.Row="0" x:Name="StatusLabel" Margin="0,0,0,8"
-                           FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"
-                           Text="Initialising…"/>
+                <DockPanel Grid.Row="0" Margin="0,0,0,8" LastChildFill="True">
+                    <ToggleButton x:Name="EditButton" DockPanel.Dock="Right" Content="Edit"
+                                  Width="60" Height="24" Margin="8,0,0,0"
+                                  Checked="EditButton_Changed" Unchecked="EditButton_Changed"/>
+                    <TextBlock x:Name="StatusLabel" VerticalAlignment="Center"
+                               FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"
+                               Text="Initialising…"/>
+                </DockPanel>
 
-                <TextBox Grid.Row="1" x:Name="LogBox" IsReadOnly="True" TextWrapping="Wrap"
+                <!-- Edit-mode panel: VR display size/distance + canvas resolution -->
+                <Border Grid.Row="1" x:Name="EditPanel" Visibility="Collapsed"
+                        Background="#0E0E1A" BorderBrush="#46466A" BorderThickness="1"
+                        CornerRadius="4" Padding="10" Margin="0,0,0,8">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="52"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Width (m)" VerticalAlignment="Center" Margin="0,0,10,4"/>
+                        <Slider Grid.Row="0" Grid.Column="1" x:Name="SizeXSlider" Minimum="0.25" Maximum="8"
+                                TickFrequency="0.05" IsSnapToTickEnabled="True" Margin="0,0,8,4"
+                                ValueChanged="DisplaySlider_ValueChanged"/>
+                        <TextBlock Grid.Row="0" Grid.Column="2" x:Name="SizeXValue" VerticalAlignment="Center" Margin="0,0,0,4"/>
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Height (m)" VerticalAlignment="Center" Margin="0,0,10,4"/>
+                        <Slider Grid.Row="1" Grid.Column="1" x:Name="SizeYSlider" Minimum="0.25" Maximum="8"
+                                TickFrequency="0.05" IsSnapToTickEnabled="True" Margin="0,0,8,4"
+                                ValueChanged="DisplaySlider_ValueChanged"/>
+                        <TextBlock Grid.Row="1" Grid.Column="2" x:Name="SizeYValue" VerticalAlignment="Center" Margin="0,0,0,4"/>
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Distance (m)" VerticalAlignment="Center" Margin="0,0,10,4"/>
+                        <Slider Grid.Row="2" Grid.Column="1" x:Name="DistanceSlider" Minimum="0.25" Maximum="10"
+                                TickFrequency="0.05" IsSnapToTickEnabled="True" Margin="0,0,8,4"
+                                ValueChanged="DisplaySlider_ValueChanged"/>
+                        <TextBlock Grid.Row="2" Grid.Column="2" x:Name="DistanceValue" VerticalAlignment="Center" Margin="0,0,0,4"/>
+
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Resolution (px)" VerticalAlignment="Center" Margin="0,4,10,0"/>
+                        <StackPanel Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,4,0,0">
+                            <TextBox x:Name="ResWidthBox" Width="64" Height="22" VerticalContentAlignment="Center"
+                                     Background="#12121E" Foreground="#D0D0E4" BorderBrush="#46466A"/>
+                            <TextBlock Text="×" VerticalAlignment="Center" Margin="6,0"/>
+                            <TextBox x:Name="ResHeightBox" Width="64" Height="22" VerticalContentAlignment="Center"
+                                     Background="#12121E" Foreground="#D0D0E4" BorderBrush="#46466A"/>
+                            <Button Content="Apply" Height="22" Width="60" Margin="10,0,0,0" Click="ApplyResolution_Click"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <TextBox Grid.Row="2" x:Name="LogBox" IsReadOnly="True" TextWrapping="Wrap"
                          VerticalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="11"
                          Background="#0E0E1A" Foreground="#A0A0BE" BorderBrush="#46466A" BorderThickness="1"/>
             </Grid>

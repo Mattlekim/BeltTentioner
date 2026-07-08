@@ -114,11 +114,13 @@ public sealed unsafe class Overlay : IDisposable
     /// the copy is a straight GPU blit. Requires the manager to have been
     /// created on the game's device (<see cref="OverlayManager(IntPtr)"/>), and
     /// the source must match the overlay's width/height exactly and not be
-    /// multisampled.
+    /// multisampled. Returns true when the frame was actually copied and
+    /// published; false when it was skipped (disposed, or the layer still held
+    /// the shared texture) — the caller should retry next frame.
     /// </summary>
-    public void Update(IntPtr nativeTexture)
+    public bool Update(IntPtr nativeTexture)
     {
-        if (_disposed) return;
+        if (_disposed) return false;
         if (nativeTexture == IntPtr.Zero)
             throw new ArgumentNullException(nameof(nativeTexture));
         if (!_mgr.UsesExternalDevice)
@@ -133,7 +135,7 @@ public sealed unsafe class Overlay : IDisposable
         // layer still holds the texture.
         if (_mutexPtr != IntPtr.Zero &&
             KeyedMutex.AcquireSync(_mutexPtr, MonoXrConstants.KeyProducer, 0) != 0)
-            return;
+            return false;
 
         if (_cachedSrc is null || _cachedSrc.NativePointer != nativeTexture)
             _cachedSrc = new ID3D11Resource(nativeTexture); // borrowed ref — never disposed
@@ -151,6 +153,7 @@ public sealed unsafe class Overlay : IDisposable
 
         _frame++;
         slot->FrameIndex = _frame;
+        return true;
     }
 
     private void WriteMetadata(MonoXrOverlaySlot* slot)
@@ -177,6 +180,7 @@ public sealed unsafe class Overlay : IDisposable
         var slot = _mgr.Slot(_index);
         slot->Active = 0;
         slot->Visible = 0;
+        _mgr.OnOverlayDisposed(_index);
         _mutex?.Dispose();
         _resource.Dispose();
         if (_sharedHandle != IntPtr.Zero) CloseHandle(_sharedHandle);

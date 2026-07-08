@@ -57,6 +57,12 @@ namespace BeltTensionTest.WPF.Views
                                 try { vm.WindRestingPower = vm.WindRestingPower - 1; vm.MenuStateText = $"Hotkey triggered: DecreaseRest ({vm.AppSettings.DecreaseWindRestingKey})"; } catch { }
                             });
                         }
+
+                        // Overlay navigation bindings
+                        RegisterNavHotkey("NavUp", vm.AppSettings.NavUpKey, vm.AppSettings.NavUpGlobal, Services.Overlays.OverlayNavAction.Up);
+                        RegisterNavHotkey("NavDown", vm.AppSettings.NavDownKey, vm.AppSettings.NavDownGlobal, Services.Overlays.OverlayNavAction.Down);
+                        RegisterNavHotkey("NavIncrease", vm.AppSettings.NavIncreaseKey, vm.AppSettings.NavIncreaseGlobal, Services.Overlays.OverlayNavAction.Increase);
+                        RegisterNavHotkey("NavDecrease", vm.AppSettings.NavDecreaseKey, vm.AppSettings.NavDecreaseGlobal, Services.Overlays.OverlayNavAction.Decrease);
                     }
                     catch { }
                 }
@@ -273,6 +279,45 @@ namespace BeltTensionTest.WPF.Views
                 e.Handled = true;
                 return;
             }
+
+            // Overlay navigation
+            if (Match(vm.AppSettings.NavUpKey))
+            {
+                Services.Overlays.OverlayNavigation.Raise(Services.Overlays.OverlayNavAction.Up);
+                vm.MenuStateText = $"Hotkey triggered: NavUp ({currentGesture})";
+                e.Handled = true;
+                return;
+            }
+            if (Match(vm.AppSettings.NavDownKey))
+            {
+                Services.Overlays.OverlayNavigation.Raise(Services.Overlays.OverlayNavAction.Down);
+                vm.MenuStateText = $"Hotkey triggered: NavDown ({currentGesture})";
+                e.Handled = true;
+                return;
+            }
+            if (Match(vm.AppSettings.NavIncreaseKey))
+            {
+                Services.Overlays.OverlayNavigation.Raise(Services.Overlays.OverlayNavAction.Increase);
+                vm.MenuStateText = $"Hotkey triggered: NavIncrease ({currentGesture})";
+                e.Handled = true;
+                return;
+            }
+            if (Match(vm.AppSettings.NavDecreaseKey))
+            {
+                Services.Overlays.OverlayNavigation.Raise(Services.Overlays.OverlayNavAction.Decrease);
+                vm.MenuStateText = $"Hotkey triggered: NavDecrease ({currentGesture})";
+                e.Handled = true;
+                return;
+            }
+        }
+
+        private void RegisterNavHotkey(string id, string gesture, bool isGlobal, Services.Overlays.OverlayNavAction action)
+        {
+            if (!isGlobal || string.IsNullOrWhiteSpace(gesture)) return;
+            GlobalHotKeyManager.Register(id, gesture, () =>
+            {
+                try { Services.Overlays.OverlayNavigation.Raise(action); VM!.MenuStateText = $"Hotkey triggered: {id} ({gesture})"; } catch { }
+            });
         }
 
         // Start polling gamepads and route pad-button presses to the bound actions.
@@ -309,6 +354,26 @@ namespace BeltTensionTest.WPF.Views
                 vm.WindRestingPower = vm.WindRestingPower - 1;
                 vm.MenuStateText = $"Gamepad triggered: DecreaseRest ({gesture})";
             }
+            else if (Match(vm.AppSettings.NavUpKey))
+            {
+                Services.Overlays.OverlayNavigation.Raise(Services.Overlays.OverlayNavAction.Up);
+                vm.MenuStateText = $"Gamepad triggered: NavUp ({gesture})";
+            }
+            else if (Match(vm.AppSettings.NavDownKey))
+            {
+                Services.Overlays.OverlayNavigation.Raise(Services.Overlays.OverlayNavAction.Down);
+                vm.MenuStateText = $"Gamepad triggered: NavDown ({gesture})";
+            }
+            else if (Match(vm.AppSettings.NavIncreaseKey))
+            {
+                Services.Overlays.OverlayNavigation.Raise(Services.Overlays.OverlayNavAction.Increase);
+                vm.MenuStateText = $"Gamepad triggered: NavIncrease ({gesture})";
+            }
+            else if (Match(vm.AppSettings.NavDecreaseKey))
+            {
+                Services.Overlays.OverlayNavigation.Raise(Services.Overlays.OverlayNavAction.Decrease);
+                vm.MenuStateText = $"Gamepad triggered: NavDecrease ({gesture})";
+            }
         }
 
         private void OpenPreferences_Click(object sender, RoutedEventArgs e)
@@ -336,7 +401,7 @@ namespace BeltTensionTest.WPF.Views
         {
             if (_overlayWindow == null || !_overlayWindow.IsLoaded)
             {
-                _overlayWindow = new OverlayWindow();
+                _overlayWindow = new OverlayWindow(VM);
                 _overlayWindow.Owner = this;
                 _overlayWindow.Show();
             }

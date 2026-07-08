@@ -13,6 +13,10 @@ namespace BeltTensionTest.WPF.Services
         private static int _nextId = 9000;
         private static readonly Dictionary<int, Action> _handlers = new();
         private static readonly Dictionary<string, int> _nameToId = new();
+        // Registrations requested before the window handle exists (e.g. from the
+        // MainWindow constructor, which runs before SourceInitialized). Flushed
+        // as soon as the HWND is available.
+        private static readonly Dictionary<string, (string Gesture, Action Callback)> _pending = new();
 
         private const int WM_HOTKEY = 0x0312;
 
@@ -34,6 +38,11 @@ namespace BeltTensionTest.WPF.Services
                 {
                     _source.AddHook(WndProc);
                 }
+
+                // Register everything that was requested before the handle existed.
+                foreach (var kv in _pending)
+                    Register(kv.Key, kv.Value.Gesture, kv.Value.Callback);
+                _pending.Clear();
             };
 
             // Ensure cleanup on exit
@@ -71,7 +80,15 @@ namespace BeltTensionTest.WPF.Services
             }
 
             if (!TryParseGesture(gesture, out uint mods, out uint vk)) return false;
-            if (_hwnd == IntPtr.Zero) return false;
+
+            // No window handle yet — remember the request and register for real
+            // once SourceInitialized fires. Without this, bindings restored at
+            // startup (constructor time) were silently dropped.
+            if (_hwnd == IntPtr.Zero)
+            {
+                _pending[name] = (gesture, callback);
+                return true;
+            }
 
             int id = System.Threading.Interlocked.Increment(ref _nextId);
             if (!RegisterHotKey(_hwnd, id, mods, vk))
@@ -87,6 +104,7 @@ namespace BeltTensionTest.WPF.Services
         public static void Unregister(string name)
         {
             if (string.IsNullOrWhiteSpace(name)) return;
+            _pending.Remove(name);
             if (!_nameToId.TryGetValue(name, out var id)) return;
             try
             {

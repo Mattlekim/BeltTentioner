@@ -19,7 +19,7 @@ public sealed unsafe class OverlayManager : IDisposable
     private readonly MemoryMappedFile _mmf;
     private readonly MemoryMappedViewAccessor _view;
     private readonly byte* _base;
-    private readonly List<Overlay> _overlays = new();
+    private readonly Overlay?[] _overlays = new Overlay?[MonoXrConstants.MaxOverlays];
     private bool _disposed;
 
     internal ID3D11Device Device { get; }
@@ -208,24 +208,28 @@ public sealed unsafe class OverlayManager : IDisposable
 
     /// <summary>
     /// Allocate an overlay backed by a shared texture of the given size.
-    /// Feed it each frame with <see cref="Overlay.Update"/>.
+    /// Feed it each frame with <see cref="Overlay.Update"/>. Slots freed by
+    /// disposing an overlay are reused, so overlays can be recreated (e.g. at a
+    /// new resolution) indefinitely.
     /// </summary>
     public Overlay CreateOverlay(int width, int height)
     {
-        if (_overlays.Count >= MonoXrConstants.MaxOverlays)
+        int index = Array.FindIndex(_overlays, o => o is null);
+        if (index < 0)
             throw new InvalidOperationException($"At most {MonoXrConstants.MaxOverlays} overlays are supported.");
-        int index = _overlays.Count;
         var overlay = new Overlay(this, index, width, height);
-        _overlays.Add(overlay);
+        _overlays[index] = overlay;
         return overlay;
     }
+
+    internal void OnOverlayDisposed(int index) => _overlays[index] = null;
 
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
-        foreach (var o in _overlays) o.Dispose();
-        _overlays.Clear();
+        foreach (var o in _overlays) o?.Dispose();
+        Array.Clear(_overlays, 0, _overlays.Length);
         if (_base != null) _view.SafeMemoryMappedViewHandle.ReleasePointer();
         _view.Dispose();
         _mmf.Dispose();
