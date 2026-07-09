@@ -35,6 +35,18 @@ namespace BeltTensionTest.WPF.Services.Overlays
         /// <summary>Numeric format for the value readout (e.g. "0", "0.0").</summary>
         public string Format { get; set; }
 
+        /// <summary>
+        /// Fill color of the value bar, mirroring the WPF slider's per-axis
+        /// FillBrush (e.g. blue for Surge, green for Sway). Null falls back to
+        /// the shared accent color.
+        /// </summary>
+        public XnaColor? FillColor { get; set; }
+
+        // WPF slider template colors (Resources/Styles.xaml).
+        private static readonly XnaColor TrackEmpty = new XnaColor(0x37, 0x37, 0x4E);
+        private static readonly XnaColor ThumbFill = XnaColor.White;
+        private static readonly XnaColor ThumbStroke = new XnaColor(0x28, 0x28, 0x40);
+
         /// <summary>Raised whenever <see cref="Value"/> actually changes.</summary>
         public event Action<float>? ValueChanged;
 
@@ -62,17 +74,28 @@ namespace BeltTensionTest.WPF.Services.Overlays
             spriteBatch.DrawString(font, Name, new XnaVector2(Bounds.X + pad, textY), TextColor);
 
             // Value bar occupies the right half, leaving room for the readout.
+            // Same anatomy as the WPF slider template: thin track, colored
+            // fill up to the value, white round-ish thumb with a dark stroke.
             string readout = _value.ToString(Format);
             int readoutW = (int)Math.Ceiling(font.MeasureString(readout).X);
             int barX = Bounds.X + Bounds.Width / 2;
             int barW = Bounds.X + Bounds.Width - barX - readoutW - pad * 2;
-            int barH = 14;
+            int barH = 6;
             int barY = Bounds.Y + (Bounds.Height - barH) / 2;
             if (barW > 0)
             {
                 float t = Math.Clamp((_value - Minimum) / (Maximum - Minimum), 0f, 1f);
-                spriteBatch.Draw(white, new XnaRectangle(barX, barY, barW, barH), TrackFill);
-                spriteBatch.Draw(white, new XnaRectangle(barX, barY, (int)(barW * t), barH), AccentColor);
+                var fill = !IsEnabled ? DisabledText : (FillColor ?? AccentColor);
+                spriteBatch.Draw(white, new XnaRectangle(barX, barY, barW, barH), TrackEmpty);
+                spriteBatch.Draw(white, new XnaRectangle(barX, barY, (int)(barW * t), barH), fill);
+
+                // Thumb centered on the value position, clamped to the track.
+                int thumbSize = 18;
+                int thumbX = Math.Clamp(barX + (int)(barW * t) - thumbSize / 2, barX, barX + barW - thumbSize);
+                int thumbY = Bounds.Y + (Bounds.Height - thumbSize) / 2;
+                spriteBatch.Draw(white, new XnaRectangle(thumbX, thumbY, thumbSize, thumbSize), ThumbStroke);
+                spriteBatch.Draw(white, new XnaRectangle(thumbX + 2, thumbY + 2, thumbSize - 4, thumbSize - 4),
+                                 IsEnabled ? ThumbFill : NormalText);
             }
 
             spriteBatch.DrawString(font, readout,

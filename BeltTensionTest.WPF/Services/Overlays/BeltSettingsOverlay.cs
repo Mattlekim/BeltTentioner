@@ -16,10 +16,11 @@ namespace BeltTensionTest.WPF.Services.Overlays
     public sealed class BeltSettingRow
     {
         public BeltSettingRow(string name, Func<float> get, Action<float> set,
-                              float min, float max, float step, string format = "0")
+                              float min, float max, float step, string format = "0",
+                              XnaColor? fill = null)
         {
             Name = name; Get = get; Set = set;
-            Min = min; Max = max; Step = step; Format = format;
+            Min = min; Max = max; Step = step; Format = format; Fill = fill;
         }
 
         public string Name { get; }
@@ -29,6 +30,9 @@ namespace BeltTensionTest.WPF.Services.Overlays
         public float Max { get; }
         public float Step { get; }
         public string Format { get; }
+
+        /// <summary>Slider fill color, matching the row's FillBrush in MainWindow.xaml.</summary>
+        public XnaColor? Fill { get; }
     }
 
     /// <summary>
@@ -45,6 +49,25 @@ namespace BeltTensionTest.WPF.Services.Overlays
         public string Name { get; }
         public Func<bool> Get { get; }
         public Action<bool> Set { get; }
+    }
+
+    /// <summary>
+    /// A titled section of the overlay panel: a header label followed by its
+    /// sliders and toggles, mirroring how MainWindow groups Surge/Sway/Heave.
+    /// </summary>
+    public sealed class BeltSettingGroup
+    {
+        public BeltSettingGroup(string name, IReadOnlyList<BeltSettingRow>? rows = null,
+                                IReadOnlyList<BeltToggleRow>? toggles = null)
+        {
+            Name = name;
+            Rows = rows ?? Array.Empty<BeltSettingRow>();
+            Toggles = toggles ?? Array.Empty<BeltToggleRow>();
+        }
+
+        public string Name { get; }
+        public IReadOnlyList<BeltSettingRow> Rows { get; }
+        public IReadOnlyList<BeltToggleRow> Toggles { get; }
     }
 
     /// <summary>
@@ -76,8 +99,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private readonly List<(BeltToggleRow Row, MonoXRCheckbox Box)> _toggleBindings = new();
 
         public BeltSettingsOverlay(GraphicsDevice device, int width, int height, int x, int y,
-                                   IReadOnlyList<BeltSettingRow> rows,
-                                   IReadOnlyList<BeltToggleRow>? toggles = null)
+                                   IReadOnlyList<BeltSettingGroup> groups)
             : base(device, width, height, x, y)
         {
             _sb = new SpriteBatch(device);
@@ -93,23 +115,24 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 ItemSpacing = 6,
             };
 
-            _menu.Add(new MonoXRLabel("Forces"));
-            foreach (var row in rows)
+            foreach (var group in groups)
             {
-                var slider = new MonoXRSliderControl(row.Name, row.Min, row.Max, row.Get(),
-                                                     row.Step, row.Format);
-                slider.ValueChanged += row.Set;
-                // Any value change (from VR input or synced from the WPF UI)
-                // means the panel must be redrawn and republished.
-                slider.ValueChanged += _ => Invalidate();
-                _menu.Add(slider);
-                _bindings.Add((row, slider));
-            }
+                _menu.Add(new MonoXRLabel(group.Name));
 
-            if (toggles != null && toggles.Count > 0)
-            {
-                _menu.Add(new MonoXRLabel("Invert"));
-                foreach (var row in toggles)
+                foreach (var row in group.Rows)
+                {
+                    var slider = new MonoXRSliderControl(row.Name, row.Min, row.Max, row.Get(),
+                                                         row.Step, row.Format)
+                    { FillColor = row.Fill };
+                    slider.ValueChanged += row.Set;
+                    // Any value change (from VR input or synced from the WPF UI)
+                    // means the panel must be redrawn and republished.
+                    slider.ValueChanged += _ => Invalidate();
+                    _menu.Add(slider);
+                    _bindings.Add((row, slider));
+                }
+
+                foreach (var row in group.Toggles)
                 {
                     var box = new MonoXRCheckbox(row.Name, row.Get());
                     box.Checked += () => { row.Set(true); Invalidate(); };

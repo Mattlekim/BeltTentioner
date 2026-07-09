@@ -73,26 +73,46 @@ namespace BeltTensionTest.WPF.Views
             // and write MainViewModel properties so the desktop sliders stay
             // in sync and changes are saved through the normal path. Both the
             // nav events and the render timer run on the UI thread.
-            var rows = new[]
+            // One group per force axis, like the MainWindow layout: each holds
+            // its sliders and invert checkbox. Slider fills mirror the
+            // FillBrush of the matching row in MainWindow.xaml.
+            var surge = new Microsoft.Xna.Framework.Color(0x64, 0x96, 0xFF);
+            var sway  = new Microsoft.Xna.Framework.Color(0x50, 0xC8, 0x78);
+            var heave = new Microsoft.Xna.Framework.Color(0xFF, 0x80, 0x40);
+            var power = new Microsoft.Xna.Framework.Color(0xDC, 0x3C, 0x3C);
+            var groups = new[]
             {
-                new BeltSettingRow("Surge Strength", () => _vm.BrakingStrength,   v => _vm.BrakingStrength   = v, 1f,   200f, 5f),
-                new BeltSettingRow("Surge Curve",    () => _vm.BrakingCurve,      v => _vm.BrakingCurve      = v, 0.1f, 5f,   0.1f, "0.0"),
-                new BeltSettingRow("Sway Strength",  () => _vm.CorneringStrength, v => _vm.CorneringStrength = v, 1f,   200f, 5f),
-                new BeltSettingRow("Sway Curve",     () => _vm.CorneringCurve,    v => _vm.CorneringCurve    = v, 0.1f, 10f,  0.1f, "0.0"),
-                new BeltSettingRow("Heave Strength", () => _vm.VerticalStrength,  v => _vm.VerticalStrength  = v, 1f,   200f, 5f),
-                new BeltSettingRow("Max Power",      () => _vm.MaxOutput,         v => _vm.MaxOutput         = v, 1f,   100f, 5f),
+                new BeltSettingGroup("Surge",
+                    new[]
+                    {
+                        new BeltSettingRow("Strength", () => _vm.BrakingStrength, v => _vm.BrakingStrength = v, 1f,   200f, 5f,   "0",   surge),
+                        new BeltSettingRow("Curve",    () => _vm.BrakingCurve,    v => _vm.BrakingCurve    = v, 0.1f, 5f,   0.1f, "0.0", surge),
+                    },
+                    new[] { new BeltToggleRow("Invert", () => _vm.InvertSurge, v => _vm.InvertSurge = v) }),
+
+                new BeltSettingGroup("Sway",
+                    new[]
+                    {
+                        new BeltSettingRow("Strength", () => _vm.CorneringStrength, v => _vm.CorneringStrength = v, 1f,   200f, 5f,   "0",   sway),
+                        new BeltSettingRow("Curve",    () => _vm.CorneringCurve,    v => _vm.CorneringCurve    = v, 0.1f, 10f,  0.1f, "0.0", sway),
+                    },
+                    new[] { new BeltToggleRow("Invert", () => _vm.InvertSway, v => _vm.InvertSway = v) }),
+
+                new BeltSettingGroup("Heave",
+                    new[]
+                    {
+                        new BeltSettingRow("Strength", () => _vm.VerticalStrength, v => _vm.VerticalStrength = v, 1f, 200f, 5f, "0", heave),
+                    },
+                    new[] { new BeltToggleRow("Invert", () => _vm.InvertHeave, v => _vm.InvertHeave = v) }),
+
+                new BeltSettingGroup("Power",
+                    new[]
+                    {
+                        new BeltSettingRow("Max Power", () => _vm.MaxOutput, v => _vm.MaxOutput = v, 1f, 100f, 5f, "0", power),
+                    }),
             };
 
-            // Invert checkboxes, one per force axis shown above. Same write-
-            // through path as the sliders so the WPF checkboxes stay in sync.
-            var toggles = new[]
-            {
-                new BeltToggleRow("Invert Surge", () => _vm.InvertSurge, v => _vm.InvertSurge = v),
-                new BeltToggleRow("Invert Sway",  () => _vm.InvertSway,  v => _vm.InvertSway  = v),
-                new BeltToggleRow("Invert Heave", () => _vm.InvertHeave, v => _vm.InvertHeave = v),
-            };
-
-            const int panelWidth = 768, panelHeight = 656;
+            const int panelWidth = 768, panelHeight = 736;
             int x = (_host.CanvasWidth - panelWidth) / 2, y = (_host.CanvasHeight - panelHeight) / 2;
 
             // Restore the last dragged position (clamped in case the canvas shrank).
@@ -104,7 +124,7 @@ namespace BeltTensionTest.WPF.Views
             }
 
             _beltPanel = _host.AddRenderTarget(new BeltSettingsOverlay(
-                _host.GraphicsDevice, panelWidth, panelHeight, x, y, rows, toggles));
+                _host.GraphicsDevice, panelWidth, panelHeight, x, y, groups));
         }
         // ===================== END MONOGAME RENDER SECTION ===================
 
