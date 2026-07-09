@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.Xna.Framework.Graphics;
 using GameTime = Microsoft.Xna.Framework.GameTime;
+using MonoXR.Client;
 using XnaColor = Microsoft.Xna.Framework.Color;
 using XnaRectangle = Microsoft.Xna.Framework.Rectangle;
 using XnaVector2 = Microsoft.Xna.Framework.Vector2;

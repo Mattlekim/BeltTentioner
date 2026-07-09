@@ -3,11 +3,10 @@ using System.Collections.Generic;
 using System.Numerics;
 using Microsoft.Xna.Framework.Graphics;
 using GameTime = Microsoft.Xna.Framework.GameTime;
-using MonoXR.Client;
 using MonoXR.Shared;
 using XnaColor = Microsoft.Xna.Framework.Color;
 
-namespace BeltTensionTest.WPF.Services.Overlays
+namespace MonoXR.Client
 {
     /// <summary>
     /// One MonoGame render target placed somewhere on the overlay canvas.
@@ -64,7 +63,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
     }
 
     /// <summary>
-    /// Hosts a headless MonoGame GraphicsDevice inside the WPF app and publishes
+    /// Hosts a headless MonoGame GraphicsDevice inside a desktop app and publishes
     /// a single OpenXR overlay (via MonoXR) composed from any number of MonoGame
     /// render targets, each at its own pixel location on the overlay canvas.
     ///
@@ -124,7 +123,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         /// <summary>
         /// Raised when the OpenXR game attaches (true) or closes/crashes (false).
         /// Fires from the thread that calls <see cref="RenderFrame"/>; marshal to
-        /// the UI thread with Dispatcher before touching WPF state.
+        /// the UI thread before touching UI state.
         /// </summary>
         public event Action<bool>? LayerAttachedChanged
         {

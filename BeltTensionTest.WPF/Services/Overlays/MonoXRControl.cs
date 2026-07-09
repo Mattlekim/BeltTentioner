@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework.Graphics;
 using GameTime = Microsoft.Xna.Framework.GameTime;
+using MonoXR.Client;
 using XnaColor = Microsoft.Xna.Framework.Color;
 using XnaRectangle = Microsoft.Xna.Framework.Rectangle;
 

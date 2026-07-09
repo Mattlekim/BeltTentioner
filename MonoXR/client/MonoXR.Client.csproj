@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
@@ -12,6 +13,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="MonoGame.Framework.WindowsDX" Version="3.8.2.1105" />
     <PackageReference Include="Vortice.Direct3D11" Version="3.6.2" />
     <PackageReference Include="Vortice.DXGI" Version="3.6.2" />
   </ItemGroup>
