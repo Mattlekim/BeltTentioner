@@ -138,7 +138,10 @@ struct SlotResources {
     void releaseShared() {
         if (mutex) { mutex->Release(); mutex = nullptr; }
         if (sharedTex) { sharedTex->Release(); sharedTex = nullptr; }
-        name[0] = 0; width = height = format = 0; lastFrameIndex = ~0ull;
+        // width/height/format cache the SWAPCHAIN dimensions, not the shared
+        // texture — clearing them here forced a needless swapchain rebuild on
+        // every client reconnect, which reset hasContent and dropped the quad.
+        name[0] = 0; lastFrameIndex = ~0ull;
         hasContent = false;
     }
 };
@@ -307,10 +310,17 @@ static bool RenderSlot(SessionState& s, SlotResources& r, const MonoXrOverlaySlo
     if (!EnsureSwapchain(s, r, slot)) return false;
     if (!EnsureSharedTexture(s, r, slot)) return false;
 
-    if (slot.frameIndex != r.lastFrameIndex) {
+    // frameIndex == 0 means the client has not published anything into this
+    // texture yet (slots are reused, so a freshly created overlay resets it) —
+    // copying now would show an uninitialized texture.
+    if (slot.frameIndex != 0 && slot.frameIndex != r.lastFrameIndex) {
         // Non-blocking producer/consumer handoff on the shared texture. If
-        // there is no keyed mutex we copy unsynchronised.
-        bool locked = !r.mutex || SUCCEEDED(r.mutex->AcquireSync(MONOXR_KEY_CONSUMER, 0));
+        // there is no keyed mutex we copy unsynchronised. AcquireSync returns
+        // WAIT_TIMEOUT (0x102) when the client holds the mutex — a POSITIVE
+        // HRESULT, so SUCCEEDED() would wrongly treat it as acquired and we
+        // would copy mid-write and corrupt the mutex state with an unmatched
+        // ReleaseSync. Only S_OK means we actually own it.
+        bool locked = !r.mutex || r.mutex->AcquireSync(MONOXR_KEY_CONSUMER, 0) == S_OK;
         if (locked) {
             uint32_t idx = 0;
             XrSwapchainImageAcquireInfo ai{ XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO };

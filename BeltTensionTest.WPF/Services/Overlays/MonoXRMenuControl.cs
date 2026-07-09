@@ -93,8 +93,9 @@ namespace BeltTensionTest.WPF.Services.Overlays
             int y = Bounds.Y;
             foreach (var item in _items)
             {
-                item.Bounds = new XnaRectangle(Bounds.X, y, Bounds.Width, ItemHeight);
-                y += ItemHeight + ItemSpacing;
+                int h = item.PreferredHeight > 0 ? item.PreferredHeight : ItemHeight;
+                item.Bounds = new XnaRectangle(Bounds.X, y, Bounds.Width, h);
+                y += h + ItemSpacing;
             }
         }
 

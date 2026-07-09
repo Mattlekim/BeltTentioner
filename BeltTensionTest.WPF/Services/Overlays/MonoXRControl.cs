@@ -22,14 +22,21 @@ namespace BeltTensionTest.WPF.Services.Overlays
         /// <summary>Disabled controls draw dimmed and ignore input helpers.</summary>
         public bool IsEnabled { get; set; } = true;
 
-        // Shared palette, matching BeltSettingsOverlay.
-        protected static readonly XnaColor SelectedText = XnaColor.White;
-        protected static readonly XnaColor NormalText = new XnaColor(160, 160, 190);
-        protected static readonly XnaColor DisabledText = new XnaColor(90, 90, 110);
-        protected static readonly XnaColor SelectionFill = new XnaColor(40, 60, 120, 200);
-        protected static readonly XnaColor TrackFill = new XnaColor(30, 34, 60);
-        protected static readonly XnaColor AccentSelected = XnaColor.Gold;
-        protected static readonly XnaColor AccentNormal = new XnaColor(90, 110, 180);
+        /// <summary>
+        /// Row height this control wants when stacked in a <see cref="MonoXRMenuControl"/>;
+        /// 0 means use the menu's ItemHeight. Lets slim rows (labels) mix with full rows.
+        /// </summary>
+        public int PreferredHeight { get; set; }
+
+        // Shared palette, mirroring the WPF app brushes in Resources/Styles.xaml.
+        protected static readonly XnaColor SelectedText = new XnaColor(0xD0, 0xD0, 0xF0);   // TextBrightBrush
+        protected static readonly XnaColor NormalText = new XnaColor(0xA0, 0xA0, 0xBE);     // TextPrimaryBrush
+        protected static readonly XnaColor DisabledText = new XnaColor(0x66, 0x66, 0x80);   // disabled foreground
+        protected static readonly XnaColor SelectionFill = new XnaColor(0x37, 0x37, 0x5A, 200); // button hover
+        protected static readonly XnaColor TrackFill = new XnaColor(0x26, 0x26, 0x3A);      // BgMidBrush
+        protected static readonly XnaColor AccentSelected = new XnaColor(0x64, 0x96, 0xFF); // AccentBlueBrush
+        protected static readonly XnaColor AccentNormal = new XnaColor(0x4A, 0x6E, 0xBB);   // dimmed accent blue
+        protected static readonly XnaColor Divider = new XnaColor(0x46, 0x46, 0x6A);        // BorderBrush
 
         protected XnaColor TextColor =>
             !IsEnabled ? DisabledText : IsSelected ? SelectedText : NormalText;

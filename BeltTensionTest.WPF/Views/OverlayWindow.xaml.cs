@@ -83,7 +83,16 @@ namespace BeltTensionTest.WPF.Views
                 new BeltSettingRow("Max Power",      () => _vm.MaxOutput,         v => _vm.MaxOutput         = v, 1f,   100f, 5f),
             };
 
-            const int panelWidth = 768, panelHeight = 512;
+            // Invert checkboxes, one per force axis shown above. Same write-
+            // through path as the sliders so the WPF checkboxes stay in sync.
+            var toggles = new[]
+            {
+                new BeltToggleRow("Invert Surge", () => _vm.InvertSurge, v => _vm.InvertSurge = v),
+                new BeltToggleRow("Invert Sway",  () => _vm.InvertSway,  v => _vm.InvertSway  = v),
+                new BeltToggleRow("Invert Heave", () => _vm.InvertHeave, v => _vm.InvertHeave = v),
+            };
+
+            const int panelWidth = 768, panelHeight = 656;
             int x = (_host.CanvasWidth - panelWidth) / 2, y = (_host.CanvasHeight - panelHeight) / 2;
 
             // Restore the last dragged position (clamped in case the canvas shrank).
@@ -95,7 +104,7 @@ namespace BeltTensionTest.WPF.Views
             }
 
             _beltPanel = _host.AddRenderTarget(new BeltSettingsOverlay(
-                _host.GraphicsDevice, panelWidth, panelHeight, x, y, rows));
+                _host.GraphicsDevice, panelWidth, panelHeight, x, y, rows, toggles));
         }
         // ===================== END MONOGAME RENDER SECTION ===================
 

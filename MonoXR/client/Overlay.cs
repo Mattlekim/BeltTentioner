@@ -63,13 +63,20 @@ public sealed unsafe class Overlay : IDisposable
         _mutex = _tex.QueryInterface<IDXGIKeyedMutex>();
         _mutexPtr = _mutex.NativePointer;
 
-        // Publish the slot so the layer can find and open us.
+        // Publish the slot so the layer can find and open us. Slots are reused
+        // across clients/reconnects, so clear the previous occupant's frame
+        // counter — a stale nonzero FrameIndex would make the layer copy this
+        // still-blank texture. Keep the slot invisible until the first real
+        // frame is published: between now and then the pose still holds the
+        // constructor defaults, not what the caller will configure.
         var slot = mgr.Slot(index);
         slot->TexWidth = (uint)width;
         slot->TexHeight = (uint)height;
         slot->Format = DXGI_R8G8B8A8_UNORM;
         WriteName(slot, _name);
         WriteMetadata(slot);
+        slot->FrameIndex = 0;
+        slot->Visible = 0;
         slot->Active = 1;
     }
 

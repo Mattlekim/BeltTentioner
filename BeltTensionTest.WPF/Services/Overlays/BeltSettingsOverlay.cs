@@ -32,6 +32,22 @@ namespace BeltTensionTest.WPF.Services.Overlays
     }
 
     /// <summary>
+    /// One boolean setting shown in the overlay as a checkbox, same
+    /// get/set decoupling as <see cref="BeltSettingRow"/>.
+    /// </summary>
+    public sealed class BeltToggleRow
+    {
+        public BeltToggleRow(string name, Func<bool> get, Action<bool> set)
+        {
+            Name = name; Get = get; Set = set;
+        }
+
+        public string Name { get; }
+        public Func<bool> Get { get; }
+        public Action<bool> Set { get; }
+    }
+
+    /// <summary>
     /// In-VR belt settings panel built from MonoXR controls: a
     /// <see cref="MonoXRMenuControl"/> of <see cref="MonoXRSliderControl"/>s,
     /// one per <see cref="BeltSettingRow"/>. Navigation keybindings move the
@@ -43,26 +59,41 @@ namespace BeltTensionTest.WPF.Services.Overlays
     {
         private const int TitleBarHeight = 56;
 
+        // App palette (Resources/Styles.xaml).
+        private static readonly XnaColor PanelBg = new XnaColor(0x12, 0x12, 0x1E, 235);   // BgBrush
+        private static readonly XnaColor TitleBg = new XnaColor(0x1C, 0x1C, 0x2E, 245);   // BgLightBrush
+        private static readonly XnaColor TitleText = new XnaColor(0xD0, 0xD0, 0xF0);      // TextBrightBrush
+        private static readonly XnaColor Accent = new XnaColor(0x64, 0x96, 0xFF);         // AccentBlueBrush
+        private static readonly XnaColor Border = new XnaColor(0x46, 0x46, 0x6A);         // BorderBrush
+
         private readonly SpriteBatch _sb;
         private readonly Texture2D _white;
-        private readonly SpriteFont _font;
+        private readonly SpriteFont _font;     // title
+        private readonly SpriteFont _fontBody; // menu rows
 
         private readonly MonoXRMenuControl _menu;
         private readonly List<(BeltSettingRow Row, MonoXRSliderControl Slider)> _bindings = new();
+        private readonly List<(BeltToggleRow Row, MonoXRCheckbox Box)> _toggleBindings = new();
 
         public BeltSettingsOverlay(GraphicsDevice device, int width, int height, int x, int y,
-                                   IReadOnlyList<BeltSettingRow> rows)
+                                   IReadOnlyList<BeltSettingRow> rows,
+                                   IReadOnlyList<BeltToggleRow>? toggles = null)
             : base(device, width, height, x, y)
         {
             _sb = new SpriteBatch(device);
             _white = new Texture2D(device, 1, 1);
             _white.SetData(new[] { XnaColor.White });
             _font = RuntimeSpriteFont.Bake(device, "Segoe UI", 32f);
+            _fontBody = RuntimeSpriteFont.Bake(device, "Segoe UI", 26f);
 
             _menu = new MonoXRMenuControl
             {
-                Bounds = new XnaRectangle(8, TitleBarHeight + 14, width - 16, height - TitleBarHeight - 22),
+                Bounds = new XnaRectangle(16, TitleBarHeight + 14, width - 32, height - TitleBarHeight - 22),
+                ItemHeight = 48,
+                ItemSpacing = 6,
             };
+
+            _menu.Add(new MonoXRLabel("Forces"));
             foreach (var row in rows)
             {
                 var slider = new MonoXRSliderControl(row.Name, row.Min, row.Max, row.Get(),
@@ -73,6 +104,19 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 slider.ValueChanged += _ => Invalidate();
                 _menu.Add(slider);
                 _bindings.Add((row, slider));
+            }
+
+            if (toggles != null && toggles.Count > 0)
+            {
+                _menu.Add(new MonoXRLabel("Invert"));
+                foreach (var row in toggles)
+                {
+                    var box = new MonoXRCheckbox(row.Name, row.Get());
+                    box.Checked += () => { row.Set(true); Invalidate(); };
+                    box.Unchecked += () => { row.Set(false); Invalidate(); };
+                    _menu.Add(box);
+                    _toggleBindings.Add((row, box));
+                }
             }
 
             OverlayNavigation.Navigated += OnNavigated;
@@ -88,9 +132,11 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public override void Update(GameTime gameTime)
         {
-            // Pull external value changes (WPF UI, loaded car settings) into the sliders.
+            // Pull external value changes (WPF UI, loaded car settings) into the controls.
             foreach (var (row, slider) in _bindings)
                 slider.Value = row.Get();
+            foreach (var (row, box) in _toggleBindings)
+                box.IsChecked = row.Get();
 
             _menu.Update(gameTime);
         }
@@ -99,22 +145,22 @@ namespace BeltTensionTest.WPF.Services.Overlays
         {
             // Semi-transparent panel; the canvas itself is transparent, so
             // anything not drawn here is see-through in VR.
-            GraphicsDevice.Clear(new XnaColor(12, 14, 28, 220));
+            GraphicsDevice.Clear(PanelBg);
 
             _sb.Begin();
 
-            // Title bar.
-            _sb.Draw(_white, new XnaRectangle(0, 0, Width, TitleBarHeight), new XnaColor(24, 28, 56, 240));
-            _sb.DrawString(_font, "Belt Settings", new XnaVector2(16, 10), XnaColor.White);
+            // Title bar with an accent strip underneath, like the app's themed windows.
+            _sb.Draw(_white, new XnaRectangle(0, 0, Width, TitleBarHeight), TitleBg);
+            _sb.DrawString(_font, "Belt Settings", new XnaVector2(16, 10), TitleText);
+            _sb.Draw(_white, new XnaRectangle(0, TitleBarHeight - 3, Width, 3), Accent);
 
-            _menu.Draw(_sb, _font, _white);
+            _menu.Draw(_sb, _fontBody, _white);
 
             // Thin panel outline.
-            var edge = new XnaColor(70, 70, 106, 255);
-            _sb.Draw(_white, new XnaRectangle(0, 0, Width, 2), edge);
-            _sb.Draw(_white, new XnaRectangle(0, Height - 2, Width, 2), edge);
-            _sb.Draw(_white, new XnaRectangle(0, 0, 2, Height), edge);
-            _sb.Draw(_white, new XnaRectangle(Width - 2, 0, 2, Height), edge);
+            _sb.Draw(_white, new XnaRectangle(0, 0, Width, 2), Border);
+            _sb.Draw(_white, new XnaRectangle(0, Height - 2, Width, 2), Border);
+            _sb.Draw(_white, new XnaRectangle(0, 0, 2, Height), Border);
+            _sb.Draw(_white, new XnaRectangle(Width - 2, 0, 2, Height), Border);
 
             _sb.End();
         }
@@ -122,6 +168,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         public override void Dispose()
         {
             OverlayNavigation.Navigated -= OnNavigated;
+            _fontBody.Texture.Dispose();
             _font.Texture.Dispose();
             _white.Dispose();
             _sb.Dispose();

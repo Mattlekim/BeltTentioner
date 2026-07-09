@@ -437,11 +437,41 @@ namespace BeltTensionTest.WPF.Services.Overlays
             {
                 FramesPublished++;
                 _canvasDirty = false;
+                _publishFailStreak = 0;
             }
             else
             {
                 _canvasDirty = true;
+
+                // Self-heal: a publish can fail transiently (layer holds the
+                // keyed mutex this instant), but ~3s of consecutive failures
+                // while a layer is attached means the mutex handshake is
+                // wedged (e.g. after a client reconnect). Rebuild the overlay
+                // — new shared texture, fresh mutex — to restart it.
+                if (_mgr.LayerAttached && ++_publishFailStreak >= 90)
+                {
+                    _publishFailStreak = 0;
+                    RecreateOverlay();
+                }
             }
+        }
+
+        private int _publishFailStreak;
+
+        /// <summary>Replace the overlay with an identical one backed by a new shared texture.</summary>
+        private void RecreateOverlay()
+        {
+            var old = _overlay;
+            var fresh = _mgr.CreateOverlay(CanvasWidth, CanvasHeight);
+            fresh.Space = old.Space;
+            fresh.Position = old.Position;
+            fresh.Rotation = old.Rotation;
+            fresh.Size = old.Size;
+            fresh.ZOrder = old.ZOrder;
+            fresh.Visible = old.Visible;
+            old.Dispose();
+            _overlay = fresh;
+            _canvasDirty = true;
         }
 
         public void Dispose()
