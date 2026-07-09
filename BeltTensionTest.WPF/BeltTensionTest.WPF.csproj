@@ -34,7 +34,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BeltAPI\BeltAPI.csproj" />
-    <ProjectReference Include="..\MonoXR\client\MonoXR.Client.csproj" />
+    <ProjectReference Include="..\..\MonoXR\client\MonoXR.Client.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -53,11 +53,11 @@
     registered manifest (install-layer.ps1) points at the Release DLL.
   -->
   <PropertyGroup>
-    <MonoXRLayerDir>$(MSBuildProjectDirectory)\..\MonoXR\layer</MonoXRLayerDir>
+    <MonoXRLayerDir>$(MSBuildProjectDirectory)\..\..\MonoXR\layer</MonoXRLayerDir>
     <MonoXRLayerDll>$(MonoXRLayerDir)\build\Release\XR_APILAYER_NOVELTY_monoxr.dll</MonoXRLayerDll>
   </PropertyGroup>
 
-  <Target Name="BuildMonoXRLayer" BeforeTargets="BeforeBuild" Inputs="$(MonoXRLayerDir)\src\layer.cpp;$(MonoXRLayerDir)\CMakeLists.txt;$(MonoXRLayerDir)\manifest\MonoXR.json.in;$(MonoXRLayerDir)\cmake\GenManifest.cmake;$(MSBuildProjectDirectory)\..\MonoXR\shared\monoxr_abi.h" Outputs="$(MonoXRLayerDll)">
+  <Target Name="BuildMonoXRLayer" BeforeTargets="BeforeBuild" Inputs="$(MonoXRLayerDir)\src\layer.cpp;$(MonoXRLayerDir)\CMakeLists.txt;$(MonoXRLayerDir)\manifest\MonoXR.json.in;$(MonoXRLayerDir)\cmake\GenManifest.cmake;$(MSBuildProjectDirectory)\..\..\MonoXR\shared\monoxr_abi.h" Outputs="$(MonoXRLayerDll)">
     <Message Importance="high" Text="MonoXR: building native OpenXR layer (Release)..." />
     <!-- Configure once. -->
     <Exec Condition="!Exists('$(MonoXRLayerDir)\build\CMakeCache.txt')" Command="cmake -S &quot;$(MonoXRLayerDir)&quot; -B &quot;$(MonoXRLayerDir)\build&quot; -G &quot;Visual Studio 17 2022&quot; -A x64" ContinueOnError="true">

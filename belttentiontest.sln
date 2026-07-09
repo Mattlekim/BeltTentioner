@@ -17,7 +17,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "MonoXR", "MonoXR", "{605F63
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "client", "client", "{6DB6D74C-6A2D-E29C-8221-66BF62EB93CD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MonoXR.Client", "MonoXR\client\MonoXR.Client.csproj", "{1C85DB7B-366D-4C8A-AADD-73BF6811AFA5}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MonoXR.Client", "..\MonoXR\client\MonoXR.Client.csproj", "{1C85DB7B-366D-4C8A-AADD-73BF6811AFA5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
