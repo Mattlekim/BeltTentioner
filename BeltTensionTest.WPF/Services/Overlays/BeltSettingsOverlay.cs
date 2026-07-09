@@ -98,16 +98,23 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private readonly MonoXRMenuControl _menu;
         private readonly List<(BeltSettingRow Row, MonoXRSliderControl Slider)> _bindings = new();
         private readonly List<(BeltToggleRow Row, MonoXRCheckbox Box)> _toggleBindings = new();
+        private readonly int _collapsedWidth;
+
+        // Collapsed bar sized to fit the name (measured in the ctor).
+        public override int CollapsedWidth => _collapsedWidth;
+        public override int CollapsedHeight => TitleBarHeight;
 
         public BeltSettingsOverlay(GraphicsDevice device, int width, int height, int x, int y,
                                    IReadOnlyList<BeltSettingGroup> groups)
             : base(device, width, height, x, y)
         {
+            Name = "Belt Settings";
             _sb = new SpriteBatch(device);
             _white = new Texture2D(device, 1, 1);
             _white.SetData(new[] { XnaColor.White });
             _font = RuntimeSpriteFont.Bake(device, "Segoe UI", 32f);
             _fontBody = RuntimeSpriteFont.Bake(device, "Segoe UI", 26f);
+            _collapsedWidth = (int)_font.MeasureString(Name).X + 32;
 
             _menu = new MonoXRMenuControl
             {
@@ -148,6 +155,9 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         private void OnNavigated(OverlayNavAction action)
         {
+            // While collapsed the menu is not on screen — don't move the
+            // selection or change values invisibly.
+            if (IsCollapsed) return;
             _menu.HandleNavigation(action);
             // Up/Down move the highlight without touching any value, so the
             // ValueChanged hook alone would miss it — redraw on every nav input.
@@ -167,6 +177,22 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public override void Render(GameTime gameTime)
         {
+            if (IsCollapsed)
+            {
+                // Only the top-left CollapsedWidth×CollapsedHeight region is
+                // composited: draw a small title-bar pill with the panel name.
+                GraphicsDevice.Clear(XnaColor.Transparent);
+                _sb.Begin();
+                _sb.Draw(_white, new XnaRectangle(0, 0, CollapsedWidth, CollapsedHeight), TitleBg);
+                _sb.DrawString(_font, Name, new XnaVector2(16, 10), TitleText);
+                _sb.Draw(_white, new XnaRectangle(0, CollapsedHeight - 3, CollapsedWidth, 3), Accent);
+                _sb.Draw(_white, new XnaRectangle(0, 0, CollapsedWidth, 2), Border);
+                _sb.Draw(_white, new XnaRectangle(0, 0, 2, CollapsedHeight), Border);
+                _sb.Draw(_white, new XnaRectangle(CollapsedWidth - 2, 0, 2, CollapsedHeight), Border);
+                _sb.End();
+                return;
+            }
+
             // Semi-transparent panel; the canvas itself is transparent, so
             // anything not drawn here is see-through in VR.
             GraphicsDevice.Clear(PanelBg);

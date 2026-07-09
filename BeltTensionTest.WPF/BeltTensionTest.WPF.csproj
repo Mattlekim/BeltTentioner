@@ -2,7 +2,11 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows10.0.17763.0</TargetFramework>
+    <!-- Plain net8.0-windows: no WinRT APIs are used, and the windows10.0.x
+         TFM drags the 22 MB Microsoft.Windows.SDK.NET.dll into every publish. -->
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <!-- English-only framework satellite resources (~15 MB saved in publish). -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
     <ImplicitUsings>disable</ImplicitUsings>
@@ -27,6 +31,16 @@
     <PackageReference Include="IRSDKSharper" Version="1.1.4" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
     <PackageReference Include="MonoGame.Framework.WindowsDX" Version="3.8.2.1105" />
+    <!-- MonoGame.Framework.WindowsDX 3.8.2 wrongly depends on Microsoft.NETCore.App
+         2.1.30, which copies .NET Core 2.1 hostfxr/hostpolicy DLLs into publish
+         output and breaks app startup ("Could not resolve CoreCLR path").
+         Pin the transitive host packages with all assets excluded to keep them out. -->
+    <PackageReference Include="Microsoft.NETCore.DotNetAppHost" Version="2.1.30" ExcludeAssets="all" />
+    <PackageReference Include="Microsoft.NETCore.DotNetHostPolicy" Version="2.1.30" ExcludeAssets="all" />
+    <PackageReference Include="Microsoft.NETCore.DotNetHostResolver" Version="2.1.30" ExcludeAssets="all" />
+    <PackageReference Include="runtime.win-x64.Microsoft.NETCore.DotNetAppHost" Version="2.1.30" ExcludeAssets="all" />
+    <PackageReference Include="runtime.win-x64.Microsoft.NETCore.DotNetHostPolicy" Version="2.1.30" ExcludeAssets="all" />
+    <PackageReference Include="runtime.win-x64.Microsoft.NETCore.DotNetHostResolver" Version="2.1.30" ExcludeAssets="all" />
     <PackageReference Include="System.IO.Ports" Version="9.0.5" />
   </ItemGroup>
 
@@ -70,6 +84,23 @@
     </Exec>
     <Warning Condition="'$(_MonoXRBuildExit)' != '0' and Exists('$(MonoXRLayerDll)')" Text="MonoXR: native layer did not rebuild (cmake exit $(_MonoXRBuildExit)) — usually because a running OpenXR app (e.g. iRacing) has the DLL locked. Using the existing layer DLL. Close the VR app and rebuild to apply layer changes." />
     <Error Condition="'$(_MonoXRBuildExit)' != '0' and !Exists('$(MonoXRLayerDll)')" Text="MonoXR: native layer failed to build and no existing DLL is present (cmake exit $(_MonoXRBuildExit)). Ensure CMake + VS2022 C++ tools are installed." />
+  </Target>
+
+  <!--
+    Ship the native layer with the app so a zipped output folder is
+    self-contained: the DLL plus a portable manifest (MonoXRLayer\MonoXR.json,
+    relative library_path) land next to the exe in both build and publish
+    output. The app registers that manifest under HKCU at startup
+    (MonoXRLayerInstaller), so no install script is needed on target PCs.
+    Items are added in a target (not statically) so the DLL built by
+    BuildMonoXRLayer during this same build is picked up.
+  -->
+  <Target Name="IncludeMonoXRLayerFiles" BeforeTargets="AssignTargetPaths" DependsOnTargets="BuildMonoXRLayer">
+    <Error Condition="!Exists('$(MonoXRLayerDll)')" Text="MonoXR: layer DLL not found at $(MonoXRLayerDll); cannot package it with the app." />
+    <ItemGroup>
+      <Content Include="$(MonoXRLayerDll)" Link="XR_APILAYER_NOVELTY_monoxr.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+      <Content Include="MonoXRLayer\MonoXR.json" Link="MonoXR.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
   </Target>
 
 </Project>

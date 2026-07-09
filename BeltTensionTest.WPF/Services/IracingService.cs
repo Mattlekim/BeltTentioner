@@ -1,6 +1,8 @@
 using BeltAPI;
 using IRSDKSharper;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace BeltTensionTest.WPF.Services
@@ -45,7 +47,28 @@ namespace BeltTensionTest.WPF.Services
         public bool IsConnected => _isConnected;
         public bool Enabled { get; set; } = true;
 
-        // Events — same contract as WinForms IracingCommunicator
+        /// <summary>Live data for the player's car, refreshed every telemetry tick.</summary>
+        public Data.Car PlayerCar { get; } = new Data.Car();
+
+        /// <summary>Raised after <see cref="PlayerCar"/> has been refreshed with a new telemetry frame.</summary>
+        public event Action<Data.Car>? PlayerCarUpdated;
+
+        private readonly Dictionary<int, Data.Car> _carsByIdx = new();
+        private List<Data.Car> _cars = new();
+
+        /// <summary>
+        /// Every car in the current session (pace car and spectators excluded),
+        /// refreshed each telemetry tick. The player's car is in here too, as
+        /// its own instance separate from <see cref="PlayerCar"/>. The list
+        /// object is replaced (not mutated) when cars join or leave, so a
+        /// grabbed reference is safe to enumerate.
+        /// </summary>
+        public IReadOnlyList<Data.Car> Cars => _cars;
+
+        /// <summary>Raised after all cars in <see cref="Cars"/> have been refreshed.</summary>
+        public event Action<IReadOnlyList<Data.Car>>? CarsUpdated;
+
+        // Events ï¿½ same contract as WinForms IracingCommunicator
         public event Action<bool>? ConnectionChanged;
         public event Action? Connected;
         public event Action? Disconnected;
@@ -90,6 +113,9 @@ namespace BeltTensionTest.WPF.Services
             if (!_isConnected) return;
             _isConnected = false;
             _dataInitialized = false;
+            PlayerCar.Reset();
+            _carsByIdx.Clear();
+            _cars = new List<Data.Car>();
             ConnectionChanged?.Invoke(false);
             Disconnected?.Invoke();
         }
@@ -166,6 +192,21 @@ namespace BeltTensionTest.WPF.Services
                 }
             }
             catch { }
+
+            // Refresh the player's car snapshot (runs in replay too â€” the
+            // CarIdx arrays and session info stay valid there).
+            try
+            {
+                int playerIdx = _sdk!.Data.SessionInfo?.DriverInfo?.DriverCarIdx ?? -1;
+                if (playerIdx >= 0)
+                {
+                    PlayerCar.Update(_sdk, playerIdx);
+                    PlayerCarUpdated?.Invoke(PlayerCar);
+                }
+            }
+            catch { }
+
+            UpdateCars();
 
             _wasReplay = isReplay;
             isReplay = _sdk!.Data.GetBool(_datumReplay);
@@ -247,6 +288,54 @@ namespace BeltTensionTest.WPF.Services
 
                     try { RumbleStripDetected?.Invoke(side); } catch { }
                 }
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// Keep one <see cref="Data.Car"/> per driver in the session in sync
+        /// with the SDK: create cars as drivers appear, drop them when they
+        /// leave, and refresh every remaining one each tick.
+        /// </summary>
+        private void UpdateCars()
+        {
+            try
+            {
+                var driverInfo = _sdk?.Data.SessionInfo?.DriverInfo;
+                if (driverInfo == null) return;
+
+                bool membershipChanged = false;
+                var present = new HashSet<int>();
+
+                foreach (var d in driverInfo.Drivers)
+                {
+                    if (d.CarIsPaceCar != 0 || d.IsSpectator != 0) continue;
+                    present.Add(d.CarIdx);
+                    if (!_carsByIdx.TryGetValue(d.CarIdx, out var car))
+                    {
+                        car = new Data.Car();
+                        _carsByIdx[d.CarIdx] = car;
+                        membershipChanged = true;
+                    }
+                    car.Update(_sdk!, d.CarIdx);
+                }
+
+                foreach (var idx in _carsByIdx.Keys)
+                {
+                    if (!present.Contains(idx)) { membershipChanged = true; break; }
+                }
+
+                if (membershipChanged)
+                {
+                    var fresh = new List<Data.Car>();
+                    foreach (var idx in present)
+                        fresh.Add(_carsByIdx[idx]);
+                    foreach (var idx in _carsByIdx.Keys.Where(k => !present.Contains(k)).ToList())
+                        _carsByIdx.Remove(idx);
+                    _cars = fresh;
+                }
+
+                CarsUpdated?.Invoke(_cars);
             }
             catch { }
         }

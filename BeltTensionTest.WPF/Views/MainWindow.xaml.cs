@@ -59,12 +59,12 @@ namespace BeltTensionTest.WPF.Views
                         }
 
                         // Overlay navigation bindings
-                        RegisterNavHotkey("NavUp", vm.AppSettings.NavUpKey, vm.AppSettings.NavUpGlobal, Services.Overlays.OverlayNavAction.Up);
-                        RegisterNavHotkey("NavDown", vm.AppSettings.NavDownKey, vm.AppSettings.NavDownGlobal, Services.Overlays.OverlayNavAction.Down);
-                        RegisterNavHotkey("NavIncrease", vm.AppSettings.NavIncreaseKey, vm.AppSettings.NavIncreaseGlobal, Services.Overlays.OverlayNavAction.Increase);
-                        RegisterNavHotkey("NavDecrease", vm.AppSettings.NavDecreaseKey, vm.AppSettings.NavDecreaseGlobal, Services.Overlays.OverlayNavAction.Decrease);
-                        RegisterNavHotkey("NavNextControl", vm.AppSettings.NavNextControlKey, vm.AppSettings.NavNextControlGlobal, Services.Overlays.OverlayNavAction.NextControl);
-                        RegisterNavHotkey("NavPrevControl", vm.AppSettings.NavPrevControlKey, vm.AppSettings.NavPrevControlGlobal, Services.Overlays.OverlayNavAction.PreviousControl);
+                        RegisterNavHotkey("NavUp", vm.AppSettings.NavUpKey, vm.AppSettings.NavUpGlobal, MonoXR.Client.OverlayNavAction.Up);
+                        RegisterNavHotkey("NavDown", vm.AppSettings.NavDownKey, vm.AppSettings.NavDownGlobal, MonoXR.Client.OverlayNavAction.Down);
+                        RegisterNavHotkey("NavIncrease", vm.AppSettings.NavIncreaseKey, vm.AppSettings.NavIncreaseGlobal, MonoXR.Client.OverlayNavAction.Increase);
+                        RegisterNavHotkey("NavDecrease", vm.AppSettings.NavDecreaseKey, vm.AppSettings.NavDecreaseGlobal, MonoXR.Client.OverlayNavAction.Decrease);
+                        RegisterNavHotkey("NavNextControl", vm.AppSettings.NavNextControlKey, vm.AppSettings.NavNextControlGlobal, MonoXR.Client.OverlayNavAction.NextControl);
+                        RegisterNavHotkey("NavPrevControl", vm.AppSettings.NavPrevControlKey, vm.AppSettings.NavPrevControlGlobal, MonoXR.Client.OverlayNavAction.PreviousControl);
                     }
                     catch { }
                 }
@@ -285,54 +285,54 @@ namespace BeltTensionTest.WPF.Views
             // Overlay navigation
             if (Match(vm.AppSettings.NavUpKey))
             {
-                Services.Overlays.OverlayNavigation.Raise(Services.Overlays.OverlayNavAction.Up);
+                MonoXR.Client.OverlayNavigation.Raise(MonoXR.Client.OverlayNavAction.Up);
                 vm.MenuStateText = $"Hotkey triggered: NavUp ({currentGesture})";
                 e.Handled = true;
                 return;
             }
             if (Match(vm.AppSettings.NavDownKey))
             {
-                Services.Overlays.OverlayNavigation.Raise(Services.Overlays.OverlayNavAction.Down);
+                MonoXR.Client.OverlayNavigation.Raise(MonoXR.Client.OverlayNavAction.Down);
                 vm.MenuStateText = $"Hotkey triggered: NavDown ({currentGesture})";
                 e.Handled = true;
                 return;
             }
             if (Match(vm.AppSettings.NavIncreaseKey))
             {
-                Services.Overlays.OverlayNavigation.Raise(Services.Overlays.OverlayNavAction.Increase);
+                MonoXR.Client.OverlayNavigation.Raise(MonoXR.Client.OverlayNavAction.Increase);
                 vm.MenuStateText = $"Hotkey triggered: NavIncrease ({currentGesture})";
                 e.Handled = true;
                 return;
             }
             if (Match(vm.AppSettings.NavDecreaseKey))
             {
-                Services.Overlays.OverlayNavigation.Raise(Services.Overlays.OverlayNavAction.Decrease);
+                MonoXR.Client.OverlayNavigation.Raise(MonoXR.Client.OverlayNavAction.Decrease);
                 vm.MenuStateText = $"Hotkey triggered: NavDecrease ({currentGesture})";
                 e.Handled = true;
                 return;
             }
             if (Match(vm.AppSettings.NavNextControlKey))
             {
-                Services.Overlays.OverlayNavigation.Raise(Services.Overlays.OverlayNavAction.NextControl);
+                MonoXR.Client.OverlayNavigation.Raise(MonoXR.Client.OverlayNavAction.NextControl);
                 vm.MenuStateText = $"Hotkey triggered: NavNextControl ({currentGesture})";
                 e.Handled = true;
                 return;
             }
             if (Match(vm.AppSettings.NavPrevControlKey))
             {
-                Services.Overlays.OverlayNavigation.Raise(Services.Overlays.OverlayNavAction.PreviousControl);
+                MonoXR.Client.OverlayNavigation.Raise(MonoXR.Client.OverlayNavAction.PreviousControl);
                 vm.MenuStateText = $"Hotkey triggered: NavPrevControl ({currentGesture})";
                 e.Handled = true;
                 return;
             }
         }
 
-        private void RegisterNavHotkey(string id, string gesture, bool isGlobal, Services.Overlays.OverlayNavAction action)
+        private void RegisterNavHotkey(string id, string gesture, bool isGlobal, MonoXR.Client.OverlayNavAction action)
         {
             if (!isGlobal || string.IsNullOrWhiteSpace(gesture)) return;
             GlobalHotKeyManager.Register(id, gesture, () =>
             {
-                try { Services.Overlays.OverlayNavigation.Raise(action); VM!.MenuStateText = $"Hotkey triggered: {id} ({gesture})"; } catch { }
+                try { MonoXR.Client.OverlayNavigation.Raise(action); VM!.MenuStateText = $"Hotkey triggered: {id} ({gesture})"; } catch { }
             });
         }
 
@@ -372,32 +372,32 @@ namespace BeltTensionTest.WPF.Views
             }
             else if (Match(vm.AppSettings.NavUpKey))
             {
-                Services.Overlays.OverlayNavigation.Raise(Services.Overlays.OverlayNavAction.Up);
+                MonoXR.Client.OverlayNavigation.Raise(MonoXR.Client.OverlayNavAction.Up);
                 vm.MenuStateText = $"Gamepad triggered: NavUp ({gesture})";
             }
             else if (Match(vm.AppSettings.NavDownKey))
             {
-                Services.Overlays.OverlayNavigation.Raise(Services.Overlays.OverlayNavAction.Down);
+                MonoXR.Client.OverlayNavigation.Raise(MonoXR.Client.OverlayNavAction.Down);
                 vm.MenuStateText = $"Gamepad triggered: NavDown ({gesture})";
             }
             else if (Match(vm.AppSettings.NavIncreaseKey))
             {
-                Services.Overlays.OverlayNavigation.Raise(Services.Overlays.OverlayNavAction.Increase);
+                MonoXR.Client.OverlayNavigation.Raise(MonoXR.Client.OverlayNavAction.Increase);
                 vm.MenuStateText = $"Gamepad triggered: NavIncrease ({gesture})";
             }
             else if (Match(vm.AppSettings.NavDecreaseKey))
             {
-                Services.Overlays.OverlayNavigation.Raise(Services.Overlays.OverlayNavAction.Decrease);
+                MonoXR.Client.OverlayNavigation.Raise(MonoXR.Client.OverlayNavAction.Decrease);
                 vm.MenuStateText = $"Gamepad triggered: NavDecrease ({gesture})";
             }
             else if (Match(vm.AppSettings.NavNextControlKey))
             {
-                Services.Overlays.OverlayNavigation.Raise(Services.Overlays.OverlayNavAction.NextControl);
+                MonoXR.Client.OverlayNavigation.Raise(MonoXR.Client.OverlayNavAction.NextControl);
                 vm.MenuStateText = $"Gamepad triggered: NavNextControl ({gesture})";
             }
             else if (Match(vm.AppSettings.NavPrevControlKey))
             {
-                Services.Overlays.OverlayNavigation.Raise(Services.Overlays.OverlayNavAction.PreviousControl);
+                MonoXR.Client.OverlayNavigation.Raise(MonoXR.Client.OverlayNavAction.PreviousControl);
                 vm.MenuStateText = $"Gamepad triggered: NavPrevControl ({gesture})";
             }
         }

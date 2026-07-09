@@ -8,6 +8,10 @@ namespace BeltTensionTest.WPF
         {
             base.OnStartup(e);
 
+            // Register the bundled MonoXR OpenXR layer (HKCU, best-effort) so
+            // the VR overlay works from an unzipped copy with no install step.
+            Services.MonoXRLayerInstaller.EnsureRegistered();
+
             // Global unhandled exception handler
             DispatcherUnhandledException += (s, ex) =>
             {
