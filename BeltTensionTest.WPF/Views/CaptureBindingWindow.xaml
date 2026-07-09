@@ -4,7 +4,7 @@
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         xmlns:properties="clr-namespace:BeltTensionTest.WPF.Properties"
         Title="Set Binding"
-        Width="360" Height="200"
+        Width="360" Height="280"
         ResizeMode="NoResize"
         WindowStyle="None"
         WindowStartupLocation="CenterOwner"
@@ -42,10 +42,19 @@
                 <TextBlock Text="Press any key or gamepad button…"
                            FontSize="14" HorizontalAlignment="Center"
                            Foreground="{StaticResource TextPrimaryBrush}"/>
+                <TextBlock Text="…or pick an F13–F24 key below for Stream Deck."
+                           FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"
+                           Foreground="{StaticResource BorderBrush}"/>
                 <Border Margin="0,12,0,0" Background="{StaticResource BgLightBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="3" Padding="8,6">
                     <TextBlock x:Name="txt_Pending" Text="None" FontSize="16" FontWeight="SemiBold"
                                HorizontalAlignment="Center" Foreground="{StaticResource AccentBlueBrush}"/>
                 </Border>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,12,0,0">
+                    <TextBlock Text="Stream Deck key:" VerticalAlignment="Center" Margin="0,0,8,0"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               ToolTip="F13–F24 keys don't exist on a physical keyboard, so they never conflict with the sim. Assign one here, then use a Stream Deck 'Hotkey' action sending the same key."/>
+                    <ComboBox x:Name="cmb_StreamDeckKey" Width="90" SelectionChanged="StreamDeckKey_SelectionChanged"/>
+                </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,16,0,0">
                     <Button x:Name="btn_Ok" Content="OK" Width="80" Margin="0,0,8,0" Click="Ok_Click" Style="{DynamicResource GreenButton}"/>
                     <Button x:Name="btn_Cancel" Content="Cancel" Width="80" Click="Cancel_Click" Style="{DynamicResource BlueButton}"/>

@@ -63,6 +63,8 @@ namespace BeltTensionTest.WPF.Views
                         RegisterNavHotkey("NavDown", vm.AppSettings.NavDownKey, vm.AppSettings.NavDownGlobal, Services.Overlays.OverlayNavAction.Down);
                         RegisterNavHotkey("NavIncrease", vm.AppSettings.NavIncreaseKey, vm.AppSettings.NavIncreaseGlobal, Services.Overlays.OverlayNavAction.Increase);
                         RegisterNavHotkey("NavDecrease", vm.AppSettings.NavDecreaseKey, vm.AppSettings.NavDecreaseGlobal, Services.Overlays.OverlayNavAction.Decrease);
+                        RegisterNavHotkey("NavNextControl", vm.AppSettings.NavNextControlKey, vm.AppSettings.NavNextControlGlobal, Services.Overlays.OverlayNavAction.NextControl);
+                        RegisterNavHotkey("NavPrevControl", vm.AppSettings.NavPrevControlKey, vm.AppSettings.NavPrevControlGlobal, Services.Overlays.OverlayNavAction.PreviousControl);
                     }
                     catch { }
                 }
@@ -309,6 +311,20 @@ namespace BeltTensionTest.WPF.Views
                 e.Handled = true;
                 return;
             }
+            if (Match(vm.AppSettings.NavNextControlKey))
+            {
+                Services.Overlays.OverlayNavigation.Raise(Services.Overlays.OverlayNavAction.NextControl);
+                vm.MenuStateText = $"Hotkey triggered: NavNextControl ({currentGesture})";
+                e.Handled = true;
+                return;
+            }
+            if (Match(vm.AppSettings.NavPrevControlKey))
+            {
+                Services.Overlays.OverlayNavigation.Raise(Services.Overlays.OverlayNavAction.PreviousControl);
+                vm.MenuStateText = $"Hotkey triggered: NavPrevControl ({currentGesture})";
+                e.Handled = true;
+                return;
+            }
         }
 
         private void RegisterNavHotkey(string id, string gesture, bool isGlobal, Services.Overlays.OverlayNavAction action)
@@ -373,6 +389,16 @@ namespace BeltTensionTest.WPF.Views
             {
                 Services.Overlays.OverlayNavigation.Raise(Services.Overlays.OverlayNavAction.Decrease);
                 vm.MenuStateText = $"Gamepad triggered: NavDecrease ({gesture})";
+            }
+            else if (Match(vm.AppSettings.NavNextControlKey))
+            {
+                Services.Overlays.OverlayNavigation.Raise(Services.Overlays.OverlayNavAction.NextControl);
+                vm.MenuStateText = $"Gamepad triggered: NavNextControl ({gesture})";
+            }
+            else if (Match(vm.AppSettings.NavPrevControlKey))
+            {
+                Services.Overlays.OverlayNavigation.Raise(Services.Overlays.OverlayNavAction.PreviousControl);
+                vm.MenuStateText = $"Gamepad triggered: NavPrevControl ({gesture})";
             }
         }
 

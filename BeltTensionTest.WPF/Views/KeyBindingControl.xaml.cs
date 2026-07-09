@@ -81,7 +81,22 @@ namespace BeltTensionTest.WPF.Views
                 Gesture = dlg.CapturedGesture;
                 UpdateDisplay();
                 GestureChanged?.Invoke(this, EventArgs.Empty);
+
+                // F13–F24 come from a Stream Deck (or macro device), which is typically pressed
+                // while the sim has focus — a non-global binding would never fire. Turning the
+                // checkbox on raises GlobalChanged, which persists and registers the hotkey.
+                if (IsStreamDeckKey(Gesture) && !IsGlobal)
+                    PART_Global.IsChecked = true;
             }
+        }
+
+        // True for bare F13–F24 gestures — keys only sendable by devices like a Stream Deck.
+        private static bool IsStreamDeckKey(string gesture)
+        {
+            if (string.IsNullOrWhiteSpace(gesture) || gesture.Contains('+')) return false;
+            var g = gesture.Trim();
+            return g.Length >= 2 && (g[0] == 'F' || g[0] == 'f')
+                && int.TryParse(g.Substring(1), out int n) && n >= 13 && n <= 24;
         }
 
         private void PART_Clear_Click(object sender, RoutedEventArgs e)

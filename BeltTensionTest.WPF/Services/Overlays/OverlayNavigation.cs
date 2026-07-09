@@ -8,6 +8,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
         Down,
         Increase,
         Decrease,
+        NextControl,
+        PreviousControl,
     }
 
     /// <summary>

@@ -47,6 +47,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
             {
                 case OverlayNavAction.Up: MoveSelection(-1); break;
                 case OverlayNavAction.Down: MoveSelection(+1); break;
+                case OverlayNavAction.PreviousControl: MoveSelection(-1); break;
+                case OverlayNavAction.NextControl: MoveSelection(+1); break;
                 case OverlayNavAction.Increase: SelectedItem?.Increase(); break;
                 case OverlayNavAction.Decrease: SelectedItem?.Decrease(); break;
             }

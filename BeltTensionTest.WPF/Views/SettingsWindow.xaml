@@ -43,12 +43,10 @@
                                   ToolTip="{x:Static properties:Resources.StartWithWindowsToolTip}"/>
                         <CheckBox x:Name="chk_MinimizeToTaskbar" Content="Minimize to taskbar when closed" Foreground="#A0A0BE" Margin="0,4"
                                   ToolTip="{x:Static properties:Resources.MinimizeToTaskbarToolTip}"/>
-                    </StackPanel>
-                </TabItem>
 
-                <TabItem Header="Telemetry">
-                    <StackPanel Margin="8">
-                        <TextBlock Text="Telemetry source" Foreground="#A0A0BE" Margin="0,4,0,8" FontWeight="SemiBold"/>
+                        <Separator Margin="0,8" Background="#46466A"/>
+
+                        <TextBlock Text="Telemetry" FontWeight="SemiBold" Margin="0,4,0,4" Foreground="{StaticResource TextPrimaryBrush}"/>
                         <RadioButton x:Name="rb_Iracing" GroupName="TelemetrySource" Content="Use iRacing Telemetry"
                                      Foreground="#A0A0BE" Margin="0,4" Checked="Telemetry_Checked"/>
                         <RadioButton x:Name="rb_SimHub" GroupName="TelemetrySource" Content="Use SimHub Telemetry"
@@ -61,6 +59,9 @@
                                   HorizontalScrollBarVisibility="Disabled">
                     <Grid Margin="8">
                         <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
@@ -87,17 +88,25 @@
 
                         <Separator Grid.Row="3" Grid.ColumnSpan="2" Margin="0,8" Background="#46466A"/>
 
-                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Navigate up:" VerticalAlignment="Center" Margin="0,6" Foreground="#A0A0BE" />
-                        <views:KeyBindingControl x:Name="kb_NavUp" Grid.Row="4" Grid.Column="1" Margin="6,4" />
+                        <TextBlock Grid.Row="4" Grid.ColumnSpan="2" Text="VR Overlay" FontWeight="SemiBold" Margin="0,4,0,4" Foreground="{StaticResource TextPrimaryBrush}" />
 
-                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Navigate down:" VerticalAlignment="Center" Margin="0,6" Foreground="#A0A0BE" />
-                        <views:KeyBindingControl x:Name="kb_NavDown" Grid.Row="5" Grid.Column="1" Margin="6,4" />
+                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Navigate up:" VerticalAlignment="Center" Margin="0,6" Foreground="#A0A0BE" />
+                        <views:KeyBindingControl x:Name="kb_NavUp" Grid.Row="5" Grid.Column="1" Margin="6,4" />
 
-                        <TextBlock Grid.Row="6" Grid.Column="0" Text="Increase:" VerticalAlignment="Center" Margin="0,6" Foreground="#A0A0BE" />
-                        <views:KeyBindingControl x:Name="kb_NavIncrease" Grid.Row="6" Grid.Column="1" Margin="6,4" />
+                        <TextBlock Grid.Row="6" Grid.Column="0" Text="Navigate down:" VerticalAlignment="Center" Margin="0,6" Foreground="#A0A0BE" />
+                        <views:KeyBindingControl x:Name="kb_NavDown" Grid.Row="6" Grid.Column="1" Margin="6,4" />
 
-                        <TextBlock Grid.Row="7" Grid.Column="0" Text="Decrease:" VerticalAlignment="Center" Margin="0,6" Foreground="#A0A0BE" />
-                        <views:KeyBindingControl x:Name="kb_NavDecrease" Grid.Row="7" Grid.Column="1" Margin="6,4" />
+                        <TextBlock Grid.Row="7" Grid.Column="0" Text="Increase:" VerticalAlignment="Center" Margin="0,6" Foreground="#A0A0BE" />
+                        <views:KeyBindingControl x:Name="kb_NavIncrease" Grid.Row="7" Grid.Column="1" Margin="6,4" />
+
+                        <TextBlock Grid.Row="8" Grid.Column="0" Text="Decrease:" VerticalAlignment="Center" Margin="0,6" Foreground="#A0A0BE" />
+                        <views:KeyBindingControl x:Name="kb_NavDecrease" Grid.Row="8" Grid.Column="1" Margin="6,4" />
+
+                        <TextBlock Grid.Row="9" Grid.Column="0" Text="Next control:" VerticalAlignment="Center" Margin="0,6" Foreground="#A0A0BE" />
+                        <views:KeyBindingControl x:Name="kb_NavNextControl" Grid.Row="9" Grid.Column="1" Margin="6,4" />
+
+                        <TextBlock Grid.Row="10" Grid.Column="0" Text="Previous control:" VerticalAlignment="Center" Margin="0,6" Foreground="#A0A0BE" />
+                        <views:KeyBindingControl x:Name="kb_NavPrevControl" Grid.Row="10" Grid.Column="1" Margin="6,4" />
 
                     </Grid>
                     </ScrollViewer>

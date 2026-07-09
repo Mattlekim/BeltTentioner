@@ -22,6 +22,13 @@ namespace BeltTensionTest.WPF.Views
             InitializeComponent();
 
             _pending = string.IsNullOrWhiteSpace(currentGesture) ? null : currentGesture;
+
+            // F13–F24 don't exist on physical keyboards, so a Stream Deck "Hotkey" action
+            // sending one can never conflict with the sim. Offer them as a direct pick since
+            // they can't be typed into the capture area.
+            for (int f = 13; f <= 24; f++)
+                cmb_StreamDeckKey.Items.Add("F" + f);
+
             UpdateDisplay();
 
             // Suppress live action-triggering (main window) while assigning.
@@ -64,6 +71,15 @@ namespace BeltTensionTest.WPF.Views
             _pending = s;
             UpdateDisplay();
             e.Handled = true;
+        }
+
+        private void StreamDeckKey_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            if (cmb_StreamDeckKey.SelectedItem is string key)
+            {
+                _pending = key;
+                UpdateDisplay();
+            }
         }
 
         private void OnGamepadButton(string name)

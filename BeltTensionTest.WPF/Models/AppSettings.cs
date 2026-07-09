@@ -32,10 +32,14 @@ namespace BeltTensionTest.WPF.Models
         public string NavDownKey { get; set; } = string.Empty;
         public string NavIncreaseKey { get; set; } = string.Empty;
         public string NavDecreaseKey { get; set; } = string.Empty;
+        public string NavNextControlKey { get; set; } = string.Empty;
+        public string NavPrevControlKey { get; set; } = string.Empty;
         public bool NavUpGlobal { get; set; } = false;
         public bool NavDownGlobal { get; set; } = false;
         public bool NavIncreaseGlobal { get; set; } = false;
         public bool NavDecreaseGlobal { get; set; } = false;
+        public bool NavNextControlGlobal { get; set; } = false;
+        public bool NavPrevControlGlobal { get; set; } = false;
         // Window placement / size
         public double WindowWidth { get; set; } = 1100;
         public double WindowHeight { get; set; } = 400;
