@@ -154,6 +154,102 @@ namespace BeltTensionTest.WPF.Services.Overlays
         /// <summary>Pixel thickness of the edit-mode border.</summary>
         public int EditBorderThickness { get; set; } = 6;
 
+        // ----- Edit-mode mouse dragging ------------------------------------
+        // GetCursorPos/GetAsyncKeyState read global input state, so this works
+        // while the game (e.g. iRacing) has focus. The primary monitor is
+        // mapped proportionally onto the overlay canvas and a cursor is drawn
+        // on the canvas so the mapped position is visible in VR. Clicks are
+        // NOT swallowed — they still reach the focused game.
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern bool GetCursorPos(out NativePoint lpPoint);
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern short GetAsyncKeyState(int vKey);
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern int GetSystemMetrics(int nIndex);
+
+        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+        private struct NativePoint { public int X; public int Y; }
+
+        private const int SM_CXSCREEN = 0;
+        private const int SM_CYSCREEN = 1;
+        private const int VK_LBUTTON = 0x01;
+
+        private int _cursorX, _cursorY;
+        private bool _lmbWasDown;
+        private OverlayRenderTarget? _dragTarget;
+        private int _dragOffsetX, _dragOffsetY;
+
+        /// <summary>The render target currently being dragged in edit mode (null when none).</summary>
+        public OverlayRenderTarget? DragTarget => _dragTarget;
+
+        /// <summary>
+        /// Raised when an edit-mode drag ends (mouse released or edit mode
+        /// turned off), with the target at its final position. Fires from the
+        /// thread that calls <see cref="RenderFrame"/>.
+        /// </summary>
+        public event Action<OverlayRenderTarget>? DragCompleted;
+
+        private void UpdateEditInput()
+        {
+            if (!EditMode)
+            {
+                if (_dragTarget != null)
+                {
+                    var done = _dragTarget;
+                    _dragTarget = null;
+                    DragCompleted?.Invoke(done);
+                }
+                _lmbWasDown = false;
+                return;
+            }
+
+            if (!GetCursorPos(out var p)) return;
+            int screenW = Math.Max(1, GetSystemMetrics(SM_CXSCREEN));
+            int screenH = Math.Max(1, GetSystemMetrics(SM_CYSCREEN));
+            int mx = Math.Clamp(p.X * CanvasWidth / screenW, 0, CanvasWidth - 1);
+            int my = Math.Clamp(p.Y * CanvasHeight / screenH, 0, CanvasHeight - 1);
+
+            if (mx != _cursorX || my != _cursorY)
+            {
+                _cursorX = mx;
+                _cursorY = my;
+                _canvasDirty = true; // cursor is drawn on the canvas
+            }
+
+            bool lmb = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
+
+            if (lmb && !_lmbWasDown)
+            {
+                // Press: pick the topmost (last-added) visible target under the cursor.
+                for (int i = _targets.Count - 1; i >= 0; i--)
+                {
+                    var rt = _targets[i];
+                    if (!rt.Visible) continue;
+                    if (mx >= rt.X && mx < rt.X + rt.Width && my >= rt.Y && my < rt.Y + rt.Height)
+                    {
+                        _dragTarget = rt;
+                        _dragOffsetX = mx - rt.X;
+                        _dragOffsetY = my - rt.Y;
+                        break;
+                    }
+                }
+            }
+            else if (!lmb && _dragTarget != null)
+            {
+                var done = _dragTarget;
+                _dragTarget = null;
+                DragCompleted?.Invoke(done);
+            }
+
+            if (lmb && _dragTarget != null)
+            {
+                _dragTarget.X = Math.Clamp(mx - _dragOffsetX, 0, Math.Max(0, CanvasWidth - _dragTarget.Width));
+                _dragTarget.Y = Math.Clamp(my - _dragOffsetY, 0, Math.Max(0, CanvasHeight - _dragTarget.Height));
+            }
+
+            _lmbWasDown = lmb;
+        }
+
         /// <summary>
         /// Force the next frame to composite and publish even if no target is
         /// dirty — needed after changing the overlay pose directly through
@@ -261,6 +357,10 @@ namespace BeltTensionTest.WPF.Services.Overlays
             var gameTime = new GameTime(total, total - _lastTotal);
             _lastTotal = total;
 
+            // Sample the global mouse and apply edit-mode dragging before the
+            // dirty check so a drag marks the canvas dirty this same frame.
+            UpdateEditInput();
+
             foreach (var rt in _targets)
                 rt.Update(gameTime);
 
@@ -307,6 +407,22 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 _compositor.Draw(_whitePixel, new Microsoft.Xna.Framework.Rectangle(0, h - t, w, t), XnaColor.Red);
                 _compositor.Draw(_whitePixel, new Microsoft.Xna.Framework.Rectangle(0, t, t, h - 2 * t), XnaColor.Red);
                 _compositor.Draw(_whitePixel, new Microsoft.Xna.Framework.Rectangle(w - t, t, t, h - 2 * t), XnaColor.Red);
+
+                // Outline each visible target so its draggable bounds are
+                // obvious; the one being dragged is highlighted.
+                foreach (var rt in _targets)
+                {
+                    if (!rt.Visible) continue;
+                    var c = rt == _dragTarget ? XnaColor.Lime : XnaColor.Yellow;
+                    _compositor.Draw(_whitePixel, new Microsoft.Xna.Framework.Rectangle(rt.X, rt.Y, rt.Width, 2), c);
+                    _compositor.Draw(_whitePixel, new Microsoft.Xna.Framework.Rectangle(rt.X, rt.Y + rt.Height - 2, rt.Width, 2), c);
+                    _compositor.Draw(_whitePixel, new Microsoft.Xna.Framework.Rectangle(rt.X, rt.Y, 2, rt.Height), c);
+                    _compositor.Draw(_whitePixel, new Microsoft.Xna.Framework.Rectangle(rt.X + rt.Width - 2, rt.Y, 2, rt.Height), c);
+                }
+
+                // Crosshair cursor at the mapped mouse position, visible in VR.
+                _compositor.Draw(_whitePixel, new Microsoft.Xna.Framework.Rectangle(_cursorX - 12, _cursorY - 1, 24, 3), XnaColor.Red);
+                _compositor.Draw(_whitePixel, new Microsoft.Xna.Framework.Rectangle(_cursorX - 1, _cursorY - 12, 3, 24), XnaColor.Red);
             }
             _compositor.End();
             GraphicsDevice.SetRenderTarget(null);

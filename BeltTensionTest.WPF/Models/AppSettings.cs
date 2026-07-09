@@ -40,6 +40,16 @@ namespace BeltTensionTest.WPF.Models
         public bool NavDecreaseGlobal { get; set; } = false;
         public bool NavNextControlGlobal { get; set; } = false;
         public bool NavPrevControlGlobal { get; set; } = false;
+        // VR overlay layout (edit mode). Panel position is in canvas pixels,
+        // -1 = never dragged (use the coded default). Size/distance/resolution
+        // 0 = unset (keep the host defaults).
+        public int OverlayPanelX { get; set; } = -1;
+        public int OverlayPanelY { get; set; } = -1;
+        public double OverlaySizeX { get; set; } = 0;
+        public double OverlaySizeY { get; set; } = 0;
+        public double OverlayDistance { get; set; } = 0;
+        public int OverlayCanvasWidth { get; set; } = 0;
+        public int OverlayCanvasHeight { get; set; } = 0;
         // Window placement / size
         public double WindowWidth { get; set; } = 1100;
         public double WindowHeight { get; set; } = 400;

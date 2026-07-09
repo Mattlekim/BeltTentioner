@@ -19,6 +19,8 @@ namespace BeltTensionTest.WPF.Views
 
         private MonoGameOverlayHost? _host;
         private readonly MainViewModel _vm;
+        private readonly Services.SettingsService _settingsSvc = new();
+        private BeltSettingsOverlay? _beltPanel;
 
         // 30 fps target; the host also caps via MaxFrameRate, so late/early
         // DispatcherTimer ticks can never push the overlay above that rate.
@@ -38,7 +40,9 @@ namespace BeltTensionTest.WPF.Views
                 _host = new MonoGameOverlayHost(CanvasXSize, CanvasYSize);
                 Log("Host ready: MonoGame device up, overlay published (World, 3m ahead, 2.5m).");
 
+                ApplySavedLayout();
                 SetupRenderTargets();
+                _host.DragCompleted += OnDragCompleted;
             }
             catch (Exception ex)
             {
@@ -80,12 +84,66 @@ namespace BeltTensionTest.WPF.Views
             };
 
             const int panelWidth = 768, panelHeight = 512;
-            _host.AddRenderTarget(new BeltSettingsOverlay(
-                _host.GraphicsDevice, panelWidth, panelHeight,
-                x: (CanvasXSize - panelWidth) / 2, y: (CanvasYSize - panelHeight) / 2,
-                rows));
+            int x = (_host.CanvasWidth - panelWidth) / 2, y = (_host.CanvasHeight - panelHeight) / 2;
+
+            // Restore the last dragged position (clamped in case the canvas shrank).
+            var s = _vm.AppSettings;
+            if (s != null && s.OverlayPanelX >= 0 && s.OverlayPanelY >= 0)
+            {
+                x = Math.Min(s.OverlayPanelX, Math.Max(0, _host.CanvasWidth - panelWidth));
+                y = Math.Min(s.OverlayPanelY, Math.Max(0, _host.CanvasHeight - panelHeight));
+            }
+
+            _beltPanel = _host.AddRenderTarget(new BeltSettingsOverlay(
+                _host.GraphicsDevice, panelWidth, panelHeight, x, y, rows));
         }
         // ===================== END MONOGAME RENDER SECTION ===================
+
+        /// <summary>Apply persisted overlay size/distance/resolution to the freshly created host.</summary>
+        private void ApplySavedLayout()
+        {
+            var s = _vm.AppSettings;
+            if (_host == null || s == null) return;
+
+            if (s.OverlayCanvasWidth >= 16 && s.OverlayCanvasHeight >= 16)
+                _host.SetCanvasResolution(s.OverlayCanvasWidth, s.OverlayCanvasHeight);
+            if (s.OverlaySizeX > 0 && s.OverlaySizeY > 0)
+                _host.DisplaySize = new System.Numerics.Vector2((float)s.OverlaySizeX, (float)s.OverlaySizeY);
+            if (s.OverlayDistance > 0)
+                _host.Distance = (float)s.OverlayDistance;
+        }
+
+        /// <summary>Persist the current overlay layout (panel position, size, distance, resolution).</summary>
+        private void SaveLayout()
+        {
+            var s = _vm.AppSettings;
+            if (_host == null || s == null) return;
+            try
+            {
+                if (_beltPanel != null)
+                {
+                    s.OverlayPanelX = _beltPanel.X;
+                    s.OverlayPanelY = _beltPanel.Y;
+                }
+                s.OverlaySizeX = _host.DisplaySize.X;
+                s.OverlaySizeY = _host.DisplaySize.Y;
+                s.OverlayDistance = _host.Distance;
+                s.OverlayCanvasWidth = _host.CanvasWidth;
+                s.OverlayCanvasHeight = _host.CanvasHeight;
+                _settingsSvc.Save(s);
+            }
+            catch (Exception ex)
+            {
+                Log("LAYOUT SAVE FAILED: " + ex.Message);
+            }
+        }
+
+        // Fires on the UI thread (RenderFrame runs on the DispatcherTimer).
+        private void OnDragCompleted(OverlayRenderTarget target)
+        {
+            SaveLayout();
+            Log($"Panel moved to ({target.X}, {target.Y}) — saved.");
+        }
 
         private void OnTick(object? sender, EventArgs e)
         {
@@ -174,6 +232,7 @@ namespace BeltTensionTest.WPF.Views
             _host.DisplaySize = new System.Numerics.Vector2((float)SizeXSlider.Value, (float)SizeYSlider.Value);
             _host.Distance = (float)DistanceSlider.Value;
             UpdateEditValueLabels();
+            SaveLayout();
         }
 
         private void ApplyResolution_Click(object sender, RoutedEventArgs e)
@@ -190,6 +249,7 @@ namespace BeltTensionTest.WPF.Views
             {
                 _host.SetCanvasResolution(w, h);
                 Log($"Canvas resolution set to {w}×{h} (VR display size unchanged).");
+                SaveLayout();
             }
             catch (Exception ex)
             {
