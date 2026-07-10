@@ -45,6 +45,9 @@
                     <ToggleButton x:Name="EditButton" DockPanel.Dock="Right" Content="Edit"
                                   Width="60" Height="24" Margin="8,0,0,0"
                                   Checked="EditButton_Changed" Unchecked="EditButton_Changed"/>
+                    <ToggleButton x:Name="PreviewButton" DockPanel.Dock="Right" Content="Preview"
+                                  Width="70" Height="24" Margin="8,0,0,0"
+                                  Checked="PreviewButton_Changed" Unchecked="PreviewButton_Changed"/>
                     <TextBlock x:Name="StatusLabel" VerticalAlignment="Center"
                                FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"
                                Text="Initialising…"/>

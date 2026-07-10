@@ -28,13 +28,14 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private const int TitleBarHeight = 48;
         private const int RowHeight = 44;
         private const int RowSpacing = 3;
-        private const int PanelWidth = 700;
+        private const int PanelWidth = 820;
         private const int Pad = 8;
 
         // Column layout (x offsets inside the panel).
         private const int ColPos = 18;
         private const int ColName = 66;
-        private const int ColLastLapRight = PanelWidth - 150; // right edge of "last lap"
+        private const int ColLastLapRight = PanelWidth - 270; // right edge of "last lap"
+        private const int ColRelRight = PanelWidth - 140;     // right edge of "rel" (on-track gap)
         private const int ColGapRight = PanelWidth - 18;      // right edge of "gap"
 
         // App palette (Resources/Styles.xaml), matching BeltSettingsOverlay.
@@ -50,7 +51,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         // lap ahead/behind get red/blue; everyone else cycles subtle shade
         // variants (keyed by position, so a driver keeps their shade as the
         // window scrolls) to make adjacent rows easy to tell apart.
-        private static readonly XnaColor PlayerBg = new XnaColor(0x6E, 0x54, 0x10, 235);   // gold
+        private static readonly XnaColor PlayerBg = new XnaColor(0x1E, 0x5C, 0x38, 235);   // green
         private static readonly XnaColor LapAheadBg = new XnaColor(0x6E, 0x1A, 0x1A, 235); // red
         private static readonly XnaColor LapBehindBg = new XnaColor(0x1A, 0x30, 0x6E, 235);// blue
         private static readonly XnaColor[] RowShades =
@@ -66,6 +67,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             public int Pos;
             public string Name;
             public string LastLap;
+            public string Rel;     // on-track time gap to the player (EstTime-based)
             public string Gap;
             public int LapDelta;   // whole laps this car is ahead (+) / behind (-) the player; race only
             public bool IsPlayer;
@@ -122,7 +124,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             var sb = new StringBuilder(_sessionLabel);
             foreach (var r in _rows)
                 sb.Append('|').Append(r.Pos).Append(r.Name).Append(r.LastLap)
-                  .Append(r.Gap).Append(r.LapDelta).Append(r.IsPlayer ? '*' : ' ');
+                  .Append(r.Rel).Append(r.Gap).Append(r.LapDelta).Append(r.IsPlayer ? '*' : ' ');
             string snapshot = sb.ToString();
             if (snapshot != _lastSnapshot)
             {
@@ -174,11 +176,43 @@ namespace BeltTensionTest.WPF.Services.Overlays
                     Pos = isRace && car.ClassPosition > 0 ? car.ClassPosition : i + 1,
                     Name = car.DriverName,
                     LastLap = FormatLapTime(car.LastLapTime),
-                    Gap = isPlayer ? "YOU" : FormatGap(car, player, isRace, lapDelta),
+                    Rel = isPlayer ? string.Empty : FormatRelative(car, player),
+                    Gap = isPlayer ? string.Empty : FormatGap(car, player, isRace, lapDelta),
                     LapDelta = lapDelta,
                     IsPlayer = isPlayer,
                 });
             }
+        }
+
+        /// <summary>
+        /// On-track (relative) time gap to the player, like iRacing's relative
+        /// box: positive = physically ahead of you on track, negative = behind.
+        /// Based on CarIdxEstTime, wrap-corrected at the start/finish line.
+        /// </summary>
+        private static string FormatRelative(Car car, Car player)
+        {
+            if (car.EstTime <= 0 || player.EstTime <= 0) return "--";
+
+            float delta = car.EstTime - player.EstTime;
+
+            // When the pair straddles the start/finish line the raw delta is
+            // off by a whole lap (one EstTime just reset to ~0, the other is
+            // near a full lap). Fold any delta larger than half a lap back by
+            // one lap. The fold length must be the class reference lap
+            // (CarClassEstLapTime) — the scale EstTime itself is computed
+            // against — not a driver's best lap, or the fold leaves a residual
+            // error of the difference between the two.
+            float lapTime = player.ClassEstLapTime > 0 ? player.ClassEstLapTime
+                          : car.ClassEstLapTime > 0 ? car.ClassEstLapTime
+                          : player.BestLapTime > 0 ? player.BestLapTime
+                          : car.BestLapTime;
+            if (lapTime > 0)
+            {
+                if (delta > lapTime * 0.5f) delta -= lapTime;
+                else if (delta < -lapTime * 0.5f) delta += lapTime;
+            }
+
+            return delta.ToString("+0.0;-0.0;0.0");
         }
 
         /// <summary>Signed gap to the player: negative = ahead of you, positive = behind you.</summary>
@@ -254,6 +288,13 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 var lastLapSize = _fontBody.MeasureString(row.LastLap);
                 _sb.DrawString(_fontBody, row.LastLap,
                     new XnaVector2(ColLastLapRight - lastLapSize.X, textY), RowTextDim);
+
+                if (!string.IsNullOrEmpty(row.Rel))
+                {
+                    var relSize = _fontBody.MeasureString(row.Rel);
+                    _sb.DrawString(_fontBody, row.Rel,
+                        new XnaVector2(ColRelRight - relSize.X, textY), RowText);
+                }
 
                 var gapSize = _fontBody.MeasureString(row.Gap);
                 _sb.DrawString(_fontBody, row.Gap,

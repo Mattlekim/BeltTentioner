@@ -26,6 +26,13 @@ namespace BeltTensionTest.WPF.Services.Data
         /// <summary>iRacing car class id (CarClassID); -1 until session info arrives.</summary>
         public int CarClassId { get; private set; } = -1;
 
+        /// <summary>
+        /// Reference lap time for this car's class (CarClassEstLapTime). This
+        /// is the lap-time scale CarIdxEstTime is computed against, so use it
+        /// (not a driver's best lap) when wrap-correcting EstTime deltas.
+        /// </summary>
+        public float ClassEstLapTime { get; private set; }
+
         /// <summary>Technical incident points of the current driver (CurDriverIncidentCount).</summary>
         public int IncidentPoints { get; private set; }
 
@@ -143,6 +150,7 @@ namespace BeltTensionTest.WPF.Services.Data
                         CarName = d.CarScreenName ?? string.Empty;
                         CarClass = d.CarClassShortName ?? string.Empty;
                         CarClassId = d.CarClassID;
+                        ClassEstLapTime = d.CarClassEstLapTime;
                         IncidentPoints = d.CurDriverIncidentCount;
                         break;
                     }

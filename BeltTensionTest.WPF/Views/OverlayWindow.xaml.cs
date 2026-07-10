@@ -23,14 +23,16 @@ namespace BeltTensionTest.WPF.Views
         private readonly Services.SettingsService _settingsSvc = new();
         private BeltSettingsOverlay? _beltPanel;
         private MainOverlay? _mainPanel;
+        private OverlayPreviewWindow? _preview;
 
         // Cars shown in the "Main" standings panel (player included) — change
         // this to make the panel taller/shorter.
         private const int MainOverlayCarCount = 7;
 
-        // 30 fps target; the host also caps via MaxFrameRate, so late/early
-        // DispatcherTimer ticks can never push the overlay above that rate.
-        private readonly DispatcherTimer _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };
+        // ~60 Hz ticks so edit-mode input (cursor, clicks) is sampled quickly;
+        // rendering itself is still capped at 30 fps by the host's
+        // MaxFrameRate, so capped ticks cost only the input poll.
+        private readonly DispatcherTimer _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         private readonly System.Diagnostics.Stopwatch _clock = System.Diagnostics.Stopwatch.StartNew();
         private bool _lastAttached;
         private bool _statusLogged;
@@ -49,6 +51,14 @@ namespace BeltTensionTest.WPF.Views
                 ApplySavedLayout();
                 SetupRenderTargets();
                 _host.DragCompleted += OnDragCompleted;
+                _host.EditFont = Services.RuntimeSpriteFont.Bake(_host.GraphicsDevice, "Segoe UI", 22f);
+
+                // When the mouse is inside the preview window, drive the edit
+                // cursor from it 1:1 instead of the whole-monitor mapping, and
+                // take the button state from its WPF events (latched, so fast
+                // clicks can't fall between host polls).
+                _host.CursorOverride = () => _preview?.TryGetCanvasCursor();
+                _host.LeftButtonOverride = () => _preview?.TryGetLeftButton();
             }
             catch (Exception ex)
             {
@@ -226,12 +236,42 @@ namespace BeltTensionTest.WPF.Views
             }
             StatusLabel.Text = (attached ? "Layer attached — live in VR." : "Waiting for OpenXR app…")
                                + $"   Frames: {_host.FramesPublished}";
+
+            // Mirror the composed canvas into the desktop preview window (the
+            // readback is skipped when the canvas didn't change this tick).
+            if (_preview != null)
+            {
+                try { _preview.UpdateFrame(_host.CanvasTexture, _host.CanvasVersion); }
+                catch (Exception ex) { Log("PREVIEW FAILED: " + ex.Message); _preview.Close(); }
+            }
         }
 
         private void OnClosed(object? sender, EventArgs e)
         {
             _timer.Stop();
+            _preview?.Close();
             _host?.Dispose();
+        }
+
+        /// <summary>Open/close the desktop preview of the overlay canvas (no VR needed).</summary>
+        private void PreviewButton_Changed(object sender, RoutedEventArgs e)
+        {
+            if (PreviewButton.IsChecked == true)
+            {
+                if (_preview != null) return;
+                _preview = new OverlayPreviewWindow { Owner = this };
+                _preview.Closed += (_, _) =>
+                {
+                    _preview = null;
+                    PreviewButton.IsChecked = false;
+                };
+                _preview.Show();
+                Log("Preview window opened — mirrors the overlay canvas on the desktop.");
+            }
+            else
+            {
+                _preview?.Close();
+            }
         }
 
         private void TitleBar_MouseDown(object sender, MouseButtonEventArgs e)
