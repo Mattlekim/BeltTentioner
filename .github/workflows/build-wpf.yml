@@ -1,0 +1,95 @@
+name: Build WPF App (versioned)
+
+# Builds and releases BeltTensionTest.WPF when a version tag is pushed:
+#   git tag v1.2.3 && git push origin v1.2.3
+# The tag's number becomes the app version. Can also be run manually from
+# the Actions tab with a version number.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g. 1.2.3)'
+        required: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      # The WPF project references ..\..\MonoXR relative to its own folder,
+      # so both repos must sit side by side in the workspace:
+      #   <workspace>\belttentiontest   (this repo)
+      #   <workspace>\MonoXR            (sibling repo)
+      - name: Checkout BeltTentioner
+        uses: actions/checkout@v4
+        with:
+          path: belttentiontest
+
+      - name: Checkout MonoXR (sibling repo)
+        uses: actions/checkout@v4
+        with:
+          repository: Mattlekim/MonoXR
+          path: MonoXR
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          $v = "${{ github.event.inputs.version }}"
+          if (-not $v) { $v = "$env:GITHUB_REF_NAME" -replace '^v', '' }
+          if ($v -notmatch '^\d+\.\d+(\.\d+){0,2}') {
+            Write-Error "Tag/input '$v' is not a version number (expected e.g. 1.2.3)"
+            exit 1
+          }
+          # AssemblyVersion must be purely numeric — strip any -suffix.
+          $numeric = ($v -split '-')[0]
+          echo "VERSION=$v" >> $env:GITHUB_OUTPUT
+          echo "NUMERIC=$numeric" >> $env:GITHUB_OUTPUT
+          echo "Building version: $v"
+
+      # dotnet publish also builds the native MonoXR OpenXR layer via the
+      # csproj's CMake target (VS2022 + CMake are on windows-latest).
+      # Settings mirror Properties/PublishProfiles/FolderProfile.pubxml.
+      - name: Publish WPF app
+        run: >
+          dotnet publish belttentiontest/BeltTensionTest.WPF/BeltTensionTest.WPF.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained false
+          -p:PublishSingleFile=true
+          -p:Version=${{ steps.version.outputs.VERSION }}
+          -p:AssemblyVersion=${{ steps.version.outputs.NUMERIC }}
+          -p:FileVersion=${{ steps.version.outputs.NUMERIC }}
+          --output ./publish
+
+      - name: Create ZIP archive
+        shell: pwsh
+        run: Compress-Archive -Path ./publish/* -DestinationPath BeltTensioner-v${{ steps.version.outputs.VERSION }}-win-x64.zip
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BeltTensioner-v${{ steps.version.outputs.VERSION }}
+          path: ./publish
+          retention-days: 30
+
+      - name: Create GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: BeltTensioner v${{ steps.version.outputs.VERSION }}
+          files: BeltTensioner-v${{ steps.version.outputs.VERSION }}-win-x64.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

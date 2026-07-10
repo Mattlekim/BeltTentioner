@@ -1,10 +1,10 @@
 name: Build and Release
 
+# Version tags (v*) are handled by build-wpf.yml, which builds and
+# releases the WPF app with the tag's version number.
 on:
   push:
     branches: [master, main]
-    tags:
-      - 'v*'
   pull_request:
     branches: [master, main]
   workflow_dispatch:
