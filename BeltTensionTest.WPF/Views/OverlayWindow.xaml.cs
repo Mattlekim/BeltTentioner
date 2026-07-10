@@ -167,15 +167,19 @@ namespace BeltTensionTest.WPF.Views
             _warningPanel = _host.AddRenderTarget(new WarningOverlay(
                 _host.GraphicsDevice, warnX, warnY));
 
-            // YouTube live-chat panel: defaults to the top-right corner.
-            int ytX = Math.Max(0, _host.CanvasWidth - 720 - 16), ytY = 16;
-            if (s != null && s.OverlayYouTubePanelX >= 0 && s.OverlayYouTubePanelY >= 0)
+            // YouTube live-chat panel: only exists when enabled in Preferences
+            // (OpenXR tab). Defaults to the top-right corner.
+            if (s?.EnableYouTubeOverlay == true)
             {
-                ytX = Math.Min(s.OverlayYouTubePanelX, Math.Max(0, _host.CanvasWidth - 100));
-                ytY = Math.Min(s.OverlayYouTubePanelY, Math.Max(0, _host.CanvasHeight - 100));
+                int ytX = Math.Max(0, _host.CanvasWidth - 720 - 16), ytY = 16;
+                if (s.OverlayYouTubePanelX >= 0 && s.OverlayYouTubePanelY >= 0)
+                {
+                    ytX = Math.Min(s.OverlayYouTubePanelX, Math.Max(0, _host.CanvasWidth - 100));
+                    ytY = Math.Min(s.OverlayYouTubePanelY, Math.Max(0, _host.CanvasHeight - 100));
+                }
+                _youtubePanel = _host.AddRenderTarget(new YouTubeOverlay(
+                    _host.GraphicsDevice, ytX, ytY));
             }
-            _youtubePanel = _host.AddRenderTarget(new YouTubeOverlay(
-                _host.GraphicsDevice, ytX, ytY));
         }
         // ===================== END MONOGAME RENDER SECTION ===================
 

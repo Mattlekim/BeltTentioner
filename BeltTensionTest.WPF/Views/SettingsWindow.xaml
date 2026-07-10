@@ -111,6 +111,21 @@
                     </Grid>
                     </ScrollViewer>
                 </TabItem>
+
+                <TabItem Header="OpenXR">
+                    <StackPanel Margin="6" Orientation="Vertical">
+                        <TextBlock Text="Overlays" FontWeight="SemiBold" Margin="0,4,0,4" Foreground="{StaticResource TextPrimaryBrush}"/>
+                        <Separator Margin="0,0,0,8" Background="#46466A"/>
+
+                        <CheckBox x:Name="chk_YouTubeOverlay" Content="YouTube overlay" Foreground="#A0A0BE" Margin="0,4"
+                                  ToolTip="Adds the YouTube live-chat panel to the OpenXR overlay. Takes effect the next time the overlay window is opened."/>
+
+                        <Separator Margin="0,8" Background="#46466A"/>
+
+                        <CheckBox x:Name="chk_AutoStartOverlay" Content="Start OpenXR overlay automatically" Foreground="#A0A0BE" Margin="0,4"
+                                  ToolTip="Opens the OpenXR overlay window automatically when the app starts."/>
+                    </StackPanel>
+                </TabItem>
             </TabControl>
         </DockPanel>
     </DockPanel>

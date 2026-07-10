@@ -47,6 +47,10 @@ namespace BeltTensionTest.WPF.Models
         public int OverlayPanelY { get; set; } = -1;
         public int OverlayMainPanelX { get; set; } = -1;
         public int OverlayMainPanelY { get; set; } = -1;
+        // OpenXR overlay preferences: whether the YouTube chat overlay exists
+        // at all, and whether the overlay window opens itself on app start.
+        public bool EnableYouTubeOverlay { get; set; } = false;
+        public bool AutoStartOpenXrOverlay { get; set; } = false;
         public int OverlayWarningPanelX { get; set; } = -1;
         public int OverlayWarningPanelY { get; set; } = -1;
         public int OverlayYouTubePanelX { get; set; } = -1;

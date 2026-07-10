@@ -26,6 +26,8 @@ namespace BeltTensionTest.WPF.Views
             chk_AutoConnect.IsChecked = _vm.AppSettings?.AutoConnectOnStartup ?? false;
             chk_StartWithWindows.IsChecked = _vm.AppSettings?.StartWithWindows ?? false;
             chk_MinimizeToTaskbar.IsChecked = _vm.AppSettings?.MinimizeToTaskbarOnClose ?? false;
+            chk_YouTubeOverlay.IsChecked = _vm.AppSettings?.EnableYouTubeOverlay ?? false;
+            chk_AutoStartOverlay.IsChecked = _vm.AppSettings?.AutoStartOpenXrOverlay ?? false;
 
             // Initialize telemetry source radio buttons from the current view model state.
             // The VM already enforces that iRacing and SimHub cannot both be enabled.
@@ -145,6 +147,8 @@ namespace BeltTensionTest.WPF.Views
 
             _vm.AppSettings.StartWithWindows = startWithWindows;
             _vm.AppSettings.MinimizeToTaskbarOnClose = minimizeToTaskbar;
+            _vm.AppSettings.EnableYouTubeOverlay = chk_YouTubeOverlay.IsChecked == true;
+            _vm.AppSettings.AutoStartOpenXrOverlay = chk_AutoStartOverlay.IsChecked == true;
             // Save keybindings
             _vm.AppSettings.ToggleFanKey = kb_ToggleFan.Gesture ?? string.Empty;
             _vm.AppSettings.ToggleFanGlobal = kb_ToggleFan.IsGlobal;

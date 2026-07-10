@@ -138,6 +138,14 @@ namespace BeltTensionTest.WPF.Views
             StateChanged += MainWindow_StateChanged;
 
             VM?.LoadCarSettings(VM?.CarNameDisplay);
+
+            // Preferences → OpenXR: open the overlay window on startup.
+            try
+            {
+                if (VM?.AppSettings?.AutoStartOpenXrOverlay == true)
+                    OpenOverlayWindow();
+            }
+            catch { }
         }
 
         private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -426,6 +434,11 @@ namespace BeltTensionTest.WPF.Views
         }
 
         private void OpenOverlayWindow_Click(object sender, RoutedEventArgs e)
+        {
+            OpenOverlayWindow();
+        }
+
+        private void OpenOverlayWindow()
         {
             if (_overlayWindow == null || !_overlayWindow.IsLoaded)
             {
