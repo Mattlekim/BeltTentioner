@@ -44,6 +44,18 @@ namespace BeltTensionTest.WPF.Services
         private IRacingSdkDatum? _datumRumbleFL;
         private IRacingSdkDatum? _datumRumbleFR;
 
+        private IRacingSdkDatum? _datumSessionNum;
+
+        /// <summary>
+        /// Type of the session currently running ("Practice", "Lone Qualify",
+        /// "Open Qualify", "Race", ...) from the session info YAML. Empty until
+        /// connected / session info arrives.
+        /// </summary>
+        public string SessionType { get; private set; } = string.Empty;
+
+        /// <summary>Raised when the current session changes type (practice → qualy → race, ...).</summary>
+        public event Action<string>? SessionTypeChanged;
+
         public bool IsConnected => _isConnected;
         public bool Enabled { get; set; } = true;
 
@@ -113,6 +125,7 @@ namespace BeltTensionTest.WPF.Services
             if (!_isConnected) return;
             _isConnected = false;
             _dataInitialized = false;
+            SessionType = string.Empty;
             PlayerCar.Reset();
             _carsByIdx.Clear();
             _cars = new List<Data.Car>();
@@ -140,6 +153,7 @@ namespace BeltTensionTest.WPF.Services
                 // Rumble pitch (front axle)
                 try { _datumRumbleFL = _sdk.Data.TelemetryDataProperties["TireLF_RumblePitch"]; } catch { _datumRumbleFL = null; }
                 try { _datumRumbleFR = _sdk.Data.TelemetryDataProperties["TireRF_RumblePitch"]; } catch { _datumRumbleFR = null; }
+                try { _datumSessionNum = _sdk.Data.TelemetryDataProperties["SessionNum"]; } catch { _datumSessionNum = null; }
 
                 _dataInitialized = true;
                 return true;
@@ -206,6 +220,7 @@ namespace BeltTensionTest.WPF.Services
             }
             catch { }
 
+            UpdateSessionType();
             UpdateCars();
 
             _wasReplay = isReplay;
@@ -287,6 +302,33 @@ namespace BeltTensionTest.WPF.Services
                     else if (rumbleRight) side = RumbleSide.Right;
 
                     try { RumbleStripDetected?.Invoke(side); } catch { }
+                }
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// Resolve the running session's type ("Practice", "Race", ...) by
+        /// matching the SessionNum telemetry var against the session info YAML.
+        /// </summary>
+        private void UpdateSessionType()
+        {
+            try
+            {
+                var sessions = _sdk?.Data.SessionInfo?.SessionInfo?.Sessions;
+                if (sessions == null || _datumSessionNum == null) return;
+
+                int num = _sdk!.Data.GetInt(_datumSessionNum);
+                foreach (var s in sessions)
+                {
+                    if (s.SessionNum != num) continue;
+                    var type = s.SessionType ?? string.Empty;
+                    if (type != SessionType)
+                    {
+                        SessionType = type;
+                        SessionTypeChanged?.Invoke(type);
+                    }
+                    break;
                 }
             }
             catch { }

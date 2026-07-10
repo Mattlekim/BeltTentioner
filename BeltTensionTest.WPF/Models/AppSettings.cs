@@ -45,6 +45,8 @@ namespace BeltTensionTest.WPF.Models
         // 0 = unset (keep the host defaults).
         public int OverlayPanelX { get; set; } = -1;
         public int OverlayPanelY { get; set; } = -1;
+        public int OverlayMainPanelX { get; set; } = -1;
+        public int OverlayMainPanelY { get; set; } = -1;
         public double OverlaySizeX { get; set; } = 0;
         public double OverlaySizeY { get; set; } = 0;
         public double OverlayDistance { get; set; } = 0;

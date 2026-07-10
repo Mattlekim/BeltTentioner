@@ -22,6 +22,11 @@ namespace BeltTensionTest.WPF.Views
         private readonly MainViewModel _vm;
         private readonly Services.SettingsService _settingsSvc = new();
         private BeltSettingsOverlay? _beltPanel;
+        private MainOverlay? _mainPanel;
+
+        // Cars shown in the "Main" standings panel (player included) — change
+        // this to make the panel taller/shorter.
+        private const int MainOverlayCarCount = 7;
 
         // 30 fps target; the host also caps via MaxFrameRate, so late/early
         // DispatcherTimer ticks can never push the overlay above that rate.
@@ -126,6 +131,18 @@ namespace BeltTensionTest.WPF.Views
 
             _beltPanel = _host.AddRenderTarget(new BeltSettingsOverlay(
                 _host.GraphicsDevice, panelWidth, panelHeight, x, y, groups));
+
+            // "Main" standings panel: session-type-aware standings around the
+            // player (see MainOverlay). Defaults to the top-left corner; the
+            // last dragged position is restored like the belt panel above.
+            int mainX = 16, mainY = 16;
+            if (s != null && s.OverlayMainPanelX >= 0 && s.OverlayMainPanelY >= 0)
+            {
+                mainX = Math.Min(s.OverlayMainPanelX, Math.Max(0, _host.CanvasWidth - 100));
+                mainY = Math.Min(s.OverlayMainPanelY, Math.Max(0, _host.CanvasHeight - 100));
+            }
+            _mainPanel = _host.AddRenderTarget(new MainOverlay(
+                _host.GraphicsDevice, mainX, mainY, MainOverlayCarCount));
         }
         // ===================== END MONOGAME RENDER SECTION ===================
 
@@ -154,6 +171,11 @@ namespace BeltTensionTest.WPF.Views
                 {
                     s.OverlayPanelX = _beltPanel.X;
                     s.OverlayPanelY = _beltPanel.Y;
+                }
+                if (_mainPanel != null)
+                {
+                    s.OverlayMainPanelX = _mainPanel.X;
+                    s.OverlayMainPanelY = _mainPanel.Y;
                 }
                 s.OverlaySizeX = _host.DisplaySize.X;
                 s.OverlaySizeY = _host.DisplaySize.Y;
