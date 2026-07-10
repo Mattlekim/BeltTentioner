@@ -31,7 +31,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private const int HeaderRowHeight = 34; // column labels above the rows
         private const int RowHeight = 44;
         private const int RowSpacing = 3;
-        private const int PanelWidth = 910;
+        private const int PanelWidth = 1010;
         private const int Pad = 8;
 
         // Player sector strip at the bottom (ported from IrachingHud's
@@ -43,10 +43,10 @@ namespace BeltTensionTest.WPF.Services.Overlays
         // Columns. Fixed widths except Driver, which absorbs the leftover
         // panel width. The user can reorder them by dragging a column header
         // in edit mode; the order round-trips through ColumnOrder.
-        private enum Col { Pos, Driver, Sectors, LastLap, Rel, Gap }
+        private enum Col { Pos, Driver, Sectors, LastLap, Rel, Gap, Status }
 
         private static readonly Col[] DefaultColumnOrder =
-            { Col.Pos, Col.Driver, Col.LastLap, Col.Rel, Col.Gap, Col.Sectors };
+            { Col.Pos, Col.Driver, Col.Status, Col.LastLap, Col.Rel, Col.Gap, Col.Sectors };
 
         private Col[] _colOrder = (Col[])DefaultColumnOrder.Clone();
         private int _dragCol = -1; // index into _colOrder being dragged in edit mode
@@ -58,6 +58,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private static int FixedWidth(Col c) => c switch
         {
             Col.Pos => 58,
+            Col.Status => 100,
             Col.Sectors => 100,
             Col.LastLap => 135,
             Col.Rel => 105,
@@ -69,6 +70,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         {
             Col.Pos => "POS",
             Col.Driver => "DRIVER",
+            Col.Status => "STATUS",
             Col.Sectors => "SECTORS",
             Col.LastLap => "LAST LAP",
             Col.Rel => "REL",
@@ -76,7 +78,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _ => string.Empty,
         };
 
-        private static bool RightAligned(Col c) => c != Col.Pos && c != Col.Driver;
+        private static bool RightAligned(Col c) => c != Col.Pos && c != Col.Driver && c != Col.Status;
 
         /// <summary>Current cell layout: one (column, left, width) per column, in display order.</summary>
         private (Col Col, int Left, int Width)[] ColumnCells()
@@ -130,6 +132,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
             public bool IsPlayer;
             public byte[] Sectors; // one SecCode per track sector for this car
             public int LastCmp;    // last lap vs player's: -1 faster (red), +1 slower (green), 0 neutral
+            public string Status;  // "PIT" / "PIT IN" / "PIT OUT" / ""
+            public bool Hazard;    // triggering the yellow-flag or slow-car warning → flashing box
         }
 
         // Per-car sector bar color codes (StandingsRow.Sectors values).
@@ -402,8 +406,14 @@ namespace BeltTensionTest.WPF.Services.Overlays
             }
         }
 
+        // Flash phase for the status column's hazard boxes (original cadence).
+        private float _flasher;
+
         public override void Update(GameTime gameTime)
         {
+            _flasher += (float)gameTime.ElapsedGameTime.TotalSeconds * 15f;
+            if (_flasher > 2f) _flasher -= 2f;
+
             var svc = IracingService.Instance;
             string sessionType = svc.SessionType;
             bool isRace = sessionType.IndexOf("Race", StringComparison.OrdinalIgnoreCase) >= 0;
@@ -420,13 +430,18 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
             // Only redraw/republish when something visible actually changed.
             var sb = new StringBuilder(_sessionLabel);
+            bool anyHazard = false;
             foreach (var r in _rows)
             {
                 sb.Append('|').Append(r.Pos).Append(r.Name).Append(r.LastLap)
                   .Append(r.Rel).Append(r.Gap).Append(r.LapDelta).Append(r.IsPlayer ? '*' : ' ')
-                  .Append(r.LastCmp);
+                  .Append(r.LastCmp).Append(r.Status).Append(r.Hazard ? 'H' : ' ');
                 foreach (byte code in r.Sectors) sb.Append((char)('0' + code));
+                anyHazard |= r.Hazard;
             }
+            // A visible hazard box flashes, so fold the flash phase into the
+            // snapshot to keep the panel repainting while one is on screen.
+            if (anyHazard) sb.Append(_flasher > 1f ? 'F' : 'f');
 
             // Sector strip state: the live sector time ticks while driving, so
             // this keeps the panel repainting during an active sector.
@@ -490,6 +505,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
                     lapDelta = (int)Math.Truncate(dist - playerDist);
                 }
 
+                var (status, hazard) = StatusFor(car.CarIdx);
                 _rows.Add(new StandingsRow
                 {
                     Pos = isRace && car.ClassPosition > 0 ? car.ClassPosition : i + 1,
@@ -501,6 +517,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
                     IsPlayer = isPlayer,
                     Sectors = SectorCodesFor(car.CarIdx),
                     LastCmp = CompareLastLap(car, player, isPlayer),
+                    Status = status,
+                    Hazard = hazard,
                 });
             }
         }
@@ -552,6 +570,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private void AddRelativeRow(Car car, Car player, Dictionary<int, int> rankByIdx)
         {
             bool isPlayer = car.CarIdx == player.CarIdx;
+            var (status, hazard) = StatusFor(car.CarIdx);
             _rows.Add(new StandingsRow
             {
                 Pos = car.ClassPosition > 0 ? car.ClassPosition
@@ -564,7 +583,24 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 IsPlayer = isPlayer,
                 Sectors = SectorCodesFor(car.CarIdx),
                 LastCmp = CompareLastLap(car, player, isPlayer),
+                Status = status,
+                Hazard = hazard,
             });
+        }
+
+        /// <summary>Status cell content: estimated pit phase + whether this car is triggering a warning card.</summary>
+        private static (string Text, bool Hazard) StatusFor(int carIdx)
+        {
+            var st = CarStatusMonitor.Instance.StatusOf(carIdx);
+            string text = st.Pit switch
+            {
+                PitState.Pit => "PIT",
+                PitState.PitIn => "PIT IN",
+                PitState.PitOut => "PIT OUT",
+                PitState.OutLap => "OUT LAP",
+                _ => string.Empty,
+            };
+            return (text, st.YellowHazard || st.SlowHazard);
         }
 
         /// <summary>Last lap vs the player's: -1 = faster than you, +1 = slower, 0 = player row / no times.</summary>
@@ -745,6 +781,26 @@ namespace BeltTensionTest.WPF.Services.Overlays
                             _sb.DrawString(_fontBody, TruncateText(row.Name, cw),
                                 new XnaVector2(cl, textY), RowText);
                             break;
+                        case Col.Status:
+                        {
+                            // A car triggering the yellow-flag / slow-car card
+                            // gets a flashing yellow box; pit phases are text.
+                            bool boxOn = row.Hazard && _flasher > 1f;
+                            if (boxOn)
+                                MonoXRDraw.RoundedRect(_sb,
+                                    new XnaRectangle(cl - 2, y + 5, cw + 4, RowHeight - 10), 6, SecYellow);
+                            if (!string.IsNullOrEmpty(row.Status))
+                            {
+                                XnaColor c = boxOn ? new XnaColor(0x1A, 0x14, 0x00)
+                                    : row.Status == "PIT OUT" ? SecGreen
+                                    : row.Status == "PIT IN" ? SecYellow
+                                    : row.Status == "OUT LAP" ? Accent
+                                    : RowTextDim;
+                                float sy = y + (RowHeight - _fontHead.LineSpacing) / 2f;
+                                _sb.DrawString(_fontHead, row.Status, new XnaVector2(cl + 4, sy), c);
+                            }
+                            break;
+                        }
                         case Col.Sectors:
                         {
                             // One thin vertical bar per sector, right-aligned

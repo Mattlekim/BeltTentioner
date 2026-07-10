@@ -60,6 +60,8 @@ namespace BeltTensionTest.WPF.Models
         public int OverlayNearbyPanelY { get; set; } = -1;
         // Nearby-cars strip width in canvas pixels; 0 = default (minimum).
         public int OverlayNearbyWidth { get; set; } = 0;
+        public int OverlaySlowCarPanelX { get; set; } = -1;
+        public int OverlaySlowCarPanelY { get; set; } = -1;
         public int OverlayYouTubePanelX { get; set; } = -1;
         public int OverlayYouTubePanelY { get; set; } = -1;
         public double OverlaySizeX { get; set; } = 0;

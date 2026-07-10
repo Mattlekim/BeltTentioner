@@ -25,6 +25,7 @@ namespace BeltTensionTest.WPF.Views
         private MainOverlay? _mainPanel;
         private WarningOverlay? _warningPanel;
         private NearbyCarsOverlay? _nearbyPanel;
+        private SlowCarOverlay? _slowCarPanel;
         private YouTubeOverlay? _youtubePanel;
         private OverlayPreviewWindow? _preview;
 
@@ -181,6 +182,17 @@ namespace BeltTensionTest.WPF.Views
             }
             _nearbyPanel = _host.AddRenderTarget(new NearbyCarsOverlay(
                 _host.GraphicsDevice, nearX, nearY));
+
+            // Slow-car warning card: defaults just below the yellow-flag card
+            // (both live top-center; a slow car and a stopped car are cousins).
+            int slowX = (_host.CanvasWidth - 300) / 2, slowY = 16 + 120 + 12;
+            if (s != null && s.OverlaySlowCarPanelX >= 0 && s.OverlaySlowCarPanelY >= 0)
+            {
+                slowX = Math.Min(s.OverlaySlowCarPanelX, Math.Max(0, _host.CanvasWidth - 100));
+                slowY = Math.Min(s.OverlaySlowCarPanelY, Math.Max(0, _host.CanvasHeight - 100));
+            }
+            _slowCarPanel = _host.AddRenderTarget(new SlowCarOverlay(
+                _host.GraphicsDevice, slowX, slowY));
             if (s != null && s.OverlayNearbyWidth > 0)
                 _nearbyPanel.BoxWidth = s.OverlayNearbyWidth;
             _nearbyPanel.BoxWidthChanged += SaveLayout; // persist slider resizes like drags
@@ -243,6 +255,11 @@ namespace BeltTensionTest.WPF.Views
                     s.OverlayNearbyPanelX = _nearbyPanel.X;
                     s.OverlayNearbyPanelY = _nearbyPanel.Y;
                     s.OverlayNearbyWidth = _nearbyPanel.BoxWidth;
+                }
+                if (_slowCarPanel != null)
+                {
+                    s.OverlaySlowCarPanelX = _slowCarPanel.X;
+                    s.OverlaySlowCarPanelY = _slowCarPanel.Y;
                 }
                 if (_youtubePanel != null)
                 {
