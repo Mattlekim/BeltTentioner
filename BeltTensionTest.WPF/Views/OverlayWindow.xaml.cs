@@ -23,6 +23,8 @@ namespace BeltTensionTest.WPF.Views
         private readonly Services.SettingsService _settingsSvc = new();
         private BeltSettingsOverlay? _beltPanel;
         private MainOverlay? _mainPanel;
+        private WarningOverlay? _warningPanel;
+        private YouTubeOverlay? _youtubePanel;
         private OverlayPreviewWindow? _preview;
 
         // Cars shown in the "Main" standings panel (player included) — change
@@ -153,6 +155,27 @@ namespace BeltTensionTest.WPF.Views
             }
             _mainPanel = _host.AddRenderTarget(new MainOverlay(
                 _host.GraphicsDevice, mainX, mainY, MainOverlayCarCount));
+
+            // Yellow-flag warning card: defaults to top-center, above where
+            // the eye already is for flags.
+            int warnX = (_host.CanvasWidth - 360) / 2, warnY = 16;
+            if (s != null && s.OverlayWarningPanelX >= 0 && s.OverlayWarningPanelY >= 0)
+            {
+                warnX = Math.Min(s.OverlayWarningPanelX, Math.Max(0, _host.CanvasWidth - 100));
+                warnY = Math.Min(s.OverlayWarningPanelY, Math.Max(0, _host.CanvasHeight - 100));
+            }
+            _warningPanel = _host.AddRenderTarget(new WarningOverlay(
+                _host.GraphicsDevice, warnX, warnY));
+
+            // YouTube live-chat panel: defaults to the top-right corner.
+            int ytX = Math.Max(0, _host.CanvasWidth - 720 - 16), ytY = 16;
+            if (s != null && s.OverlayYouTubePanelX >= 0 && s.OverlayYouTubePanelY >= 0)
+            {
+                ytX = Math.Min(s.OverlayYouTubePanelX, Math.Max(0, _host.CanvasWidth - 100));
+                ytY = Math.Min(s.OverlayYouTubePanelY, Math.Max(0, _host.CanvasHeight - 100));
+            }
+            _youtubePanel = _host.AddRenderTarget(new YouTubeOverlay(
+                _host.GraphicsDevice, ytX, ytY));
         }
         // ===================== END MONOGAME RENDER SECTION ===================
 
@@ -186,6 +209,16 @@ namespace BeltTensionTest.WPF.Views
                 {
                     s.OverlayMainPanelX = _mainPanel.X;
                     s.OverlayMainPanelY = _mainPanel.Y;
+                }
+                if (_warningPanel != null)
+                {
+                    s.OverlayWarningPanelX = _warningPanel.X;
+                    s.OverlayWarningPanelY = _warningPanel.Y;
+                }
+                if (_youtubePanel != null)
+                {
+                    s.OverlayYouTubePanelX = _youtubePanel.X;
+                    s.OverlayYouTubePanelY = _youtubePanel.Y;
                 }
                 s.OverlaySizeX = _host.DisplaySize.X;
                 s.OverlaySizeY = _host.DisplaySize.Y;

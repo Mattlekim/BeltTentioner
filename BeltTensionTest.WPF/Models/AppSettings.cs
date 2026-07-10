@@ -47,6 +47,10 @@ namespace BeltTensionTest.WPF.Models
         public int OverlayPanelY { get; set; } = -1;
         public int OverlayMainPanelX { get; set; } = -1;
         public int OverlayMainPanelY { get; set; } = -1;
+        public int OverlayWarningPanelX { get; set; } = -1;
+        public int OverlayWarningPanelY { get; set; } = -1;
+        public int OverlayYouTubePanelX { get; set; } = -1;
+        public int OverlayYouTubePanelY { get; set; } = -1;
         public double OverlaySizeX { get; set; } = 0;
         public double OverlaySizeY { get; set; } = 0;
         public double OverlayDistance { get; set; } = 0;

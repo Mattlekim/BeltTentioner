@@ -114,7 +114,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _white.SetData(new[] { XnaColor.White });
             _font = RuntimeSpriteFont.Bake(device, "Segoe UI", 32f);
             _fontBody = RuntimeSpriteFont.Bake(device, "Segoe UI", 26f);
-            _collapsedWidth = (int)_font.MeasureString(Name).X + 32;
+            _collapsedWidth = (int)_font.MeasureString(Name).X + 60; // name + accent dot + padding
 
             _menu = new MonoXRMenuControl
             {
@@ -177,40 +177,48 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public override void Render(GameTime gameTime)
         {
+            const int Radius = 18;
+
             if (IsCollapsed)
             {
                 // Only the top-left CollapsedWidth×CollapsedHeight region is
-                // composited: draw a small title-bar pill with the panel name.
+                // composited: a rounded pill with an accent dot and the name.
                 GraphicsDevice.Clear(XnaColor.Transparent);
                 _sb.Begin();
-                _sb.Draw(_white, new XnaRectangle(0, 0, CollapsedWidth, CollapsedHeight), TitleBg);
-                _sb.DrawString(_font, Name, new XnaVector2(16, 10), TitleText);
-                _sb.Draw(_white, new XnaRectangle(0, CollapsedHeight - 3, CollapsedWidth, 3), Accent);
-                _sb.Draw(_white, new XnaRectangle(0, 0, CollapsedWidth, 2), Border);
-                _sb.Draw(_white, new XnaRectangle(0, 0, 2, CollapsedHeight), Border);
-                _sb.Draw(_white, new XnaRectangle(CollapsedWidth - 2, 0, 2, CollapsedHeight), Border);
+                var pill = new XnaRectangle(0, 0, CollapsedWidth, CollapsedHeight);
+                MonoXRDraw.RoundedRect(_sb, pill, CollapsedHeight / 2, TitleBg);
+                MonoXRDraw.RoundedRectOutline(_sb, pill, CollapsedHeight / 2, 2, Border);
+                int dotR = 6;
+                _sb.Draw(MonoXRDraw.Circle(GraphicsDevice, dotR),
+                    new XnaRectangle(20 - dotR, CollapsedHeight / 2 - dotR, dotR * 2, dotR * 2), Accent);
+                _sb.DrawString(_font, Name, new XnaVector2(34, (CollapsedHeight - _font.LineSpacing) / 2f), TitleText);
                 _sb.End();
                 return;
             }
 
-            // Semi-transparent panel; the canvas itself is transparent, so
-            // anything not drawn here is see-through in VR.
-            GraphicsDevice.Clear(PanelBg);
+            // Rounded panel over a transparent canvas, so the corners are
+            // see-through in VR.
+            GraphicsDevice.Clear(XnaColor.Transparent);
 
             _sb.Begin();
 
-            // Title bar with an accent strip underneath, like the app's themed windows.
-            _sb.Draw(_white, new XnaRectangle(0, 0, Width, TitleBarHeight), TitleBg);
-            _sb.DrawString(_font, "Belt Settings", new XnaVector2(16, 10), TitleText);
+            var panel = new XnaRectangle(0, 0, Width, Height);
+            MonoXRDraw.RoundedRect(_sb, panel, Radius, PanelBg);
+
+            // Title bar (rounded only at the top) with a subtle sheen, the
+            // title text drop-shadowed, and a glowing accent strip underneath.
+            MonoXRDraw.RoundedRect(_sb, new XnaRectangle(0, 0, Width, TitleBarHeight), Radius,
+                                   TitleBg, roundBottom: false);
+            MonoXRDraw.VerticalFade(_sb, new XnaRectangle(0, 0, Width, TitleBarHeight / 2), XnaColor.White * 0.05f);
+            _sb.DrawString(_font, "Belt Settings", new XnaVector2(20, 12), XnaColor.Black * 0.45f);
+            _sb.DrawString(_font, "Belt Settings", new XnaVector2(20, 10), TitleText);
             _sb.Draw(_white, new XnaRectangle(0, TitleBarHeight - 3, Width, 3), Accent);
+            MonoXRDraw.VerticalFade(_sb, new XnaRectangle(0, TitleBarHeight, Width, 14), Accent * 0.25f);
 
             _menu.Draw(_sb, _fontBody, _white);
 
-            // Thin panel outline.
-            _sb.Draw(_white, new XnaRectangle(0, 0, Width, 2), Border);
-            _sb.Draw(_white, new XnaRectangle(0, Height - 2, Width, 2), Border);
-            _sb.Draw(_white, new XnaRectangle(0, 0, 2, Height), Border);
-            _sb.Draw(_white, new XnaRectangle(Width - 2, 0, 2, Height), Border);
+            // Rounded panel outline.
+            MonoXRDraw.RoundedRectOutline(_sb, panel, Radius, 2, Border);
 
             _sb.End();
         }

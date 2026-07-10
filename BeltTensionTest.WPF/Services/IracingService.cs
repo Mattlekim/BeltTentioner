@@ -45,6 +45,7 @@ namespace BeltTensionTest.WPF.Services
         private IRacingSdkDatum? _datumRumbleFR;
 
         private IRacingSdkDatum? _datumSessionNum;
+        private IRacingSdkDatum? _datumSessionTime;
 
         /// <summary>
         /// Type of the session currently running ("Practice", "Lone Qualify",
@@ -55,6 +56,22 @@ namespace BeltTensionTest.WPF.Services
 
         /// <summary>Raised when the current session changes type (practice → qualy → race, ...).</summary>
         public event Action<string>? SessionTypeChanged;
+
+        /// <summary>
+        /// Track length in meters, parsed from WeekendInfo.TrackLength
+        /// ("3.85 km"). 0 until connected / session info arrives.
+        /// </summary>
+        public float TrackLengthMeters { get; private set; }
+        private string _trackLengthRaw = string.Empty;
+
+        /// <summary>Session clock in seconds (SessionTime), refreshed every telemetry tick.</summary>
+        public double SessionTime { get; private set; }
+
+        /// <summary>
+        /// Sector start positions (lap-distance pct) from the session's
+        /// SplitTimeInfo YAML, or null until connected. Used for sector timing.
+        /// </summary>
+        public IReadOnlyList<float>? SectorStartPcts { get; private set; }
 
         public bool IsConnected => _isConnected;
         public bool Enabled { get; set; } = true;
@@ -126,6 +143,10 @@ namespace BeltTensionTest.WPF.Services
             _isConnected = false;
             _dataInitialized = false;
             SessionType = string.Empty;
+            TrackLengthMeters = 0f;
+            _trackLengthRaw = string.Empty;
+            SessionTime = 0;
+            SectorStartPcts = null;
             PlayerCar.Reset();
             _carsByIdx.Clear();
             _cars = new List<Data.Car>();
@@ -154,6 +175,7 @@ namespace BeltTensionTest.WPF.Services
                 try { _datumRumbleFL = _sdk.Data.TelemetryDataProperties["TireLF_RumblePitch"]; } catch { _datumRumbleFL = null; }
                 try { _datumRumbleFR = _sdk.Data.TelemetryDataProperties["TireRF_RumblePitch"]; } catch { _datumRumbleFR = null; }
                 try { _datumSessionNum = _sdk.Data.TelemetryDataProperties["SessionNum"]; } catch { _datumSessionNum = null; }
+                try { _datumSessionTime = _sdk.Data.TelemetryDataProperties["SessionTime"]; } catch { _datumSessionTime = null; }
 
                 _dataInitialized = true;
                 return true;
@@ -187,6 +209,25 @@ namespace BeltTensionTest.WPF.Services
         {
             if (!Enabled) return;
             if (!SetupDatums()) return;
+
+            // Session clock and sector boundaries first — sector timing hooked
+            // on PlayerCarUpdated/CarsUpdated must see the fresh values.
+            try
+            {
+                if (_datumSessionTime != null)
+                    SessionTime = _sdk!.Data.GetDouble(_datumSessionTime);
+
+                var split = _sdk!.Data.SessionInfo?.SplitTimeInfo?.Sectors;
+                if (split != null && split.Count > 0 &&
+                    (SectorStartPcts == null || SectorStartPcts.Count != split.Count))
+                {
+                    var starts = new List<float>(split.Count);
+                    foreach (var sec in split)
+                        starts.Add(sec.SectorStartPct);
+                    SectorStartPcts = starts;
+                }
+            }
+            catch { }
 
             try
             {
@@ -317,6 +358,17 @@ namespace BeltTensionTest.WPF.Services
             {
                 var sessions = _sdk?.Data.SessionInfo?.SessionInfo?.Sessions;
                 if (sessions == null || _datumSessionNum == null) return;
+
+                // Track length, reparsed only when the YAML string changes.
+                var lenStr = _sdk?.Data.SessionInfo?.WeekendInfo?.TrackLength ?? string.Empty;
+                if (lenStr != _trackLengthRaw)
+                {
+                    _trackLengthRaw = lenStr;
+                    var numPart = lenStr.Split(' ')[0];
+                    if (float.TryParse(numPart, System.Globalization.NumberStyles.Float,
+                                       System.Globalization.CultureInfo.InvariantCulture, out float km))
+                        TrackLengthMeters = km * 1000f;
+                }
 
                 int num = _sdk!.Data.GetInt(_datumSessionNum);
                 foreach (var s in sessions)

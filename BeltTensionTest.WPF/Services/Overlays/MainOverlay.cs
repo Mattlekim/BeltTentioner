@@ -31,6 +31,12 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private const int PanelWidth = 820;
         private const int Pad = 8;
 
+        // Player sector strip at the bottom (ported from IrachingHud's
+        // RelativeBox): per-sector live/last times + delta vs the best lap,
+        // and a projected lap column on the right.
+        private const int SectorStripHeight = 110;
+        private const int SectorColWidth = 110;
+
         // Column layout (x offsets inside the panel).
         private const int ColPos = 18;
         private const int ColName = 66;
@@ -88,7 +94,21 @@ namespace BeltTensionTest.WPF.Services.Overlays
         public override int CollapsedHeight => TitleBarHeight;
 
         private static int HeightFor(int cars) =>
-            TitleBarHeight + Pad + cars * (RowHeight + RowSpacing) + Pad;
+            TitleBarHeight + Pad + cars * (RowHeight + RowSpacing) + Pad + SectorStripHeight;
+
+        // Sector timing state. Written on the SDK telemetry thread
+        // (PlayerCarUpdated), read on the UI thread (Update/Render) — every
+        // access goes through _sectorLock.
+        private readonly object _sectorLock = new();
+        private readonly SectorTimer _sectorTimer = new();
+        private double[]? _bestLapSectorTimes;   // sector Last values of the best valid lap
+        private double _bestLapFromSectors = double.PositiveInfinity;
+
+        // Sector-time colors, mirroring the RelativeBox rules.
+        private static readonly XnaColor SecPurple = new XnaColor(0x8A, 0x2B, 0xE2); // best-lap sector
+        private static readonly XnaColor SecGreen = new XnaColor(0x50, 0xC8, 0x78);  // personal sector best
+        private static readonly XnaColor SecYellow = new XnaColor(0xFF, 0xD5, 0x2E); // slower
+        private static readonly XnaColor SecRed = new XnaColor(0xE0, 0x50, 0x50);    // invalid / no time
 
         public MainOverlay(GraphicsDevice device, int x, int y,
                            int carsToDisplay = DefaultCarsToDisplay)
@@ -101,7 +121,50 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _white.SetData(new[] { XnaColor.White });
             _font = RuntimeSpriteFont.Bake(device, "Segoe UI", 30f);
             _fontBody = RuntimeSpriteFont.Bake(device, "Segoe UI", 24f);
-            _collapsedWidth = (int)_font.MeasureString(Name).X + 32;
+            _collapsedWidth = (int)_font.MeasureString(Name).X + 60; // name + accent dot + padding
+
+            // Sector timing runs at full telemetry rate (60 Hz) so boundary
+            // crossings land inside the validity windows; the overlay's own
+            // 30 fps Update would miss them at speed.
+            _sectorTimer.LapCompleted = OnSectorLapCompleted;
+            IracingService.Instance.PlayerCarUpdated += OnPlayerCarUpdated;
+            IracingService.Instance.Disconnected += OnIracingDisconnected;
+        }
+
+        // SDK telemetry thread.
+        private void OnPlayerCarUpdated(Car player)
+        {
+            var svc = IracingService.Instance;
+            var starts = svc.SectorStartPcts;
+            if (starts == null) return;
+            lock (_sectorLock)
+                _sectorTimer.Update(starts, svc.SessionTime, Math.Clamp(player.LapDistPct, 0f, 1f));
+        }
+
+        // Fires inside _sectorTimer.Update, so already under _sectorLock.
+        private void OnSectorLapCompleted()
+        {
+            double total = 0;
+            foreach (var s in _sectorTimer.Sectors)
+            {
+                if (!s.Valid || s.Last <= 0) return; // any bad sector → not a reference lap
+                total += s.Last;
+            }
+            if (total < _bestLapFromSectors)
+            {
+                _bestLapFromSectors = total;
+                _bestLapSectorTimes = _sectorTimer.Sectors.Select(s => s.Last).ToArray();
+            }
+        }
+
+        private void OnIracingDisconnected()
+        {
+            lock (_sectorLock)
+            {
+                _sectorTimer.Reset();
+                _bestLapSectorTimes = null;
+                _bestLapFromSectors = double.PositiveInfinity;
+            }
         }
 
         public override void Update(GameTime gameTime)
@@ -125,6 +188,17 @@ namespace BeltTensionTest.WPF.Services.Overlays
             foreach (var r in _rows)
                 sb.Append('|').Append(r.Pos).Append(r.Name).Append(r.LastLap)
                   .Append(r.Rel).Append(r.Gap).Append(r.LapDelta).Append(r.IsPlayer ? '*' : ' ');
+
+            // Sector strip state: the live sector time ticks while driving, so
+            // this keeps the panel repainting during an active sector.
+            lock (_sectorLock)
+            {
+                foreach (var s in _sectorTimer.Sectors)
+                    sb.Append('|').Append(s.Active ? 'A' : 'i')
+                      .Append((s.Active ? s.Current : s.Last).ToString("0.00"))
+                      .Append(s.Valid ? 'v' : 'x');
+                sb.Append('|').Append(_bestLapFromSectors.ToString("0.000"));
+            }
             string snapshot = sb.ToString();
             if (snapshot != _lastSnapshot)
             {
@@ -242,27 +316,42 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public override void Render(GameTime gameTime)
         {
+            const int Radius = 16;
+            const int RowRadius = 8;
+
             if (IsCollapsed)
             {
                 GraphicsDevice.Clear(XnaColor.Transparent);
                 _sb.Begin();
-                _sb.Draw(_white, new XnaRectangle(0, 0, CollapsedWidth, CollapsedHeight), TitleBg);
-                _sb.DrawString(_font, Name, new XnaVector2(16, 8), TitleText);
-                _sb.Draw(_white, new XnaRectangle(0, CollapsedHeight - 3, CollapsedWidth, 3), Accent);
-                _sb.Draw(_white, new XnaRectangle(0, 0, CollapsedWidth, 2), Border);
-                _sb.Draw(_white, new XnaRectangle(0, 0, 2, CollapsedHeight), Border);
-                _sb.Draw(_white, new XnaRectangle(CollapsedWidth - 2, 0, 2, CollapsedHeight), Border);
+                var pill = new XnaRectangle(0, 0, CollapsedWidth, CollapsedHeight);
+                MonoXRDraw.RoundedRect(_sb, pill, CollapsedHeight / 2, TitleBg);
+                MonoXRDraw.RoundedRectOutline(_sb, pill, CollapsedHeight / 2, 2, Border);
+                int dotR = 6;
+                _sb.Draw(MonoXRDraw.Circle(GraphicsDevice, dotR),
+                    new XnaRectangle(20 - dotR, CollapsedHeight / 2 - dotR, dotR * 2, dotR * 2), Accent);
+                _sb.DrawString(_font, Name, new XnaVector2(34, (CollapsedHeight - _font.LineSpacing) / 2f), TitleText);
                 _sb.End();
                 return;
             }
 
-            GraphicsDevice.Clear(PanelBg);
+            // Rounded panel over a transparent canvas, so the corners are
+            // see-through in VR.
+            GraphicsDevice.Clear(XnaColor.Transparent);
             _sb.Begin();
 
-            // Title bar shows the current session type.
-            _sb.Draw(_white, new XnaRectangle(0, 0, Width, TitleBarHeight), TitleBg);
-            _sb.DrawString(_font, $"{Name} - {_sessionLabel}", new XnaVector2(16, 8), TitleText);
+            var panel = new XnaRectangle(0, 0, Width, Height);
+            MonoXRDraw.RoundedRect(_sb, panel, Radius, PanelBg);
+
+            // Title bar shows the current session type, with a sheen, a
+            // drop-shadowed title and a glowing accent strip underneath.
+            MonoXRDraw.RoundedRect(_sb, new XnaRectangle(0, 0, Width, TitleBarHeight), Radius,
+                                   TitleBg, roundBottom: false);
+            MonoXRDraw.VerticalFade(_sb, new XnaRectangle(0, 0, Width, TitleBarHeight / 2), XnaColor.White * 0.05f);
+            string title = $"{Name} - {_sessionLabel}";
+            _sb.DrawString(_font, title, new XnaVector2(20, 10), XnaColor.Black * 0.45f);
+            _sb.DrawString(_font, title, new XnaVector2(20, 8), TitleText);
             _sb.Draw(_white, new XnaRectangle(0, TitleBarHeight - 3, Width, 3), Accent);
+            MonoXRDraw.VerticalFade(_sb, new XnaRectangle(0, TitleBarHeight, Width, 12), Accent * 0.25f);
 
             if (_rows.Count == 0)
             {
@@ -273,16 +362,31 @@ namespace BeltTensionTest.WPF.Services.Overlays
             int y = TitleBarHeight + Pad;
             foreach (var row in _rows)
             {
-                XnaColor bg;
-                if (row.IsPlayer) bg = PlayerBg;
-                else if (row.LapDelta >= 1) bg = LapAheadBg;
-                else if (row.LapDelta <= -1) bg = LapBehindBg;
-                else bg = RowShades[Math.Abs(row.Pos) % RowShades.Length];
+                XnaColor bg, badge;
+                if (row.IsPlayer) { bg = PlayerBg; badge = new XnaColor(0x2E, 0x8C, 0x57); }
+                else if (row.LapDelta >= 1) { bg = LapAheadBg; badge = new XnaColor(0xA8, 0x30, 0x30); }
+                else if (row.LapDelta <= -1) { bg = LapBehindBg; badge = new XnaColor(0x30, 0x50, 0xA8); }
+                else { bg = RowShades[Math.Abs(row.Pos) % RowShades.Length]; badge = new XnaColor(0x32, 0x32, 0x48); }
 
-                _sb.Draw(_white, new XnaRectangle(Pad, y, Width - Pad * 2, RowHeight), bg);
+                var rowRect = new XnaRectangle(Pad, y, Width - Pad * 2, RowHeight);
+                MonoXRDraw.RoundedRect(_sb, rowRect, RowRadius, bg);
+                // Subtle top sheen so rows read as raised cards.
+                MonoXRDraw.VerticalFade(_sb, new XnaRectangle(rowRect.X + RowRadius, y, rowRect.Width - RowRadius * 2, RowHeight / 2),
+                                        XnaColor.White * 0.04f);
+                if (row.IsPlayer)
+                    MonoXRDraw.RoundedRect(_sb, new XnaRectangle(rowRect.X, y + 4, 5, RowHeight - 8), 2,
+                                           new XnaColor(0x50, 0xC8, 0x78));
 
                 float textY = y + (RowHeight - _fontBody.LineSpacing) / 2f;
-                _sb.DrawString(_fontBody, row.Pos.ToString(), new XnaVector2(ColPos, textY), RowText);
+
+                // Position number in a rounded badge.
+                var badgeRect = new XnaRectangle(rowRect.X + 8, y + 5, 42, RowHeight - 10);
+                MonoXRDraw.RoundedRect(_sb, badgeRect, 6, badge);
+                string pos = row.Pos.ToString();
+                var posSize = _fontBody.MeasureString(pos);
+                _sb.DrawString(_fontBody, pos,
+                    new XnaVector2(badgeRect.X + (badgeRect.Width - posSize.X) / 2f, textY), RowText);
+
                 _sb.DrawString(_fontBody, TruncateName(row.Name), new XnaVector2(ColName, textY), RowText);
 
                 var lastLapSize = _fontBody.MeasureString(row.LastLap);
@@ -303,13 +407,117 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 y += RowHeight + RowSpacing;
             }
 
-            // Thin panel outline.
-            _sb.Draw(_white, new XnaRectangle(0, 0, Width, 2), Border);
-            _sb.Draw(_white, new XnaRectangle(0, Height - 2, Width, 2), Border);
-            _sb.Draw(_white, new XnaRectangle(0, 0, 2, Height), Border);
-            _sb.Draw(_white, new XnaRectangle(Width - 2, 0, 2, Height), Border);
+            DrawSectorStrip();
+
+            // Rounded panel outline.
+            MonoXRDraw.RoundedRectOutline(_sb, panel, Radius, 2, Border);
 
             _sb.End();
+        }
+
+        /// <summary>
+        /// Player sector strip at the bottom of the panel, ported from
+        /// IrachingHud's RelativeBox: one column per sector (live time while
+        /// in the sector; afterwards the last time colored red = invalid,
+        /// purple = matches the best lap's sector, green = personal sector
+        /// best, yellow = slower, with the delta to the best-lap sector
+        /// underneath) and a projected-lap column on the right (completed
+        /// sectors' actual times + bests for the rest).
+        /// </summary>
+        private void DrawSectorStrip()
+        {
+            int stripY = Height - SectorStripHeight;
+            MonoXRDraw.HorizontalFade(_sb, new XnaRectangle(Pad + 4, stripY, Width - (Pad + 4) * 2, 2), Border);
+
+            int headerY = stripY + 8;
+            int timeY = headerY + 30;
+            int deltaY = timeY + 32;
+
+            lock (_sectorLock)
+            {
+                var sectors = _sectorTimer.Sectors;
+                if (sectors.Count == 0)
+                {
+                    _sb.DrawString(_fontBody, "Waiting for sector data...",
+                        new XnaVector2(Pad + 10, timeY), RowTextDim);
+                    return;
+                }
+
+                double projected = 0, currentPace = 0, bestPossiblePace = 0;
+                bool pastActive = false;
+
+                for (int i = 0; i < sectors.Count; i++)
+                {
+                    var s = sectors[i];
+                    int x = Pad + 10 + i * SectorColWidth;
+                    _sb.DrawString(_fontBody, $"S{i + 1}", new XnaVector2(x + 10, headerY), RowTextDim);
+
+                    double bls = _bestLapSectorTimes != null && i < _bestLapSectorTimes.Length
+                        ? _bestLapSectorTimes[i] : double.PositiveInfinity;
+
+                    if (s.Active)
+                    {
+                        // Live ticking time for the sector being driven.
+                        _sb.DrawString(_fontBody, $"{s.Current:00.00}", new XnaVector2(x, timeY), RowText);
+                        projected += s.Best;
+                        pastActive = true;
+                    }
+                    else
+                    {
+                        projected += pastActive ? s.Best : s.Last;
+                        if (!pastActive)
+                        {
+                            currentPace += s.Last;
+                            if (!double.IsPositiveInfinity(bls)) bestPossiblePace += bls;
+                        }
+
+                        // Last time, colored by merit.
+                        XnaColor timeColor = !s.Valid ? SecRed
+                            : Math.Abs(s.Last - bls) < 0.005 ? SecPurple
+                            : Math.Abs(s.Last - s.Best) < 0.005 ? SecGreen
+                            : SecYellow;
+                        _sb.DrawString(_fontBody, s.Last > 0 ? $"{s.Last:00.00}" : "--.--",
+                            new XnaVector2(x, timeY), s.Last > 0 ? timeColor : RowTextDim);
+
+                        // Delta to the best lap's sector.
+                        if (s.Last <= 0)
+                            _sb.DrawString(_fontBody, "-----", new XnaVector2(x, deltaY), SecRed);
+                        else if (double.IsPositiveInfinity(bls))
+                            _sb.DrawString(_fontBody, "-----", new XnaVector2(x, deltaY), RowTextDim);
+                        else
+                        {
+                            double delta = s.Last - bls;
+                            _sb.DrawString(_fontBody, delta.ToString("+0.00;-0.00;0.00"),
+                                new XnaVector2(x, deltaY), delta <= 0 ? SecGreen : SecYellow);
+                        }
+                    }
+                }
+
+                // Projected lap on the right: completed sectors as driven,
+                // the rest at their bests — plus delta to the best lap so far.
+                float rightX = Width - Pad - 10;
+                string projLabel = "Projected";
+                _sb.DrawString(_fontBody, projLabel,
+                    new XnaVector2(rightX - _fontBody.MeasureString(projLabel).X, headerY), RowTextDim);
+
+                string projText = projected > 0 && projected < 2000 ? FormatLapTime((float)projected) : "--:--.---";
+                _sb.DrawString(_fontBody, projText,
+                    new XnaVector2(rightX - _fontBody.MeasureString(projText).X, timeY), RowText);
+
+                if (bestPossiblePace > 0 && currentPace > 0)
+                {
+                    double deltaToBest = currentPace - bestPossiblePace;
+                    string deltaText = deltaToBest.ToString("+0.000;-0.000;0.000");
+                    _sb.DrawString(_fontBody, deltaText,
+                        new XnaVector2(rightX - _fontBody.MeasureString(deltaText).X, deltaY),
+                        deltaToBest <= 0 ? SecGreen : SecYellow);
+                }
+                else
+                {
+                    _sb.DrawString(_fontBody, "-----",
+                        new XnaVector2(rightX - _fontBody.MeasureString("-----").X, deltaY), RowTextDim);
+                }
+            }
         }
 
         /// <summary>Trim the driver name (with an ellipsis) so it never runs into the lap-time column.</summary>
@@ -329,6 +537,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public override void Dispose()
         {
+            IracingService.Instance.PlayerCarUpdated -= OnPlayerCarUpdated;
+            IracingService.Instance.Disconnected -= OnIracingDisconnected;
             _fontBody.Texture.Dispose();
             _font.Texture.Dispose();
             _white.Dispose();
