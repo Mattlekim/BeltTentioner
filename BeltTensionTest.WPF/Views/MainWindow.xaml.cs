@@ -5,6 +5,8 @@ using BeltTensionTest.WPF.Services;
 using System.ComponentModel;
 using System.Threading;
 using System;
+using System.Diagnostics;
+using System.IO;
 using System.Windows.Controls;
 
 namespace BeltTensionTest.WPF.Views
@@ -503,6 +505,101 @@ namespace BeltTensionTest.WPF.Views
             {
                 _flashWindow.Activate();
             }
+        }
+
+        private void InstallSimHubPlugin_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                string? sourceDll = FindSimHubPluginDll();
+                if (sourceDll == null)
+                {
+                    MessageBox.Show(this,
+                        "Could not find BeltTentioner.dll.\nMake sure the SimHub plugin has been built (Sim_Hub_Plugin project) or is shipped alongside this application.",
+                        "SimHub Plugin", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                string? simHubDir = FindSimHubDirectory();
+                if (simHubDir == null)
+                {
+                    var dlg = new Microsoft.Win32.OpenFolderDialog
+                    {
+                        Title = "Select your SimHub installation folder"
+                    };
+                    if (dlg.ShowDialog(this) != true) return;
+                    simHubDir = dlg.FolderName;
+                }
+
+                if (Process.GetProcessesByName("SimHubWPF").Length > 0)
+                {
+                    var result = MessageBox.Show(this,
+                        "SimHub appears to be running. Close it before installing so the plugin file isn't locked.\n\nContinue anyway?",
+                        "SimHub Plugin", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                    if (result != MessageBoxResult.Yes) return;
+                }
+
+                string targetPath = Path.Combine(simHubDir, Path.GetFileName(sourceDll));
+                try
+                {
+                    File.Copy(sourceDll, targetPath, overwrite: true);
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    // SimHub usually lives in Program Files – retry the copy elevated
+                    var psi = new ProcessStartInfo
+                    {
+                        FileName = "cmd.exe",
+                        Arguments = $"/c copy /y \"{sourceDll}\" \"{targetPath}\"",
+                        Verb = "runas",
+                        UseShellExecute = true,
+                        WindowStyle = ProcessWindowStyle.Hidden
+                    };
+                    using var proc = Process.Start(psi);
+                    proc?.WaitForExit();
+                    if (proc == null || proc.ExitCode != 0 || !File.Exists(targetPath))
+                        throw new IOException("Elevated copy failed.");
+                }
+
+                MessageBox.Show(this,
+                    $"Plugin installed to:\n{targetPath}\n\nStart SimHub and enable the \"BeltTentioner\" plugin when prompted (or via Settings > Plugins).",
+                    "SimHub Plugin", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, $"Failed to install the SimHub plugin:\n{ex.Message}",
+                    "SimHub Plugin", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private static string? FindSimHubPluginDll()
+        {
+            var candidates = new List<string>
+            {
+                Path.Combine(AppContext.BaseDirectory, "SimHubPlugin", "BeltTentioner.dll"),
+                Path.Combine(AppContext.BaseDirectory, "BeltTentioner.dll"),
+            };
+
+            // Dev environment: walk up from the build output folder to the repo root
+            var dir = new DirectoryInfo(AppContext.BaseDirectory);
+            while (dir != null)
+            {
+                candidates.Add(Path.Combine(dir.FullName, "Sim_Hub_Plugin", "bin", "Release", "BeltTentioner.dll"));
+                candidates.Add(Path.Combine(dir.FullName, "Sim_Hub_Plugin", "bin", "Debug", "BeltTentioner.dll"));
+                dir = dir.Parent;
+            }
+
+            return candidates.FirstOrDefault(File.Exists);
+        }
+
+        private static string? FindSimHubDirectory()
+        {
+            var candidates = new[]
+            {
+                Environment.ExpandEnvironmentVariables(@"%ProgramFiles(x86)%\SimHub"),
+                Environment.ExpandEnvironmentVariables(@"%ProgramFiles%\SimHub"),
+            };
+            return candidates.FirstOrDefault(d => File.Exists(Path.Combine(d, "SimHubWPF.exe")));
         }
 
         private void MenuItem_Click(object sender, RoutedEventArgs e)

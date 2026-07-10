@@ -78,6 +78,7 @@
                     <MenuItem Header="Flash Nano..." Click="OpenFlashNano_Click"/>
                     <MenuItem Header="Motor Settings..." Click="OpenMotorSettings_Click"/>
                     <Separator/>
+                    <MenuItem Header="Install SimHub Plugin..." Click="InstallSimHubPlugin_Click"/>
                     <MenuItem Header="OpenXR Overlay..." Click="OpenOverlayWindow_Click"/>
                 </MenuItem>
 
