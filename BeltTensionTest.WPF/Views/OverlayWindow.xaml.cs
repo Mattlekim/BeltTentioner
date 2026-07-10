@@ -24,6 +24,7 @@ namespace BeltTensionTest.WPF.Views
         private BeltSettingsOverlay? _beltPanel;
         private MainOverlay? _mainPanel;
         private WarningOverlay? _warningPanel;
+        private NearbyCarsOverlay? _nearbyPanel;
         private YouTubeOverlay? _youtubePanel;
         private OverlayPreviewWindow? _preview;
 
@@ -155,6 +156,9 @@ namespace BeltTensionTest.WPF.Views
             }
             _mainPanel = _host.AddRenderTarget(new MainOverlay(
                 _host.GraphicsDevice, mainX, mainY, MainOverlayCarCount));
+            if (!string.IsNullOrEmpty(s?.OverlayMainColumnOrder))
+                _mainPanel.ColumnOrder = s.OverlayMainColumnOrder;
+            _mainPanel.ColumnOrderChanged += SaveLayout; // persist header drags like panel moves
 
             // Yellow-flag warning card: defaults to top-center, above where
             // the eye already is for flags.
@@ -166,6 +170,20 @@ namespace BeltTensionTest.WPF.Views
             }
             _warningPanel = _host.AddRenderTarget(new WarningOverlay(
                 _host.GraphicsDevice, warnX, warnY));
+
+            // Car-alongside spotter (NearbyCarsOverlay): defaults to bottom-
+            // center, roughly where your peripheral vision expects a spotter.
+            int nearX = (_host.CanvasWidth - 500) / 2, nearY = _host.CanvasHeight - 200;
+            if (s != null && s.OverlayNearbyPanelX >= 0 && s.OverlayNearbyPanelY >= 0)
+            {
+                nearX = Math.Min(s.OverlayNearbyPanelX, Math.Max(0, _host.CanvasWidth - 100));
+                nearY = Math.Min(s.OverlayNearbyPanelY, Math.Max(0, _host.CanvasHeight - 100));
+            }
+            _nearbyPanel = _host.AddRenderTarget(new NearbyCarsOverlay(
+                _host.GraphicsDevice, nearX, nearY));
+            if (s != null && s.OverlayNearbyWidth > 0)
+                _nearbyPanel.BoxWidth = s.OverlayNearbyWidth;
+            _nearbyPanel.BoxWidthChanged += SaveLayout; // persist slider resizes like drags
 
             // YouTube live-chat panel: only exists when enabled in Preferences
             // (OpenXR tab). Defaults to the top-right corner.
@@ -213,11 +231,18 @@ namespace BeltTensionTest.WPF.Views
                 {
                     s.OverlayMainPanelX = _mainPanel.X;
                     s.OverlayMainPanelY = _mainPanel.Y;
+                    s.OverlayMainColumnOrder = _mainPanel.ColumnOrder;
                 }
                 if (_warningPanel != null)
                 {
                     s.OverlayWarningPanelX = _warningPanel.X;
                     s.OverlayWarningPanelY = _warningPanel.Y;
+                }
+                if (_nearbyPanel != null)
+                {
+                    s.OverlayNearbyPanelX = _nearbyPanel.X;
+                    s.OverlayNearbyPanelY = _nearbyPanel.Y;
+                    s.OverlayNearbyWidth = _nearbyPanel.BoxWidth;
                 }
                 if (_youtubePanel != null)
                 {

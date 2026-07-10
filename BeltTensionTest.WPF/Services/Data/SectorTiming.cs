@@ -21,6 +21,9 @@ namespace BeltTensionTest.WPF.Services.Data
 
         public bool Valid { get; private set; }
 
+        /// <summary>Completed passes through this sector (valid or not) — 0 means never attempted.</summary>
+        public int Passes { get; private set; }
+
         /// <summary>Fires when the sector is exited with a valid time (Last just updated).</summary>
         public Action? Ended;
 
@@ -64,6 +67,7 @@ namespace BeltTensionTest.WPF.Services.Data
                 }
 
                 _started = false;
+                Passes++;
                 if (Valid)
                 {
                     Last = Current;

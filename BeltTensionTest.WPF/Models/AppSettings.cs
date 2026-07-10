@@ -47,12 +47,19 @@ namespace BeltTensionTest.WPF.Models
         public int OverlayPanelY { get; set; } = -1;
         public int OverlayMainPanelX { get; set; } = -1;
         public int OverlayMainPanelY { get; set; } = -1;
+        // Main panel column order (comma-separated MainOverlay column names);
+        // empty = the coded default order.
+        public string OverlayMainColumnOrder { get; set; } = "";
         // OpenXR overlay preferences: whether the YouTube chat overlay exists
         // at all, and whether the overlay window opens itself on app start.
         public bool EnableYouTubeOverlay { get; set; } = false;
         public bool AutoStartOpenXrOverlay { get; set; } = false;
         public int OverlayWarningPanelX { get; set; } = -1;
         public int OverlayWarningPanelY { get; set; } = -1;
+        public int OverlayNearbyPanelX { get; set; } = -1;
+        public int OverlayNearbyPanelY { get; set; } = -1;
+        // Nearby-cars strip width in canvas pixels; 0 = default (minimum).
+        public int OverlayNearbyWidth { get; set; } = 0;
         public int OverlayYouTubePanelX { get; set; } = -1;
         public int OverlayYouTubePanelY { get; set; } = -1;
         public double OverlaySizeX { get; set; } = 0;

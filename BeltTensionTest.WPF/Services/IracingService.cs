@@ -7,6 +7,18 @@ using System.Threading.Tasks;
 
 namespace BeltTensionTest.WPF.Services
 {
+    /// <summary>Spotter car-alongside states, mirroring the SDK's irsdk_CarLeftRight values.</summary>
+    public enum CarLeftRight
+    {
+        Off = 0,
+        Clear = 1,        // no cars around us
+        CarLeft = 2,
+        CarRight = 3,
+        CarLeftRight = 4, // cars on both sides
+        TwoCarsLeft = 5,
+        TwoCarsRight = 6,
+    }
+
     /// <summary>
     /// Wraps the iRacing SDK, exposing events in a WPF-friendly way.
     /// Mirrors IracingCommunicator from WinForms but is injectable.
@@ -46,6 +58,7 @@ namespace BeltTensionTest.WPF.Services
 
         private IRacingSdkDatum? _datumSessionNum;
         private IRacingSdkDatum? _datumSessionTime;
+        private IRacingSdkDatum? _datumCarLeftRight;
 
         /// <summary>
         /// Type of the session currently running ("Practice", "Lone Qualify",
@@ -66,6 +79,12 @@ namespace BeltTensionTest.WPF.Services
 
         /// <summary>Session clock in seconds (SessionTime), refreshed every telemetry tick.</summary>
         public double SessionTime { get; private set; }
+
+        /// <summary>
+        /// Spotter "car alongside" state (CarLeftRight telemetry var),
+        /// refreshed every telemetry tick. Off until connected.
+        /// </summary>
+        public CarLeftRight CarsAlongside { get; private set; } = CarLeftRight.Off;
 
         /// <summary>
         /// Sector start positions (lap-distance pct) from the session's
@@ -176,6 +195,7 @@ namespace BeltTensionTest.WPF.Services
                 try { _datumRumbleFR = _sdk.Data.TelemetryDataProperties["TireRF_RumblePitch"]; } catch { _datumRumbleFR = null; }
                 try { _datumSessionNum = _sdk.Data.TelemetryDataProperties["SessionNum"]; } catch { _datumSessionNum = null; }
                 try { _datumSessionTime = _sdk.Data.TelemetryDataProperties["SessionTime"]; } catch { _datumSessionTime = null; }
+                try { _datumCarLeftRight = _sdk.Data.TelemetryDataProperties["CarLeftRight"]; } catch { _datumCarLeftRight = null; }
 
                 _dataInitialized = true;
                 return true;
@@ -216,6 +236,10 @@ namespace BeltTensionTest.WPF.Services
             {
                 if (_datumSessionTime != null)
                     SessionTime = _sdk!.Data.GetDouble(_datumSessionTime);
+
+                CarsAlongside = _datumCarLeftRight != null
+                    ? (CarLeftRight)_sdk!.Data.GetInt(_datumCarLeftRight)
+                    : CarLeftRight.Off;
 
                 var split = _sdk!.Data.SessionInfo?.SplitTimeInfo?.Sectors;
                 if (split != null && split.Count > 0 &&

@@ -18,7 +18,9 @@ namespace BeltTensionTest.WPF.Services.Overlays
     /// the player's car class. Its behaviour follows the current iRacing
     /// session type: in a race it orders by race position, colors cars a lap
     /// ahead red and a lap behind blue, and gaps come from CarIdxF2Time; in
-    /// practice/qualifying it orders by best lap and gaps are best-lap deltas.
+    /// practice/qualifying it works as a relative box — ordered by physical
+    /// track location with the player pinned to the middle row and the
+    /// nearest cars ahead/behind around them — and gaps are best-lap deltas.
     /// </summary>
     public sealed class MainOverlay : OverlayRenderTarget
     {
@@ -26,9 +28,10 @@ namespace BeltTensionTest.WPF.Services.Overlays
         public const int DefaultCarsToDisplay = 7;
 
         private const int TitleBarHeight = 48;
+        private const int HeaderRowHeight = 34; // column labels above the rows
         private const int RowHeight = 44;
         private const int RowSpacing = 3;
-        private const int PanelWidth = 820;
+        private const int PanelWidth = 910;
         private const int Pad = 8;
 
         // Player sector strip at the bottom (ported from IrachingHud's
@@ -37,12 +40,60 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private const int SectorStripHeight = 110;
         private const int SectorColWidth = 110;
 
-        // Column layout (x offsets inside the panel).
-        private const int ColPos = 18;
-        private const int ColName = 66;
-        private const int ColLastLapRight = PanelWidth - 270; // right edge of "last lap"
-        private const int ColRelRight = PanelWidth - 140;     // right edge of "rel" (on-track gap)
-        private const int ColGapRight = PanelWidth - 18;      // right edge of "gap"
+        // Columns. Fixed widths except Driver, which absorbs the leftover
+        // panel width. The user can reorder them by dragging a column header
+        // in edit mode; the order round-trips through ColumnOrder.
+        private enum Col { Pos, Driver, Sectors, LastLap, Rel, Gap }
+
+        private static readonly Col[] DefaultColumnOrder =
+            { Col.Pos, Col.Driver, Col.LastLap, Col.Rel, Col.Gap, Col.Sectors };
+
+        private Col[] _colOrder = (Col[])DefaultColumnOrder.Clone();
+        private int _dragCol = -1; // index into _colOrder being dragged in edit mode
+
+        private const int ColGapX = 8;          // horizontal gap between cells
+        private const int ColContentLeft = Pad + 8;
+        private const int ColContentRight = PanelWidth - Pad - 10;
+
+        private static int FixedWidth(Col c) => c switch
+        {
+            Col.Pos => 58,
+            Col.Sectors => 100,
+            Col.LastLap => 135,
+            Col.Rel => 105,
+            Col.Gap => 125,
+            _ => 0, // Driver: flexible
+        };
+
+        private static string HeaderOf(Col c) => c switch
+        {
+            Col.Pos => "POS",
+            Col.Driver => "DRIVER",
+            Col.Sectors => "SECTORS",
+            Col.LastLap => "LAST LAP",
+            Col.Rel => "REL",
+            Col.Gap => "GAP",
+            _ => string.Empty,
+        };
+
+        private static bool RightAligned(Col c) => c != Col.Pos && c != Col.Driver;
+
+        /// <summary>Current cell layout: one (column, left, width) per column, in display order.</summary>
+        private (Col Col, int Left, int Width)[] ColumnCells()
+        {
+            int flex = ColContentRight - ColContentLeft - ColGapX * (_colOrder.Length - 1);
+            foreach (var c in _colOrder) flex -= FixedWidth(c);
+
+            var cells = new (Col, int, int)[_colOrder.Length];
+            int x = ColContentLeft;
+            for (int i = 0; i < _colOrder.Length; i++)
+            {
+                int w = _colOrder[i] == Col.Driver ? Math.Max(80, flex) : FixedWidth(_colOrder[i]);
+                cells[i] = (_colOrder[i], x, w);
+                x += w + ColGapX;
+            }
+            return cells;
+        }
 
         // App palette (Resources/Styles.xaml), matching BeltSettingsOverlay.
         private static readonly XnaColor PanelBg = new XnaColor(0x12, 0x12, 0x1E, 235);
@@ -77,12 +128,22 @@ namespace BeltTensionTest.WPF.Services.Overlays
             public string Gap;
             public int LapDelta;   // whole laps this car is ahead (+) / behind (-) the player; race only
             public bool IsPlayer;
+            public byte[] Sectors; // one SecCode per track sector for this car
+            public int LastCmp;    // last lap vs player's: -1 faster (red), +1 slower (green), 0 neutral
         }
+
+        // Per-car sector bar color codes (StandingsRow.Sectors values).
+        private const byte SecNone = 0;    // no completed pass yet
+        private const byte SecSession = 1; // fastest this session (any car)  → purple
+        private const byte SecPersonal = 2;// this car's session best         → green
+        private const byte SecSlower = 3;  // completed, no improvement       → yellow
+        private const byte SecInvalid = 4; // last pass invalid               → red
 
         private readonly SpriteBatch _sb;
         private readonly Texture2D _white;
         private readonly SpriteFont _font;     // title
         private readonly SpriteFont _fontBody; // rows
+        private readonly SpriteFont _fontHead; // column headers
         private readonly int _collapsedWidth;
         private readonly int _carsToDisplay;
 
@@ -94,7 +155,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         public override int CollapsedHeight => TitleBarHeight;
 
         private static int HeightFor(int cars) =>
-            TitleBarHeight + Pad + cars * (RowHeight + RowSpacing) + Pad + SectorStripHeight;
+            TitleBarHeight + Pad + HeaderRowHeight + cars * (RowHeight + RowSpacing) + Pad + SectorStripHeight;
 
         // Sector timing state. Written on the SDK telemetry thread
         // (PlayerCarUpdated), read on the UI thread (Update/Render) — every
@@ -103,6 +164,16 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private readonly SectorTimer _sectorTimer = new();
         private double[]? _bestLapSectorTimes;   // sector Last values of the best valid lap
         private double _bestLapFromSectors = double.PositiveInfinity;
+
+        // Per-car sector timing for the row bars. Written on the SDK thread
+        // (CarsUpdated), read on the UI thread — guarded by _carSectorLock.
+        // _sessionBestSectors is the fastest valid time per sector across all
+        // cars this session; everything resets when the session changes,
+        // restarts (session clock jumps backwards) or iRacing disconnects.
+        private readonly object _carSectorLock = new();
+        private readonly Dictionary<int, SectorTimer> _carTimers = new();
+        private double[] _sessionBestSectors = Array.Empty<double>();
+        private double _lastSessionTime;
 
         // Sector-time colors, mirroring the RelativeBox rules.
         private static readonly XnaColor SecPurple = new XnaColor(0x8A, 0x2B, 0xE2); // best-lap sector
@@ -121,6 +192,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _white.SetData(new[] { XnaColor.White });
             _font = RuntimeSpriteFont.Bake(device, "Segoe UI", 30f);
             _fontBody = RuntimeSpriteFont.Bake(device, "Segoe UI", 24f);
+            _fontHead = RuntimeSpriteFont.Bake(device, "Segoe UI", 18f, System.Drawing.FontStyle.Bold);
             _collapsedWidth = (int)_font.MeasureString(Name).X + 60; // name + accent dot + padding
 
             // Sector timing runs at full telemetry rate (60 Hz) so boundary
@@ -128,6 +200,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
             // 30 fps Update would miss them at speed.
             _sectorTimer.LapCompleted = OnSectorLapCompleted;
             IracingService.Instance.PlayerCarUpdated += OnPlayerCarUpdated;
+            IracingService.Instance.CarsUpdated += OnCarsUpdated;
+            IracingService.Instance.SessionTypeChanged += OnSessionTypeChanged;
             IracingService.Instance.Disconnected += OnIracingDisconnected;
         }
 
@@ -157,13 +231,174 @@ namespace BeltTensionTest.WPF.Services.Overlays
             }
         }
 
-        private void OnIracingDisconnected()
+        // SDK telemetry thread: advance every car's sector timer and fold
+        // completed times into the session-best-per-sector table.
+        private void OnCarsUpdated(IReadOnlyList<Car> cars)
+        {
+            var svc = IracingService.Instance;
+            var starts = svc.SectorStartPcts;
+            if (starts == null || starts.Count == 0) return;
+            double time = svc.SessionTime;
+
+            lock (_carSectorLock)
+            {
+                // Session restart: the session clock jumping backwards means
+                // the old times belong to a session that no longer exists.
+                if (time < _lastSessionTime - 1) ResetCarSectorsLocked();
+                _lastSessionTime = time;
+
+                if (_sessionBestSectors.Length != starts.Count)
+                {
+                    _sessionBestSectors = new double[starts.Count];
+                    Array.Fill(_sessionBestSectors, double.PositiveInfinity);
+                }
+
+                foreach (var car in cars)
+                {
+                    if (car.CarIdx < 0) continue;
+                    if (!_carTimers.TryGetValue(car.CarIdx, out var timer))
+                        _carTimers[car.CarIdx] = timer = new SectorTimer();
+                    timer.Update(starts, time, Math.Clamp(car.LapDistPct, 0f, 1f));
+
+                    for (int i = 0; i < timer.Sectors.Count && i < _sessionBestSectors.Length; i++)
+                    {
+                        var s = timer.Sectors[i];
+                        if (!s.Active && s.Valid && s.Last > 0 && s.Last < _sessionBestSectors[i])
+                            _sessionBestSectors[i] = s.Last;
+                    }
+                }
+            }
+        }
+
+        private void OnSessionTypeChanged(string _) => ResetAllSectors();
+
+        private void ResetAllSectors()
         {
             lock (_sectorLock)
             {
                 _sectorTimer.Reset();
                 _bestLapSectorTimes = null;
                 _bestLapFromSectors = double.PositiveInfinity;
+            }
+            lock (_carSectorLock)
+                ResetCarSectorsLocked();
+        }
+
+        // Callers hold _carSectorLock.
+        private void ResetCarSectorsLocked()
+        {
+            _carTimers.Clear();
+            Array.Fill(_sessionBestSectors, double.PositiveInfinity);
+        }
+
+        private void OnIracingDisconnected() => ResetAllSectors();
+
+        // ----- Edit-mode column reordering -----------------------------------
+
+        /// <summary>Raised when the user finishes dragging a column into a new order.</summary>
+        public event Action? ColumnOrderChanged;
+
+        /// <summary>
+        /// Comma-separated column order for persistence, e.g.
+        /// "Pos,Driver,LastLap,Rel,Gap,Sectors". Setting anything that is not
+        /// a full permutation of the known columns is ignored.
+        /// </summary>
+        public string ColumnOrder
+        {
+            get => string.Join(",", _colOrder);
+            set
+            {
+                if (string.IsNullOrWhiteSpace(value)) return;
+                var parsed = new List<Col>();
+                foreach (var part in value.Split(','))
+                    if (Enum.TryParse(part.Trim(), true, out Col c) && !parsed.Contains(c))
+                        parsed.Add(c);
+                if (parsed.Count != DefaultColumnOrder.Length) return;
+                _colOrder = parsed.ToArray();
+                Invalidate();
+            }
+        }
+
+        // A press on the header row grabs that column instead of dragging the
+        // whole panel; anywhere else the panel moves as before.
+        public override bool OnEditPress(int x, int y)
+        {
+            if (IsCollapsed) return false;
+            int top = TitleBarHeight + Pad;
+            if (y < top || y >= top + HeaderRowHeight) return false;
+            var cells = ColumnCells();
+            for (int i = 0; i < cells.Length; i++)
+            {
+                if (x >= cells[i].Left && x < cells[i].Left + cells[i].Width)
+                {
+                    _dragCol = i;
+                    Invalidate();
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Swap with a neighbor once the pointer crosses that neighbor's
+        // center; loop so one fast drag event can jump several columns.
+        public override void OnEditDrag(int x, int y)
+        {
+            if (_dragCol < 0) return;
+            while (true)
+            {
+                var cells = ColumnCells();
+                if (_dragCol > 0 &&
+                    x < cells[_dragCol - 1].Left + cells[_dragCol - 1].Width / 2)
+                {
+                    (_colOrder[_dragCol - 1], _colOrder[_dragCol]) = (_colOrder[_dragCol], _colOrder[_dragCol - 1]);
+                    _dragCol--;
+                    Invalidate();
+                    continue;
+                }
+                if (_dragCol < cells.Length - 1 &&
+                    x > cells[_dragCol + 1].Left + cells[_dragCol + 1].Width / 2)
+                {
+                    (_colOrder[_dragCol + 1], _colOrder[_dragCol]) = (_colOrder[_dragCol], _colOrder[_dragCol + 1]);
+                    _dragCol++;
+                    Invalidate();
+                    continue;
+                }
+                break;
+            }
+        }
+
+        public override void OnEditRelease(int x, int y)
+        {
+            if (_dragCol < 0) return;
+            _dragCol = -1;
+            Invalidate();
+            ColumnOrderChanged?.Invoke();
+        }
+
+        /// <summary>
+        /// Color codes for one car's sector bars: the last completed pass per
+        /// sector vs the session best (purple), the car's own best (green),
+        /// slower (yellow), invalid (red) or never attempted (dim).
+        /// </summary>
+        private byte[] SectorCodesFor(int carIdx)
+        {
+            lock (_carSectorLock)
+            {
+                if (!_carTimers.TryGetValue(carIdx, out var timer) || timer.Sectors.Count == 0)
+                    return Array.Empty<byte>();
+
+                var codes = new byte[timer.Sectors.Count];
+                for (int i = 0; i < codes.Length; i++)
+                {
+                    var s = timer.Sectors[i];
+                    if (s.Passes == 0) codes[i] = SecNone;
+                    else if (!s.Valid || s.Last <= 0) codes[i] = SecInvalid;
+                    else if (i < _sessionBestSectors.Length && s.Last <= _sessionBestSectors[i] + 0.005)
+                        codes[i] = SecSession;
+                    else if (s.Last <= s.Best + 0.005) codes[i] = SecPersonal;
+                    else codes[i] = SecSlower;
+                }
+                return codes;
             }
         }
 
@@ -186,8 +421,12 @@ namespace BeltTensionTest.WPF.Services.Overlays
             // Only redraw/republish when something visible actually changed.
             var sb = new StringBuilder(_sessionLabel);
             foreach (var r in _rows)
+            {
                 sb.Append('|').Append(r.Pos).Append(r.Name).Append(r.LastLap)
-                  .Append(r.Rel).Append(r.Gap).Append(r.LapDelta).Append(r.IsPlayer ? '*' : ' ');
+                  .Append(r.Rel).Append(r.Gap).Append(r.LapDelta).Append(r.IsPlayer ? '*' : ' ')
+                  .Append(r.LastCmp);
+                foreach (byte code in r.Sectors) sb.Append((char)('0' + code));
+            }
 
             // Sector strip state: the live sector time ticks while driving, so
             // this keeps the panel repainting during an active sector.
@@ -215,13 +454,19 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 .Where(c => player.CarClassId < 0 || c.CarClassId == player.CarClassId)
                 .ToList();
 
+            // Practice/qualy: relative ordering by track location, player
+            // centered — a car's timed standing means nothing for who is
+            // physically around you.
+            if (!isRace)
+            {
+                BuildRelativeRows(classCars, player);
+                return;
+            }
+
             // Race: order by race position (unclassified cars last).
-            // Practice/qualy: order by best lap (no time yet -> last).
-            List<Car> ordered = isRace
-                ? classCars.OrderBy(c => c.Position > 0 ? c.Position : int.MaxValue)
-                           .ThenBy(c => c.CarIdx).ToList()
-                : classCars.OrderBy(c => c.BestLapTime > 0 ? c.BestLapTime : float.MaxValue)
-                           .ThenBy(c => c.CarIdx).ToList();
+            List<Car> ordered = classCars
+                .OrderBy(c => c.Position > 0 ? c.Position : int.MaxValue)
+                .ThenBy(c => c.CarIdx).ToList();
 
             int playerIdx = ordered.FindIndex(c => c.CarIdx == player.CarIdx);
             if (playerIdx < 0) playerIdx = 0;
@@ -254,8 +499,80 @@ namespace BeltTensionTest.WPF.Services.Overlays
                     Gap = isPlayer ? string.Empty : FormatGap(car, player, isRace, lapDelta),
                     LapDelta = lapDelta,
                     IsPlayer = isPlayer,
+                    Sectors = SectorCodesFor(car.CarIdx),
+                    LastCmp = CompareLastLap(car, player, isPlayer),
                 });
             }
+        }
+
+        /// <summary>
+        /// Practice/qualifying rows: ordered by physical track location like
+        /// iRacing's relative box. The player sits on the middle row with the
+        /// nearest cars ahead of them above (farthest at the top) and the
+        /// nearest behind below. Cars in the garage / not in world are hidden;
+        /// the position badge still shows the timed (best lap) standing.
+        /// </summary>
+        private void BuildRelativeRows(List<Car> classCars, Car player)
+        {
+            var rankByIdx = classCars
+                .OrderBy(c => c.BestLapTime > 0 ? c.BestLapTime : float.MaxValue)
+                .ThenBy(c => c.CarIdx)
+                .Select((c, i) => (c.CarIdx, Rank: i + 1))
+                .ToDictionary(t => t.CarIdx, t => t.Rank);
+
+            // Signed lap-fraction distance to the player, folded into
+            // (-0.5, 0.5]: positive = physically ahead of you on track.
+            float playerPct = Math.Clamp(player.LapDistPct, 0f, 1f);
+            static float RelTo(float pct, float playerPct)
+            {
+                float d = pct - playerPct;
+                if (d > 0.5f) d -= 1f;
+                else if (d < -0.5f) d += 1f;
+                return d;
+            }
+
+            var others = classCars
+                .Where(c => c.CarIdx != player.CarIdx && !c.IsInGarage && c.LapDistPct >= 0)
+                .Select(c => (Car: c, Rel: RelTo(Math.Clamp(c.LapDistPct, 0f, 1f), playerPct)))
+                .ToList();
+
+            int half = _carsToDisplay / 2;
+            var ahead = others.Where(o => o.Rel > 0)
+                .OrderBy(o => o.Rel).Take(half).ToList();
+            var behind = others.Where(o => o.Rel <= 0)
+                .OrderByDescending(o => o.Rel).Take(half).ToList();
+
+            for (int i = ahead.Count - 1; i >= 0; i--)
+                AddRelativeRow(ahead[i].Car, player, rankByIdx);
+            AddRelativeRow(player, player, rankByIdx);
+            foreach (var o in behind)
+                AddRelativeRow(o.Car, player, rankByIdx);
+        }
+
+        private void AddRelativeRow(Car car, Car player, Dictionary<int, int> rankByIdx)
+        {
+            bool isPlayer = car.CarIdx == player.CarIdx;
+            _rows.Add(new StandingsRow
+            {
+                Pos = car.ClassPosition > 0 ? car.ClassPosition
+                    : rankByIdx.TryGetValue(car.CarIdx, out int rank) ? rank : 0,
+                Name = car.DriverName,
+                LastLap = FormatLapTime(car.LastLapTime),
+                Rel = isPlayer ? string.Empty : FormatRelative(car, player),
+                Gap = isPlayer ? string.Empty : FormatGap(car, player, isRace: false, lapDelta: 0),
+                LapDelta = 0,
+                IsPlayer = isPlayer,
+                Sectors = SectorCodesFor(car.CarIdx),
+                LastCmp = CompareLastLap(car, player, isPlayer),
+            });
+        }
+
+        /// <summary>Last lap vs the player's: -1 = faster than you, +1 = slower, 0 = player row / no times.</summary>
+        private static int CompareLastLap(Car car, Car player, bool isPlayer)
+        {
+            if (isPlayer || car.LastLapTime <= 0 || player.LastLapTime <= 0) return 0;
+            return car.LastLapTime < player.LastLapTime ? -1
+                 : car.LastLapTime > player.LastLapTime ? 1 : 0;
         }
 
         /// <summary>
@@ -353,13 +670,43 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _sb.Draw(_white, new XnaRectangle(0, TitleBarHeight - 3, Width, 3), Accent);
             MonoXRDraw.VerticalFade(_sb, new XnaRectangle(0, TitleBarHeight, Width, 12), Accent * 0.25f);
 
+            // Column headers in the user's order (right-aligned labels line up
+            // with the right-aligned values beneath them), with a thin rule
+            // under the header row. In edit mode each header gets a faint box
+            // (drag handle hint) and a dragged column is highlighted.
+            var cells = ColumnCells();
+            int headTop = TitleBarHeight + Pad;
+            int headY = headTop + (HeaderRowHeight - _fontHead.LineSpacing) / 2;
+            int rowsBottom = headTop + HeaderRowHeight + _rows.Count * (RowHeight + RowSpacing);
+
+            for (int i = 0; i < cells.Length; i++)
+            {
+                var (col, cl, cw) = cells[i];
+                bool dragging = EditMode && i == _dragCol;
+
+                if (EditMode)
+                {
+                    var handle = new XnaRectangle(cl - 3, headTop, cw + 6, HeaderRowHeight - 4);
+                    MonoXRDraw.RoundedRect(_sb, handle, 6, dragging ? Accent * 0.35f : XnaColor.White * 0.06f);
+                    if (dragging) // shade the whole column while it is being moved
+                        _sb.Draw(_white, new XnaRectangle(cl - 3, headTop + HeaderRowHeight,
+                            cw + 6, Math.Max(0, rowsBottom - headTop - HeaderRowHeight)), Accent * 0.12f);
+                }
+
+                string label = HeaderOf(col);
+                float lx = RightAligned(col) ? cl + cw - _fontHead.MeasureString(label).X : cl;
+                _sb.DrawString(_fontHead, label, new XnaVector2(lx, headY), dragging ? Accent : RowTextDim);
+            }
+            MonoXRDraw.HorizontalFade(_sb,
+                new XnaRectangle(Pad + 4, headTop + HeaderRowHeight - 4, Width - (Pad + 4) * 2, 2), Border);
+
             if (_rows.Count == 0)
             {
                 _sb.DrawString(_fontBody, "Waiting for iRacing...",
-                    new XnaVector2(ColPos, TitleBarHeight + Pad + 10), RowTextDim);
+                    new XnaVector2(ColContentLeft + 10, headTop + HeaderRowHeight + 10), RowTextDim);
             }
 
-            int y = TitleBarHeight + Pad;
+            int y = headTop + HeaderRowHeight;
             foreach (var row in _rows)
             {
                 XnaColor bg, badge;
@@ -379,35 +726,79 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
                 float textY = y + (RowHeight - _fontBody.LineSpacing) / 2f;
 
-                // Position number in a rounded badge.
-                var badgeRect = new XnaRectangle(rowRect.X + 8, y + 5, 42, RowHeight - 10);
-                MonoXRDraw.RoundedRect(_sb, badgeRect, 6, badge);
-                string pos = row.Pos.ToString();
-                var posSize = _fontBody.MeasureString(pos);
-                _sb.DrawString(_fontBody, pos,
-                    new XnaVector2(badgeRect.X + (badgeRect.Width - posSize.X) / 2f, textY), RowText);
-
-                _sb.DrawString(_fontBody, TruncateName(row.Name), new XnaVector2(ColName, textY), RowText);
-
-                var lastLapSize = _fontBody.MeasureString(row.LastLap);
-                _sb.DrawString(_fontBody, row.LastLap,
-                    new XnaVector2(ColLastLapRight - lastLapSize.X, textY), RowTextDim);
-
-                if (!string.IsNullOrEmpty(row.Rel))
+                foreach (var (col, cl, cw) in cells)
                 {
-                    var relSize = _fontBody.MeasureString(row.Rel);
-                    _sb.DrawString(_fontBody, row.Rel,
-                        new XnaVector2(ColRelRight - relSize.X, textY), RowText);
+                    switch (col)
+                    {
+                        case Col.Pos:
+                        {
+                            // Position number in a rounded badge.
+                            var badgeRect = new XnaRectangle(cl, y + 5, Math.Min(42, cw), RowHeight - 10);
+                            MonoXRDraw.RoundedRect(_sb, badgeRect, 6, badge);
+                            string pos = row.Pos.ToString();
+                            var posSize = _fontBody.MeasureString(pos);
+                            _sb.DrawString(_fontBody, pos,
+                                new XnaVector2(badgeRect.X + (badgeRect.Width - posSize.X) / 2f, textY), RowText);
+                            break;
+                        }
+                        case Col.Driver:
+                            _sb.DrawString(_fontBody, TruncateText(row.Name, cw),
+                                new XnaVector2(cl, textY), RowText);
+                            break;
+                        case Col.Sectors:
+                        {
+                            // One thin vertical bar per sector, right-aligned
+                            // in the cell, colored by that car's last pass
+                            // (see SectorCodesFor).
+                            if (row.Sectors == null || row.Sectors.Length == 0) break;
+                            const int BarW = 10, BarGap = 5;
+                            int barH = RowHeight - 14;
+                            int barX = cl + cw - row.Sectors.Length * (BarW + BarGap) + BarGap;
+                            foreach (byte code in row.Sectors)
+                            {
+                                XnaColor c = code switch
+                                {
+                                    SecSession => SecPurple,
+                                    SecPersonal => SecGreen,
+                                    SecSlower => SecYellow,
+                                    SecInvalid => SecRed,
+                                    _ => new XnaColor(0x3A, 0x3A, 0x52),
+                                };
+                                MonoXRDraw.RoundedRect(_sb, new XnaRectangle(barX, y + 7, BarW, barH), 3, c);
+                                barX += BarW + BarGap;
+                            }
+                            break;
+                        }
+                        case Col.LastLap:
+                        {
+                            // Faster last lap than yours = red (threat),
+                            // slower = green, no comparison = dim.
+                            XnaColor c = row.LastCmp < 0 ? SecRed
+                                       : row.LastCmp > 0 ? SecGreen : RowTextDim;
+                            DrawRight(row.LastLap, cl + cw, textY, c);
+                            break;
+                        }
+                        case Col.Rel:
+                            if (!string.IsNullOrEmpty(row.Rel))
+                                DrawRight(row.Rel, cl + cw, textY, RowText);
+                            break;
+                        case Col.Gap:
+                            if (!string.IsNullOrEmpty(row.Gap))
+                                DrawRight(row.Gap, cl + cw, textY, RowText);
+                            break;
+                    }
                 }
-
-                var gapSize = _fontBody.MeasureString(row.Gap);
-                _sb.DrawString(_fontBody, row.Gap,
-                    new XnaVector2(ColGapRight - gapSize.X, textY), RowText);
 
                 y += RowHeight + RowSpacing;
             }
 
             DrawSectorStrip();
+
+            void DrawRight(string text, int rightEdge, float textY, XnaColor color)
+            {
+                _sb.DrawString(_fontBody, text,
+                    new XnaVector2(rightEdge - _fontBody.MeasureString(text).X, textY), color);
+            }
 
             // Rounded panel outline.
             MonoXRDraw.RoundedRectOutline(_sb, panel, Radius, 2, Border);
@@ -520,10 +911,9 @@ namespace BeltTensionTest.WPF.Services.Overlays
             }
         }
 
-        /// <summary>Trim the driver name (with an ellipsis) so it never runs into the lap-time column.</summary>
-        private string TruncateName(string name)
+        /// <summary>Trim text (with an ellipsis) so it never overflows its column cell.</summary>
+        private string TruncateText(string name, float maxWidth)
         {
-            float maxWidth = ColLastLapRight - 120 - ColName;
             if (string.IsNullOrEmpty(name) || _fontBody.MeasureString(name).X <= maxWidth)
                 return name;
             for (int len = name.Length - 1; len > 0; len--)
@@ -538,7 +928,10 @@ namespace BeltTensionTest.WPF.Services.Overlays
         public override void Dispose()
         {
             IracingService.Instance.PlayerCarUpdated -= OnPlayerCarUpdated;
+            IracingService.Instance.CarsUpdated -= OnCarsUpdated;
+            IracingService.Instance.SessionTypeChanged -= OnSessionTypeChanged;
             IracingService.Instance.Disconnected -= OnIracingDisconnected;
+            _fontHead.Texture.Dispose();
             _fontBody.Texture.Dispose();
             _font.Texture.Dispose();
             _white.Dispose();
