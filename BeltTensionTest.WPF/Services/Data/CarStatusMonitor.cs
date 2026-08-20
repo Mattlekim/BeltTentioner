@@ -56,8 +56,9 @@ namespace BeltTensionTest.WPF.Services.Data
             public float SpeedKmh;
             public float BelowTime;
             public bool Yellow;
-            public float LastGap = float.NaN;  // est-time gap to the player last tick
-            public float Rate;                 // smoothed closing rate, s/s
+            public double SampleTime = -1;     // when SampleGap was taken
+            public float SampleGap = float.NaN;// est-time gap to the player ~1 s ago
+            public float Rate;                 // closing rate over that baseline, s/s
             public bool Slow;
             public bool YellowHazard;
             public bool SlowHazard;
@@ -162,7 +163,8 @@ namespace BeltTensionTest.WPF.Services.Data
                     w.YellowHazard = w.SlowHazard = false;
                     if (isPlayer || car.EstTime <= 0 || player.EstTime <= 0)
                     {
-                        w.LastGap = float.NaN;
+                        w.SampleGap = float.NaN;
+                        w.SampleTime = -1;
                         continue;
                     }
                     float gap = car.EstTime - player.EstTime;
@@ -174,15 +176,23 @@ namespace BeltTensionTest.WPF.Services.Data
                         else if (gap < -lapTime * 0.5f) gap += lapTime;
                     }
 
-                    // Slow-car: smoothed closing rate with hysteresis. Wrap
-                    // flips of the gap produce absurd rates — skip those.
-                    if (!float.IsNaN(w.LastGap))
+                    // Slow-car: closing rate measured over a ~1 s baseline.
+                    // Remote-car EstTime moves in steps, so tick-to-tick
+                    // deltas are noise; a longer baseline gives a stable s/s
+                    // figure. Wrap flips of the gap produce absurd rates —
+                    // reset the baseline instead of ingesting those.
+                    if (w.SampleTime < 0 || float.IsNaN(w.SampleGap))
                     {
-                        float rate = (w.LastGap - gap) / dt;
-                        if (Math.Abs(rate) < 50f)
-                            w.Rate = w.Rate * 0.8f + rate * 0.2f;
+                        w.SampleTime = time;
+                        w.SampleGap = gap;
                     }
-                    w.LastGap = gap;
+                    else if (time - w.SampleTime >= 1.0)
+                    {
+                        float rate = (w.SampleGap - gap) / (float)(time - w.SampleTime);
+                        if (Math.Abs(rate) < 50f) w.Rate = rate;
+                        w.SampleTime = time;
+                        w.SampleGap = gap;
+                    }
 
                     if (!car.IsOnTrack || car.OnPitRoad || w.Yellow)
                     {

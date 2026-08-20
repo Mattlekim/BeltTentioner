@@ -430,6 +430,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
             // Only redraw/republish when something visible actually changed.
             var sb = new StringBuilder(_sessionLabel);
+            sb.Append(svc.IsConnected ? 'C' : 'D'); // connect/disconnect must repaint (panel hides)
             bool anyHazard = false;
             foreach (var r in _rows)
             {
@@ -671,6 +672,14 @@ namespace BeltTensionTest.WPF.Services.Overlays
         {
             const int Radius = 16;
             const int RowRadius = 8;
+
+            // Invisible (collapsed pill included) while iRacing isn't running;
+            // edit mode still draws the panel so it can be found and dragged.
+            if (!IracingService.Instance.IsConnected && !EditMode)
+            {
+                GraphicsDevice.Clear(XnaColor.Transparent);
+                return;
+            }
 
             if (IsCollapsed)
             {
