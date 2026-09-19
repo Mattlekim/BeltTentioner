@@ -84,7 +84,10 @@
       <Output TaskParameter="ExitCode" PropertyName="_MonoXRBuildExit" />
     </Exec>
     <Warning Condition="'$(_MonoXRBuildExit)' != '0' and Exists('$(MonoXRLayerDll)')" Text="MonoXR: native layer did not rebuild (cmake exit $(_MonoXRBuildExit)) — usually because a running OpenXR app (e.g. iRacing) has the DLL locked. Using the existing layer DLL. Close the VR app and rebuild to apply layer changes." />
-    <Error Condition="'$(_MonoXRBuildExit)' != '0' and !Exists('$(MonoXRLayerDll)')" Text="MonoXR: native layer failed to build and no existing DLL is present (cmake exit $(_MonoXRBuildExit)). Ensure CMake + VS2022 C++ tools are installed." />
+    <!-- Debug builds may run without the layer (machine without CMake/C++ tools):
+         the app works, only the in-VR overlay is missing. Release must have it. -->
+    <Warning Condition="'$(_MonoXRBuildExit)' != '0' and !Exists('$(MonoXRLayerDll)') and '$(Configuration)' == 'Debug'" Text="MonoXR: native layer failed to build and no existing DLL is present (cmake exit $(_MonoXRBuildExit)). Debug build continues WITHOUT the in-VR overlay layer. Install CMake + VS2022 C++ tools to build it." />
+    <Error Condition="'$(_MonoXRBuildExit)' != '0' and !Exists('$(MonoXRLayerDll)') and '$(Configuration)' != 'Debug'" Text="MonoXR: native layer failed to build and no existing DLL is present (cmake exit $(_MonoXRBuildExit)). Ensure CMake + VS2022 C++ tools are installed." />
   </Target>
 
   <!--
@@ -97,8 +100,10 @@
     BuildMonoXRLayer during this same build is picked up.
   -->
   <Target Name="IncludeMonoXRLayerFiles" BeforeTargets="AssignTargetPaths" DependsOnTargets="BuildMonoXRLayer">
-    <Error Condition="!Exists('$(MonoXRLayerDll)')" Text="MonoXR: layer DLL not found at $(MonoXRLayerDll); cannot package it with the app." />
-    <ItemGroup>
+    <Error Condition="!Exists('$(MonoXRLayerDll)') and '$(Configuration)' != 'Debug'" Text="MonoXR: layer DLL not found at $(MonoXRLayerDll); cannot package it with the app." />
+    <!-- No DLL (Debug only, see above): ship neither file so MonoXRLayerInstaller
+         sees no manifest and leaves any existing registration alone. -->
+    <ItemGroup Condition="Exists('$(MonoXRLayerDll)')">
       <Content Include="$(MonoXRLayerDll)" Link="XR_APILAYER_NOVELTY_monoxr.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
       <Content Include="MonoXRLayer\MonoXR.json" Link="MonoXR.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     </ItemGroup>

@@ -164,6 +164,33 @@ namespace BeltTensionTest.WPF.Services.Overlays
             Invalidate();
         }
 
+        // ----- Mouse ---------------------------------------------------------
+        // In and out of edit mode, pressing a slider bar sets/drags its value
+        // and clicking a toggle row toggles it. In edit mode, presses elsewhere
+        // fall through so the panel still drags.
+
+        public override bool OnPointerPress(int x, int y) => MenuPress(x, y);
+        public override void OnPointerDrag(int x, int y) => _menu.OnPointerDrag(x, y);
+        public override void OnPointerRelease(int x, int y) => MenuRelease(x, y);
+
+        public override bool OnEditPress(int x, int y) => MenuPress(x, y);
+        public override void OnEditDrag(int x, int y) => _menu.OnPointerDrag(x, y);
+        public override void OnEditRelease(int x, int y) => MenuRelease(x, y);
+
+        private bool MenuPress(int x, int y)
+        {
+            if (IsCollapsed) return false;
+            bool captured = _menu.OnPointerPress(x, y);
+            Invalidate(); // the press may have moved the selection highlight
+            return captured;
+        }
+
+        private void MenuRelease(int x, int y)
+        {
+            _menu.OnPointerRelease(x, y);
+            Invalidate();
+        }
+
         public override void Update(GameTime gameTime)
         {
             // Pull external value changes (WPF UI, loaded car settings) into the controls.

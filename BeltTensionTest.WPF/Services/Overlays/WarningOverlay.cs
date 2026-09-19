@@ -13,7 +13,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
     /// In-VR yellow-flag warning, ported from IrachingHud's YellowFlagBox.
     /// A car "throws yellow" when it is on track (not on pit road) and its
     /// speed stays below 50 km/h for more than a second; when such a car is
-    /// ahead of the player and within 10 seconds on track, a yellow card
+    /// ahead of the player and within 10 seconds on track, a yellow bar
     /// appears with a flashing readout of the time gap to the hazard.
     /// Suppressed in Lone Qualify sessions, like the original.
     ///
@@ -22,8 +22,10 @@ namespace BeltTensionTest.WPF.Services.Overlays
     /// </summary>
     public sealed class WarningOverlay : OverlayRenderTarget
     {
-        private const int BoxWidth = 360;
-        private const int BoxHeight = 120;
+        // The original box is 200x50; scaled 1.6x so the readout stays legible
+        // in VR, keeping the same 4:1 bar proportions.
+        private const int BoxWidth = 320;
+        private const int BoxHeight = 80;
         private const int HeaderHeight = 44;
 
         private static readonly XnaColor CardYellow = new XnaColor(0xFF, 0xD5, 0x2E, 245);
@@ -33,6 +35,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private readonly SpriteBatch _sb;
         private readonly SpriteFont _fontHeader;
         private readonly SpriteFont _fontBig;
+        private readonly SpriteFont _fontLabel;
+        private readonly Texture2D _pixel;
         private readonly int _collapsedWidth;
 
         private bool _show;
@@ -48,7 +52,12 @@ namespace BeltTensionTest.WPF.Services.Overlays
             Name = "Yellow Warning";
             _sb = new SpriteBatch(device);
             _fontHeader = RuntimeSpriteFont.Bake(device, "Segoe UI", 26f, System.Drawing.FontStyle.Bold);
-            _fontBig = RuntimeSpriteFont.Bake(device, "Segoe UI", 44f, System.Drawing.FontStyle.Bold);
+            // The original draws its readout in its MainFont (Comic Sans MS
+            // Bold 20pt) and its edit label at half scale; both scaled 1.6x.
+            _fontBig = RuntimeSpriteFont.Bake(device, "Comic Sans MS", 32f, System.Drawing.FontStyle.Bold);
+            _fontLabel = RuntimeSpriteFont.Bake(device, "Comic Sans MS", 16f, System.Drawing.FontStyle.Bold);
+            _pixel = new Texture2D(device, 1, 1);
+            _pixel.SetData(new[] { XnaColor.White });
             _collapsedWidth = (int)_fontHeader.MeasureString(Name).X + 60;
         }
 
@@ -93,30 +102,27 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 return;
             }
 
-            // Invisible while idle; edit mode draws a dimmed placeholder so
-            // the card can be found and dragged (like the original's MoveMode).
+            // Invisible while idle; edit mode draws the box with a steady
+            // readout and a small label so it can be found and dragged
+            // (the original's MoveMode).
             bool placeholder = !_show && EditMode;
             if (!_show && !placeholder) return;
 
-            float alpha = placeholder ? 0.45f : 1f;
             _sb.Begin();
 
-            var card = new XnaRectangle(0, 0, Width, Height);
-            MonoXRDraw.RoundedRect(_sb, card, 16, CardYellow * alpha);
-            MonoXRDraw.VerticalFade(_sb, new XnaRectangle(16, 0, Width - 32, Height / 3), XnaColor.White * (0.18f * alpha));
-            MonoXRDraw.RoundedRectOutline(_sb, card, 16, 3, CardYellowDark * alpha);
+            // Matches YellowFlagBox: a plain solid-yellow bar with only the
+            // time-to-hazard readout centered in black, flashing while live.
+            _sb.Draw(_pixel, new XnaRectangle(0, 0, Width, Height), XnaColor.Yellow);
 
-            _sb.DrawString(_fontHeader, "YELLOW FLAG", new XnaVector2(18, 8), TextDark * alpha);
+            if (placeholder)
+                _sb.DrawString(_fontLabel, "Yellow Warning", XnaVector2.Zero, XnaColor.Black);
 
-            // Time-to-hazard readout, centered in the lower part. Flashes
-            // while live; steady sample value in the edit-mode placeholder.
             if (placeholder || _flasher > 1f)
             {
-                string readout = placeholder ? "00.00" : $"{_warnTime:00.00}";
+                string readout = $"{_warnTime:00.00}";
                 var size = _fontBig.MeasureString(readout);
                 _sb.DrawString(_fontBig, readout,
-                    new XnaVector2((Width - size.X) / 2f, HeaderHeight + (Height - HeaderHeight - size.Y) / 2f),
-                    TextDark * alpha);
+                    new XnaVector2((Width - size.X) / 2f, (Height - size.Y) / 2f), XnaColor.Black);
             }
 
             _sb.End();
@@ -124,6 +130,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public override void Dispose()
         {
+            _pixel.Dispose();
+            _fontLabel.Texture.Dispose();
             _fontBig.Texture.Dispose();
             _fontHeader.Texture.Dispose();
             _sb.Dispose();

@@ -1,7 +1,7 @@
-<Window x:Class="BeltTensionTest.WPF.Views.OverlayWindow"
+﻿<Window x:Class="BeltTensionTest.WPF.Views.OverlayWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="OpenXR Overlay" Width="560" Height="360"
+        Title="OpenXR Overlay" Width="560" Height="460"
         Background="Transparent" Foreground="#A0A0BE"
         FontFamily="Segoe UI" WindowStyle="None" AllowsTransparency="True">
 
@@ -48,12 +48,15 @@
                     <ToggleButton x:Name="PreviewButton" DockPanel.Dock="Right" Content="Preview"
                                   Width="70" Height="24" Margin="8,0,0,0"
                                   Checked="PreviewButton_Changed" Unchecked="PreviewButton_Changed"/>
+                    <Button x:Name="RecenterButton" DockPanel.Dock="Right" Content="Recenter"
+                            Width="70" Height="24" Margin="8,0,0,0" Click="RecenterButton_Click"
+                            ToolTip="Center the overlay on where the headset is looking right now"/>
                     <TextBlock x:Name="StatusLabel" VerticalAlignment="Center"
                                FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"
                                Text="Initialising…"/>
                 </DockPanel>
 
-                <!-- Edit-mode panel: VR display size/distance + canvas resolution -->
+                <!-- Edit-mode panel: VR display size/distance + canvas DPI -->
                 <Border Grid.Row="1" x:Name="EditPanel" Visibility="Collapsed"
                         Background="#0E0E1A" BorderBrush="#46466A" BorderThickness="1"
                         CornerRadius="4" Padding="10" Margin="0,0,0,8">
@@ -68,16 +71,19 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Width (m)" VerticalAlignment="Center" Margin="0,0,10,4"/>
-                        <Slider Grid.Row="0" Grid.Column="1" x:Name="SizeXSlider" Minimum="0.25" Maximum="8"
+                        <Slider Grid.Row="0" Grid.Column="1" x:Name="SizeXSlider" Minimum="0.5" Maximum="8"
                                 TickFrequency="0.05" IsSnapToTickEnabled="True" Margin="0,0,8,4"
                                 ValueChanged="DisplaySlider_ValueChanged"/>
                         <TextBlock Grid.Row="0" Grid.Column="2" x:Name="SizeXValue" VerticalAlignment="Center" Margin="0,0,0,4"/>
 
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="Height (m)" VerticalAlignment="Center" Margin="0,0,10,4"/>
-                        <Slider Grid.Row="1" Grid.Column="1" x:Name="SizeYSlider" Minimum="0.25" Maximum="8"
+                        <Slider Grid.Row="1" Grid.Column="1" x:Name="SizeYSlider" Minimum="0.5" Maximum="8"
                                 TickFrequency="0.05" IsSnapToTickEnabled="True" Margin="0,0,8,4"
                                 ValueChanged="DisplaySlider_ValueChanged"/>
                         <TextBlock Grid.Row="1" Grid.Column="2" x:Name="SizeYValue" VerticalAlignment="Center" Margin="0,0,0,4"/>
@@ -88,14 +94,29 @@
                                 ValueChanged="DisplaySlider_ValueChanged"/>
                         <TextBlock Grid.Row="2" Grid.Column="2" x:Name="DistanceValue" VerticalAlignment="Center" Margin="0,0,0,4"/>
 
-                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Resolution (px)" VerticalAlignment="Center" Margin="0,4,10,0"/>
-                        <StackPanel Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,4,0,0">
-                            <TextBox x:Name="ResWidthBox" Width="64" Height="22" VerticalContentAlignment="Center"
-                                     Background="#12121E" Foreground="#D0D0E4" BorderBrush="#46466A"/>
-                            <TextBlock Text="×" VerticalAlignment="Center" Margin="6,0"/>
-                            <TextBox x:Name="ResHeightBox" Width="64" Height="22" VerticalContentAlignment="Center"
-                                     Background="#12121E" Foreground="#D0D0E4" BorderBrush="#46466A"/>
-                            <Button Content="Apply" Height="22" Width="60" Margin="10,0,0,0" Click="ApplyResolution_Click"/>
+                        <!-- Canvas resolution = display size × DPI (pixels per meter) -->
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="DPI (px/m)" VerticalAlignment="Center" Margin="0,0,10,4"/>
+                        <Slider Grid.Row="3" Grid.Column="1" x:Name="DpiSlider" Minimum="128" Maximum="2048"
+                                TickFrequency="16" IsSnapToTickEnabled="True" Margin="0,0,8,4"
+                                ValueChanged="DisplaySlider_ValueChanged"/>
+                        <TextBlock Grid.Row="3" Grid.Column="2" x:Name="DpiValue" VerticalAlignment="Center" Margin="0,0,0,4"/>
+
+                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Resolution" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBlock Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2" x:Name="ResolutionValue"
+                                   VerticalAlignment="Center"/>
+
+                        <!-- Depth-only distance: match the game's UI depth so both eyes agree on the cursor -->
+                        <CheckBox Grid.Row="5" Grid.Column="1" Grid.ColumnSpan="2" x:Name="DepthOnlyCheck"
+                                  Content="Distance changes depth only (keep apparent size)"
+                                  Foreground="#A0A0BE" Margin="0,4,0,0"
+                                  ToolTip="When ticked, the Distance slider moves the overlay nearer/farther but scales it so it looks exactly the same size, and keeps the resolution and panel layout. Use it to put the overlay at the same depth as the game's UI: slide until the red cursor no longer jumps sideways against the game's cursor when you close one eye, then the other."/>
+
+                        <!-- Line the red edit cursor up with the game's own in-VR mouse cursor -->
+                        <TextBlock Grid.Row="6" Grid.Column="0" Text="Mouse" VerticalAlignment="Center" Margin="0,6,10,0"/>
+                        <StackPanel Grid.Row="6" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,6,0,0">
+                            <Button Content="Calibrate mouse" Height="22" Padding="10,0" Click="CalibrateMouse_Click"
+                                    ToolTip="With the game running: put the GAME'S mouse cursor on the green cross shown in VR and left-click, twice. The red cursor then sits on the game's cursor."/>
+                            <Button Content="Reset" Height="22" Padding="10,0" Margin="8,0,0,0" Click="ResetMouseCalibration_Click"/>
                         </StackPanel>
                     </Grid>
                 </Border>

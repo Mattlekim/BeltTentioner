@@ -801,7 +801,10 @@ namespace BeltTensionTest.WPF.ViewModels
 
 
             if (_carSettingsSvc.Settings.Count == 0)
+            {
+                _isLoading = false;
                 return;
+            }
 
             if (!_carSettingsSvc.Settings.ContainsKey(carName))
             {

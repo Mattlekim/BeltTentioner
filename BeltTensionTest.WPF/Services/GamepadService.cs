@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows.Threading;
 
@@ -16,8 +18,25 @@ namespace BeltTensionTest.WPF.Services
     {
         public static GamepadService Instance { get; } = new GamepadService();
 
-        /// <summary>Raised (on the UI thread) with the button name when a control is newly pressed.</summary>
+        /// <summary>
+        /// Raised (on the UI thread) with the button name when a control is
+        /// newly pressed. <see cref="IsHeld"/> already reflects the same poll,
+        /// so a handler can check what else is being held (button combos).
+        /// </summary>
         public event Action<string>? ButtonPressed;
+
+        /// <summary>Raised (on the UI thread) after every poll, once presses have been raised.</summary>
+        public event Action? Polled;
+
+        // Every control down as of the last poll, across all devices.
+        private HashSet<string> _held = new(StringComparer.OrdinalIgnoreCase);
+        private readonly List<string> _pressedThisPoll = new();
+
+        /// <summary>True while the named control is held down (as of the last poll).</summary>
+        public bool IsHeld(string name) => _held.Contains(name);
+
+        /// <summary>Snapshot of every control currently held down.</summary>
+        public IReadOnlyCollection<string> HeldButtons => _held.ToArray();
 
         private const int MaxControllers = 4;   // XInput
         private const int MaxJoysticks = 16;     // winmm
@@ -81,14 +100,25 @@ namespace BeltTensionTest.WPF.Services
             _started = false;
         }
 
+        // Poll every device first, then raise the presses: that way a handler
+        // for one press sees the full held state, whichever device the other
+        // buttons of a combo live on.
         private void Poll()
         {
-            PollXInput();
-            PollJoysticks();
+            var held = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            _pressedThisPoll.Clear();
+            PollXInput(held);
+            PollJoysticks(held);
+            _held = held;
+            foreach (var name in _pressedThisPoll)
+            {
+                try { ButtonPressed?.Invoke(name); } catch { }
+            }
+            try { Polled?.Invoke(); } catch { }
         }
 
         // ---- XInput (Xbox controllers) --------------------------------------------------------
-        private void PollXInput()
+        private void PollXInput(HashSet<string> held)
         {
             for (uint i = 0; i < MaxControllers; i++)
             {
@@ -105,17 +135,16 @@ namespace BeltTensionTest.WPF.Services
                 ushort prev = _prevConnected[i] ? _prevButtons[i] : (ushort)0;
                 int newlyPressed = buttons & ~prev;
 
-                if (newlyPressed != 0)
+                foreach (var (flag, name) in ButtonMap)
                 {
-                    foreach (var (flag, name) in ButtonMap)
-                    {
-                        if ((newlyPressed & flag) != 0)
-                            Raise(name);
-                    }
+                    if ((buttons & flag) != 0) held.Add(name);
+                    if ((newlyPressed & flag) != 0) Raise(name);
                 }
 
                 bool lt = state.Gamepad.bLeftTrigger > TriggerThreshold;
                 bool rt = state.Gamepad.bRightTrigger > TriggerThreshold;
+                if (lt) held.Add("LeftTrigger");
+                if (rt) held.Add("RightTrigger");
                 if (lt && !(_prevConnected[i] && _prevLeftTrigger[i])) Raise("LeftTrigger");
                 if (rt && !(_prevConnected[i] && _prevRightTrigger[i])) Raise("RightTrigger");
 
@@ -127,7 +156,7 @@ namespace BeltTensionTest.WPF.Services
         }
 
         // ---- winmm (DirectInput wheels / generic joysticks) -----------------------------------
-        private void PollJoysticks()
+        private void PollJoysticks(HashSet<string> held)
         {
             uint count = 0;
             try { count = joyGetNumDevs(); }
@@ -158,17 +187,15 @@ namespace BeltTensionTest.WPF.Services
                 uint buttons = info.dwButtons;
                 uint prev = _prevJoyConnected[id] ? _prevJoyButtons[id] : 0;
                 uint newlyPressed = buttons & ~prev;
-                if (newlyPressed != 0)
+                for (int b = 0; b < 32; b++)
                 {
-                    for (int b = 0; b < 32; b++)
-                    {
-                        if ((newlyPressed & (1u << b)) != 0)
-                            Raise("Button" + (b + 1));
-                    }
+                    if ((buttons & (1u << b)) != 0) held.Add("Button" + (b + 1));
+                    if ((newlyPressed & (1u << b)) != 0) Raise("Button" + (b + 1));
                 }
 
                 // POV hat: report the four cardinal directions on entry.
                 string pov = ClassifyPov(info.dwPOV);
+                if (pov.Length != 0) held.Add(pov);
                 string prevPov = _prevJoyConnected[id] ? _prevJoyPov[id] : string.Empty;
                 if (pov.Length != 0 && pov != prevPov)
                     Raise(pov);
@@ -190,10 +217,8 @@ namespace BeltTensionTest.WPF.Services
             return "PovLeft";
         }
 
-        private void Raise(string name)
-        {
-            try { ButtonPressed?.Invoke(name); } catch { }
-        }
+        // Queued; Poll raises them once every device's held state is known.
+        private void Raise(string name) => _pressedThisPoll.Add(name);
 
         // ---- XInput P/Invoke ------------------------------------------------------------------
         [StructLayout(LayoutKind.Sequential)]

@@ -70,6 +70,7 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
@@ -108,6 +109,10 @@
                         <TextBlock Grid.Row="10" Grid.Column="0" Text="Previous control:" VerticalAlignment="Center" Margin="0,6" Foreground="#A0A0BE" />
                         <views:KeyBindingControl x:Name="kb_NavPrevControl" Grid.Row="10" Grid.Column="1" Margin="6,4" />
 
+                        <TextBlock Grid.Row="11" Grid.Column="0" Text="Recenter overlay:" VerticalAlignment="Center" Margin="0,6" Foreground="#A0A0BE"
+                                   ToolTip="Centers the OpenXR overlay on where the headset is looking (same as the overlay window's Recenter button). Always works system-wide, even while the sim has focus." />
+                        <views:KeyBindingControl x:Name="kb_RecenterOverlay" Grid.Row="11" Grid.Column="1" Margin="6,4" ShowGlobalOption="False" />
+
                     </Grid>
                     </ScrollViewer>
                 </TabItem>
@@ -122,7 +127,9 @@
 
                         <Separator Margin="0,8" Background="#46466A"/>
 
-                        <CheckBox x:Name="chk_AutoStartOverlay" Content="Start OpenXR overlay automatically" Foreground="#A0A0BE" Margin="0,4"
+                        <CheckBox x:Name="chk_EnableOverlay" Content="Enable OpenXR overlay" Foreground="#A0A0BE" Margin="0,4"
+                                  ToolTip="Runs the OpenXR overlay in the background from app start — the overlay window does not need to be open. Open it (Settings → OpenXR Overlay...) only to edit the layout; closing it keeps the overlay running."/>
+                        <CheckBox x:Name="chk_AutoStartOverlay" Content="Open the overlay window on startup" Foreground="#A0A0BE" Margin="0,4"
                                   ToolTip="Opens the OpenXR overlay window automatically when the app starts."/>
                     </StackPanel>
                 </TabItem>
