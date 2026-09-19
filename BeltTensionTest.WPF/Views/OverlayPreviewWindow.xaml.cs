@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -31,6 +31,7 @@ namespace BeltTensionTest.WPF.Views
         // by the next TryGetLeftButton poll — so a click faster than the
         // host's poll interval can never be missed.
         private bool _clickLatch;
+        private bool _rightClickLatch;
 
         public OverlayPreviewWindow()
         {
@@ -38,6 +39,10 @@ namespace BeltTensionTest.WPF.Views
             PreviewMouseLeftButtonDown += (_, _) =>
             {
                 if (TryGetCanvasCursor() != null) _clickLatch = true;
+            };
+            PreviewMouseRightButtonDown += (_, _) =>
+            {
+                if (TryGetCanvasCursor() != null) _rightClickLatch = true;
             };
         }
 
@@ -55,6 +60,16 @@ namespace BeltTensionTest.WPF.Views
             return result;
         }
 
+        /// <summary>Right-button state, latched like <see cref="TryGetLeftButton"/>.</summary>
+        public bool? TryGetRightButton()
+        {
+            if (TryGetCanvasCursor() == null) return null;
+            bool pressed = Mouse.RightButton == MouseButtonState.Pressed;
+            bool result = pressed || _rightClickLatch;
+            if (!pressed) _rightClickLatch = false;
+            return result;
+        }
+
         /// <summary>
         /// Copy the overlay canvas into the preview if it changed since the
         /// last call. Must run on the thread that renders the host (the UI
@@ -69,7 +84,7 @@ namespace BeltTensionTest.WPF.Views
             int maxW = RoundUp((int)(Math.Max(1, PreviewArea.ActualWidth) * dpi.DpiScaleX), 64);
             int maxH = RoundUp((int)(Math.Max(1, PreviewArea.ActualHeight) * dpi.DpiScaleY), 64);
 
-            int version = host.CanvasVersion;
+            int version = host.PreviewVersion; // canvas recomposed or cursor moved
             if (version == _lastVersion && maxW == _lastMaxW && maxH == _lastMaxH) return;
             _lastVersion = version;
             _lastMaxW = maxW;

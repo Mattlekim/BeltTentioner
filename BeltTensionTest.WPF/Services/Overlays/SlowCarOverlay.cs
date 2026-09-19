@@ -17,7 +17,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
     /// quickly — with hysteresis so it clears at half that rate. Cars in the
     /// pits, out of world, or already throwing the yellow-flag warning (a
     /// near-stopped car is WarningOverlay's job) don't count. When a slow car
-    /// is ahead and within 10 seconds, an amber card appears with a flashing
+    /// is ahead and within 10 seconds, a dark olive bar appears with a flashing
     /// readout of the time gap to it. Suppressed in Lone Qualify sessions,
     /// like the original.
     ///
@@ -26,23 +26,23 @@ namespace BeltTensionTest.WPF.Services.Overlays
     /// </summary>
     public sealed class SlowCarOverlay : OverlayRenderTarget
     {
-        private const int BoxWidth = 300;
-        private const int BoxHeight = 110;
-        private const int HeaderHeight = 40;
+        // The original box is 200x50; scaled 1.6x so the readout stays legible
+        // in VR, keeping the same 4:1 bar proportions.
+        private const int BoxWidth = 320;
+        private const int BoxHeight = 80;
+        private const int HeaderHeight = 44;
 
-        // The live card flashes between bright yellow and a dim olive (the
-        // original SlowCarBox was a flashing yellow box); the collapsed pill
-        // and edit placeholder stay amber so it isn't mistaken for the
-        // yellow-flag card at a glance.
+        // Collapsed pill stays amber so it isn't mistaken for the
+        // yellow-flag pill at a glance.
         private static readonly XnaColor CardAmber = new XnaColor(0xFF, 0x9E, 0x2E, 245);
         private static readonly XnaColor CardAmberDark = new XnaColor(0xB5, 0x66, 0x00);
-        private static readonly XnaColor CardFlashYellow = new XnaColor(0xFF, 0xD5, 0x2E, 245);
-        private static readonly XnaColor CardFlashDim = new XnaColor(0x6E, 0x58, 0x10, 235);
         private static readonly XnaColor TextDark = new XnaColor(0x1F, 0x10, 0x00);
 
         private readonly SpriteBatch _sb;
         private readonly SpriteFont _fontHeader;
         private readonly SpriteFont _fontBig;
+        private readonly SpriteFont _fontLabel;
+        private readonly Texture2D _pixel;
         private readonly int _collapsedWidth;
 
         private bool _show;
@@ -58,7 +58,12 @@ namespace BeltTensionTest.WPF.Services.Overlays
             Name = "Slow Car";
             _sb = new SpriteBatch(device);
             _fontHeader = RuntimeSpriteFont.Bake(device, "Segoe UI", 26f, System.Drawing.FontStyle.Bold);
-            _fontBig = RuntimeSpriteFont.Bake(device, "Segoe UI", 44f, System.Drawing.FontStyle.Bold);
+            // The original draws its readout in its MainFont (Comic Sans MS
+            // Bold 20pt) and its edit label at half scale; both scaled 1.6x.
+            _fontBig = RuntimeSpriteFont.Bake(device, "Comic Sans MS", 32f, System.Drawing.FontStyle.Bold);
+            _fontLabel = RuntimeSpriteFont.Bake(device, "Comic Sans MS", 16f, System.Drawing.FontStyle.Bold);
+            _pixel = new Texture2D(device, 1, 1);
+            _pixel.SetData(new[] { XnaColor.White });
             _collapsedWidth = (int)_fontHeader.MeasureString(Name).X + 60;
         }
 
@@ -103,37 +108,39 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 return;
             }
 
-            // Invisible while idle; edit mode draws a dimmed placeholder so
-            // the card can be found and dragged (the original's MoveMode).
+            // Invisible while idle; edit mode draws the box with a steady
+            // readout and a small label so it can be found and dragged
+            // (the original's MoveMode).
             bool placeholder = !_show && EditMode;
             if (!_show && !placeholder) return;
 
-            float alpha = placeholder ? 0.45f : 1f;
             _sb.Begin();
 
-            // Live: the box itself flashes yellow (like the original); the
-            // readout stays steady so it remains readable. Placeholder: amber.
-            XnaColor fill = placeholder ? CardAmber * alpha
-                          : _flasher > 1f ? CardFlashYellow : CardFlashDim;
-            var card = new XnaRectangle(0, 0, Width, Height);
-            MonoXRDraw.RoundedRect(_sb, card, 16, fill);
-            MonoXRDraw.VerticalFade(_sb, new XnaRectangle(16, 0, Width - 32, Height / 3), XnaColor.White * (0.18f * alpha));
-            MonoXRDraw.RoundedRectOutline(_sb, card, 16, 3, CardAmberDark * alpha);
+            // Matches SlowCarBox: a black bar washed with 40% yellow (a dark
+            // olive, so it reads apart from the solid yellow-flag bar), with
+            // only the gap readout centered in black, flashing while live.
+            var box = new XnaRectangle(0, 0, Width, Height);
+            _sb.Draw(_pixel, box, XnaColor.Black);
+            _sb.Draw(_pixel, box, XnaColor.Yellow * 0.4f);
 
-            XnaColor text = placeholder || _flasher > 1f ? TextDark * alpha : CardFlashYellow;
-            _sb.DrawString(_fontHeader, "SLOW CAR", new XnaVector2(18, 8), text);
+            if (placeholder)
+                _sb.DrawString(_fontLabel, "Slow Car Warning", XnaVector2.Zero, XnaColor.Black);
 
-            string readout = placeholder ? "00.00" : $"{_warnTime:00.00}";
-            var size = _fontBig.MeasureString(readout);
-            _sb.DrawString(_fontBig, readout,
-                new XnaVector2((Width - size.X) / 2f, HeaderHeight + (Height - HeaderHeight - size.Y) / 2f),
-                text);
+            if (placeholder || _flasher > 1f)
+            {
+                string readout = $"{_warnTime:00.00}";
+                var size = _fontBig.MeasureString(readout);
+                _sb.DrawString(_fontBig, readout,
+                    new XnaVector2((Width - size.X) / 2f, (Height - size.Y) / 2f), XnaColor.Black);
+            }
 
             _sb.End();
         }
 
         public override void Dispose()
         {
+            _pixel.Dispose();
+            _fontLabel.Texture.Dispose();
             _fontBig.Texture.Dispose();
             _fontHeader.Texture.Dispose();
             _sb.Dispose();

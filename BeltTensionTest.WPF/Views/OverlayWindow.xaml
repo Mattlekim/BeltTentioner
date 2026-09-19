@@ -1,4 +1,4 @@
-<Window x:Class="BeltTensionTest.WPF.Views.OverlayWindow"
+﻿<Window x:Class="BeltTensionTest.WPF.Views.OverlayWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="OpenXR Overlay" Width="560" Height="460"
@@ -77,13 +77,13 @@
                         </Grid.RowDefinitions>
 
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Width (m)" VerticalAlignment="Center" Margin="0,0,10,4"/>
-                        <Slider Grid.Row="0" Grid.Column="1" x:Name="SizeXSlider" Minimum="0.25" Maximum="8"
+                        <Slider Grid.Row="0" Grid.Column="1" x:Name="SizeXSlider" Minimum="0.5" Maximum="8"
                                 TickFrequency="0.05" IsSnapToTickEnabled="True" Margin="0,0,8,4"
                                 ValueChanged="DisplaySlider_ValueChanged"/>
                         <TextBlock Grid.Row="0" Grid.Column="2" x:Name="SizeXValue" VerticalAlignment="Center" Margin="0,0,0,4"/>
 
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="Height (m)" VerticalAlignment="Center" Margin="0,0,10,4"/>
-                        <Slider Grid.Row="1" Grid.Column="1" x:Name="SizeYSlider" Minimum="0.25" Maximum="8"
+                        <Slider Grid.Row="1" Grid.Column="1" x:Name="SizeYSlider" Minimum="0.5" Maximum="8"
                                 TickFrequency="0.05" IsSnapToTickEnabled="True" Margin="0,0,8,4"
                                 ValueChanged="DisplaySlider_ValueChanged"/>
                         <TextBlock Grid.Row="1" Grid.Column="2" x:Name="SizeYValue" VerticalAlignment="Center" Margin="0,0,0,4"/>

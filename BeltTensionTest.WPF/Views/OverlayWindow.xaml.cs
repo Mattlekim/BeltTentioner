@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
@@ -21,23 +21,37 @@ namespace BeltTensionTest.WPF.Views
         private const int CanvasYSize = 1024;
 
         private const double DefaultDpi = 768; // 1920 px across the default 2.5 m width
-        private const int MinCanvasSize = 16, MaxCanvasSize = 8192;
+        // Smallest canvas the edit UI stays usable on (the Display panel alone
+        // is 700 px wide); a size/DPI combination below it raises the effective
+        // DPI rather than shrinking the canvas.
+        private const int MinCanvasSize = 480, MaxCanvasSize = 8192;
+        // Smallest overlay the Width/Height sliders can reach, in meters.
+        // (The depth-only distance mode is exempt: it shrinks the quad in
+        // meters precisely to keep its APPARENT size, which is what this floor
+        // is really protecting.)
+        private const float MinDisplayMeters = 0.5f;
         private double _dpi = DefaultDpi;
 
         private MonoGameOverlayHost? _host;
         private readonly MainViewModel _vm;
         private readonly Services.SettingsService _settingsSvc = new();
         private BeltSettingsOverlay? _beltPanel;
-        private MainOverlay? _mainPanel;
+        private RaceOverlay? _racePanel;
+        private QualifyingOverlay? _qualifyingPanel;
         private WarningOverlay? _warningPanel;
         private NearbyCarsOverlay? _nearbyPanel;
         private SlowCarOverlay? _slowCarPanel;
         private YouTubeOverlay? _youtubePanel;
+        private GpuStatsOverlay? _gpuPanel;
+        private IncidentsOverlay? _incidentPanel;
+        private DisplaySettingsOverlay? _displayPanel;
         private OverlayPreviewWindow? _preview;
+        private Services.PanelToggleBindings? _toggleBindings;
+        private Services.PanelVisibility? _panelVisibility;
 
-        // Cars shown in the "Main" standings panel (player included) — change
-        // this to make the panel taller/shorter.
-        private const int MainOverlayCarCount = 7;
+        // Cars shown in the Race / Qualifying panels (player included) —
+        // change this to make the panels taller/shorter.
+        private const int StandingsCarCount = 7;
 
         // ~60 Hz ticks so edit-mode input (cursor, clicks) is sampled quickly;
         // rendering itself is still capped at 30 fps by the host's
@@ -65,6 +79,28 @@ namespace BeltTensionTest.WPF.Views
                 SetupRenderTargets();
                 _host.DragCompleted += OnDragCompleted;
                 _host.ScaleChanged += OnScaleChanged;
+                _host.OpacityChanged += OnOpacityChanged;
+
+                // Controller/wheel buttons (or hold+press combos) that toggle
+                // a panel's visibility, assigned with each panel's edit-mode
+                // Bind button.
+                _toggleBindings = new Services.PanelToggleBindings(
+                    _vm.AppSettings?.OverlayPanelToggleBindings ?? new Dictionary<string, string>(),
+                    AllPanels, () => _host?.InvalidateCanvas());
+                _toggleBindings.Changed += SaveLayout;
+                _toggleBindings.Status += Log;
+                _host.BindButtonLabel = _toggleBindings.LabelFor;
+                _host.BindRequested += _toggleBindings.BeginCapture;
+
+                // When each panel applies (always / in car / replay), chosen
+                // with its edit-mode Show button.
+                _panelVisibility = new Services.PanelVisibility(
+                    _vm.AppSettings?.OverlayPanelShowModes ?? new Dictionary<string, string>(),
+                    AllPanels, () => _host?.InvalidateCanvas());
+                _panelVisibility.Changed += SaveLayout;
+                _host.ShowButtonLabel = _panelVisibility.LabelFor;
+                _host.ShowModeCycleRequested += _panelVisibility.Cycle;
+                _panelVisibility.Apply();
                 _host.CursorCalibrationCompleted += OnCursorCalibrationCompleted;
                 // Edit mode can also be toggled from the icon in VR — mirror it here.
                 _host.EditModeChanged += editing => EditButton.IsChecked = editing;
@@ -76,6 +112,7 @@ namespace BeltTensionTest.WPF.Views
                 // clicks can't fall between host polls).
                 _host.CursorOverride = () => _preview?.TryGetCanvasCursor();
                 _host.LeftButtonOverride = () => _preview?.TryGetLeftButton();
+                _host.RightButtonOverride = () => _preview?.TryGetRightButton();
             }
             catch (Exception ex)
             {
@@ -197,20 +234,35 @@ namespace BeltTensionTest.WPF.Views
             _beltPanel = _host.AddRenderTarget(new BeltSettingsOverlay(
                 _host.GraphicsDevice, panelWidth, panelHeight, x, y, groups));
 
-            // "Main" standings panel: session-type-aware standings around the
-            // player (see MainOverlay). Defaults to the top-left corner; the
-            // last dragged position is restored like the belt panel above.
-            int mainX = 16, mainY = 16;
+            // Race and Qualifying relative boxes (ported from IrachingHud's
+            // RelativeBox): each only shows during its own session types, so
+            // they share the top-left corner by default. The qualifying box
+            // starts offset a little so both title bars can be grabbed in
+            // edit mode. The first time, both inherit the old combined "Main"
+            // panel's position and size.
+            int boxX = 16, boxY = 16;
             if (s != null && s.OverlayMainPanelX >= 0 && s.OverlayMainPanelY >= 0)
-            {
-                mainX = Math.Min(s.OverlayMainPanelX, Math.Max(0, _host.CanvasWidth - 100));
-                mainY = Math.Min(s.OverlayMainPanelY, Math.Max(0, _host.CanvasHeight - 100));
-            }
-            _mainPanel = _host.AddRenderTarget(new MainOverlay(
-                _host.GraphicsDevice, mainX, mainY, MainOverlayCarCount));
-            if (!string.IsNullOrEmpty(s?.OverlayMainColumnOrder))
-                _mainPanel.ColumnOrder = s.OverlayMainColumnOrder;
-            _mainPanel.ColumnOrderChanged += SaveLayout; // persist header drags like panel moves
+                (boxX, boxY) = (s.OverlayMainPanelX, s.OverlayMainPanelY);
+
+            int raceX = boxX, raceY = boxY;
+            if (s != null && s.OverlayRacePanelX >= 0 && s.OverlayRacePanelY >= 0)
+                (raceX, raceY) = (s.OverlayRacePanelX, s.OverlayRacePanelY);
+            _racePanel = _host.AddRenderTarget(new RaceOverlay(_host.GraphicsDevice,
+                Math.Min(raceX, Math.Max(0, _host.CanvasWidth - 100)),
+                Math.Min(raceY, Math.Max(0, _host.CanvasHeight - 100)), StandingsCarCount));
+            if (!string.IsNullOrEmpty(s?.OverlayRaceColumnOrder))
+                _racePanel.ColumnOrder = s.OverlayRaceColumnOrder;
+            _racePanel.ColumnOrderChanged += SaveLayout; // persist header drags like panel moves
+
+            int qualX = boxX + 60, qualY = boxY + 60;
+            if (s != null && s.OverlayQualifyingPanelX >= 0 && s.OverlayQualifyingPanelY >= 0)
+                (qualX, qualY) = (s.OverlayQualifyingPanelX, s.OverlayQualifyingPanelY);
+            _qualifyingPanel = _host.AddRenderTarget(new QualifyingOverlay(_host.GraphicsDevice,
+                Math.Min(qualX, Math.Max(0, _host.CanvasWidth - 100)),
+                Math.Min(qualY, Math.Max(0, _host.CanvasHeight - 100)), StandingsCarCount));
+            if (!string.IsNullOrEmpty(s?.OverlayQualifyingColumnOrder))
+                _qualifyingPanel.ColumnOrder = s.OverlayQualifyingColumnOrder;
+            _qualifyingPanel.ColumnOrderChanged += SaveLayout;
 
             // Yellow-flag warning card: defaults to top-center, above where
             // the eye already is for flags.
@@ -262,16 +314,84 @@ namespace BeltTensionTest.WPF.Views
                     _host.GraphicsDevice, ytX, ytY));
             }
 
+            // GPU load / temperature / VRAM panel: defaults to the bottom-left corner.
+            int gpuX = 16, gpuY = Math.Max(0, _host.CanvasHeight - 250 - 16);
+            if (s != null && s.OverlayGpuPanelX >= 0 && s.OverlayGpuPanelY >= 0)
+            {
+                gpuX = Math.Min(s.OverlayGpuPanelX, Math.Max(0, _host.CanvasWidth - 100));
+                gpuY = Math.Min(s.OverlayGpuPanelY, Math.Max(0, _host.CanvasHeight - 100));
+            }
+            _gpuPanel = _host.AddRenderTarget(new GpuStatsOverlay(
+                _host.GraphicsDevice, gpuX, gpuY));
+
+            // Incident list (replay only): defaults to the bottom-right corner.
+            var incidents = new IncidentsOverlay(_host.GraphicsDevice, 0, 0);
+            int incX = Math.Max(0, _host.CanvasWidth - incidents.Width - 24);
+            int incY = Math.Max(0, _host.CanvasHeight - incidents.Height - 24);
+            if (s != null && s.OverlayIncidentPanelX >= 0 && s.OverlayIncidentPanelY >= 0)
+            {
+                incX = Math.Min(s.OverlayIncidentPanelX, Math.Max(0, _host.CanvasWidth - 100));
+                incY = Math.Min(s.OverlayIncidentPanelY, Math.Max(0, _host.CanvasHeight - 100));
+            }
+            incidents.X = incX;
+            incidents.Y = incY;
+            _incidentPanel = _host.AddRenderTarget(incidents);
+
+            // In-VR twin of this window's edit panel: overlay width/height,
+            // distance and canvas DPI. Rows write through ApplyDisplaySetting,
+            // the same path as the desktop sliders, so both stay in sync and
+            // the values are saved the usual way. The panel only exists in
+            // edit mode (EditModeOnly), which is also when it is useful.
+            var host = _host;
+            var displayRows = new[]
+            {
+                new BeltSettingRow("Width (m)",    () => host.DisplaySize.X, v => ApplyDisplaySetting(DisplaySetting.Width, v),    MinDisplayMeters,  8f,   0.05f, "0.00"),
+                new BeltSettingRow("Height (m)",   () => host.DisplaySize.Y, v => ApplyDisplaySetting(DisplaySetting.Height, v),   MinDisplayMeters,  8f,   0.05f, "0.00"),
+                new BeltSettingRow("Distance (m)", () => host.Distance,      v => ApplyDisplaySetting(DisplaySetting.Distance, v), 0.25f, 10f,   0.05f, "0.00"),
+                new BeltSettingRow("DPI (px/m)",   () => (float)_dpi,        v => ApplyDisplaySetting(DisplaySetting.Dpi, v),      128f, 2048f, 16f,   "0"),
+            };
+            var display = new DisplaySettingsOverlay(_host.GraphicsDevice, 0, 0, displayRows,
+                () => $"Resolution  {host.CanvasWidth} x {host.CanvasHeight} px");
+
+            // Defaults to the right-hand edge, vertically centered (the corner
+            // panels are all taken); then the saved position, clamped.
+            int dispX = Math.Max(0, _host.CanvasWidth - display.Width - 24);
+            int dispY = Math.Max(0, (_host.CanvasHeight - display.Height) / 2);
+            if (s != null && s.OverlayDisplayPanelX >= 0 && s.OverlayDisplayPanelY >= 0)
+            {
+                dispX = Math.Min(s.OverlayDisplayPanelX, Math.Max(0, _host.CanvasWidth - 100));
+                dispY = Math.Min(s.OverlayDisplayPanelY, Math.Max(0, _host.CanvasHeight - 100));
+            }
+            display.X = dispX;
+            display.Y = dispY;
+            _displayPanel = _host.AddRenderTarget(display);
+
             // Restore each panel's saved size (edit-mode -/+ buttons / corner
             // grip), then pull anything the new size pushed off the canvas back on.
             if (s != null)
             {
                 RestoreScale(_beltPanel, s.OverlayPanelScale);
-                RestoreScale(_mainPanel, s.OverlayMainPanelScale);
+                double boxScale = s.OverlayMainPanelScale;
+                RestoreScale(_racePanel, s.OverlayRacePanelScale > 0 ? s.OverlayRacePanelScale : boxScale);
+                RestoreScale(_qualifyingPanel, s.OverlayQualifyingPanelScale > 0 ? s.OverlayQualifyingPanelScale : boxScale);
                 RestoreScale(_warningPanel, s.OverlayWarningPanelScale);
                 RestoreScale(_nearbyPanel, s.OverlayNearbyPanelScale);
                 RestoreScale(_slowCarPanel, s.OverlaySlowCarPanelScale);
                 RestoreScale(_youtubePanel, s.OverlayYouTubePanelScale);
+                RestoreScale(_gpuPanel, s.OverlayGpuPanelScale);
+                RestoreScale(_incidentPanel, s.OverlayIncidentPanelScale);
+                RestoreScale(_displayPanel, s.OverlayDisplayPanelScale);
+
+                RestoreOpacity(_beltPanel, s.OverlayPanelOpacity);
+                RestoreOpacity(_racePanel, s.OverlayRacePanelOpacity);
+                RestoreOpacity(_qualifyingPanel, s.OverlayQualifyingPanelOpacity);
+                RestoreOpacity(_warningPanel, s.OverlayWarningPanelOpacity);
+                RestoreOpacity(_nearbyPanel, s.OverlayNearbyPanelOpacity);
+                RestoreOpacity(_slowCarPanel, s.OverlaySlowCarPanelOpacity);
+                RestoreOpacity(_youtubePanel, s.OverlayYouTubePanelOpacity);
+                RestoreOpacity(_gpuPanel, s.OverlayGpuPanelOpacity);
+                RestoreOpacity(_incidentPanel, s.OverlayIncidentPanelOpacity);
+                RestoreOpacity(_displayPanel, s.OverlayDisplayPanelOpacity);
                 ClampPanelsToCanvas();
             }
         }
@@ -279,6 +399,11 @@ namespace BeltTensionTest.WPF.Views
         private static void RestoreScale(OverlayRenderTarget? panel, double savedScale)
         {
             if (panel != null && savedScale > 0) panel.Scale = (float)savedScale;
+        }
+
+        private static void RestoreOpacity(OverlayRenderTarget? panel, double savedOpacity)
+        {
+            if (panel != null && savedOpacity > 0) panel.Opacity = (float)savedOpacity;
         }
         // ===================== END MONOGAME RENDER SECTION ===================
 
@@ -315,15 +440,27 @@ namespace BeltTensionTest.WPF.Views
         private void ApplyCanvasResolution()
         {
             if (_host == null) return;
-            int w = Math.Clamp((int)Math.Round(_host.DisplaySize.X * _dpi), MinCanvasSize, MaxCanvasSize);
-            int h = Math.Clamp((int)Math.Round(_host.DisplaySize.Y * _dpi), MinCanvasSize, MaxCanvasSize);
+            // Size x DPI, with both axes scaled by the SAME factor when that
+            // lands outside the canvas limits — clamping them one at a time
+            // would squash the aspect and stop the pixels being square.
+            double rawW = _host.DisplaySize.X * _dpi, rawH = _host.DisplaySize.Y * _dpi;
+            double fit = 1.0;
+            double smallest = Math.Max(1e-6, Math.Min(rawW, rawH));
+            if (smallest < MinCanvasSize) fit = MinCanvasSize / smallest;
+            double largest = Math.Max(rawW, rawH) * fit;
+            if (largest > MaxCanvasSize) fit *= MaxCanvasSize / largest;
+
+            int w = Math.Clamp((int)Math.Round(rawW * fit), MinCanvasSize, MaxCanvasSize);
+            int h = Math.Clamp((int)Math.Round(rawH * fit), MinCanvasSize, MaxCanvasSize);
             if (w == _host.CanvasWidth && h == _host.CanvasHeight) return;
 
             try
             {
                 _host.SetCanvasResolution(w, h);
                 ClampPanelsToCanvas();
-                Log($"Canvas resolution set to {w}×{h} ({_dpi:0} px/m).");
+                // The effective DPI, which is the requested one unless the
+                // limits above scaled it.
+                Log($"Canvas resolution set to {w}×{h} ({w / Math.Max(0.01f, _host.DisplaySize.X):0} px/m).");
             }
             catch (Exception ex)
             {
@@ -335,18 +472,31 @@ namespace BeltTensionTest.WPF.Views
         private void ClampPanelsToCanvas()
         {
             if (_host == null) return;
-            var panels = new OverlayRenderTarget?[]
-                { _beltPanel, _mainPanel, _warningPanel, _nearbyPanel, _slowCarPanel, _youtubePanel };
-            foreach (var p in panels)
+            foreach (var p in AllPanels())
             {
-                if (p == null) continue;
                 p.X = Math.Min(p.X, Math.Max(0, _host.CanvasWidth - Math.Min(100, p.DisplayWidth)));
                 p.Y = Math.Min(p.Y, Math.Max(0, _host.CanvasHeight - Math.Min(100, p.DisplayHeight)));
             }
         }
 
+        /// <summary>Every panel that exists (the YouTube one only when enabled).</summary>
+        private IEnumerable<OverlayRenderTarget> AllPanels()
+        {
+            var panels = new OverlayRenderTarget?[]
+                { _beltPanel, _racePanel, _qualifyingPanel, _warningPanel, _nearbyPanel, _slowCarPanel, _youtubePanel, _gpuPanel,
+                  _incidentPanel, _displayPanel };
+            foreach (var p in panels)
+                if (p != null) yield return p;
+        }
+
         private void OnResolutionTimerTick(object? sender, EventArgs e)
         {
+            // The in-VR sliders are dragged in canvas pixels, so rebuilding the
+            // canvas mid-drag slides the slider out from under the pointer —
+            // which moves the value, which rebuilds the canvas again. Keep
+            // ticking until the gesture ends, then apply it once.
+            if (_host?.IsPointerGestureActive == true) return;
+
             _resolutionTimer.Stop();
             ApplyCanvasResolution();
             UpdateEditValueLabels();
@@ -365,25 +515,37 @@ namespace BeltTensionTest.WPF.Views
                     s.OverlayPanelX = _beltPanel.X;
                     s.OverlayPanelY = _beltPanel.Y;
                     s.OverlayPanelScale = _beltPanel.Scale;
+                    s.OverlayPanelOpacity = _beltPanel.Opacity;
                 }
-                if (_mainPanel != null)
+                if (_racePanel != null)
                 {
-                    s.OverlayMainPanelX = _mainPanel.X;
-                    s.OverlayMainPanelY = _mainPanel.Y;
-                    s.OverlayMainPanelScale = _mainPanel.Scale;
-                    s.OverlayMainColumnOrder = _mainPanel.ColumnOrder;
+                    s.OverlayRacePanelX = _racePanel.X;
+                    s.OverlayRacePanelY = _racePanel.Y;
+                    s.OverlayRacePanelScale = _racePanel.Scale;
+                    s.OverlayRacePanelOpacity = _racePanel.Opacity;
+                    s.OverlayRaceColumnOrder = _racePanel.ColumnOrder;
+                }
+                if (_qualifyingPanel != null)
+                {
+                    s.OverlayQualifyingPanelX = _qualifyingPanel.X;
+                    s.OverlayQualifyingPanelY = _qualifyingPanel.Y;
+                    s.OverlayQualifyingPanelScale = _qualifyingPanel.Scale;
+                    s.OverlayQualifyingPanelOpacity = _qualifyingPanel.Opacity;
+                    s.OverlayQualifyingColumnOrder = _qualifyingPanel.ColumnOrder;
                 }
                 if (_warningPanel != null)
                 {
                     s.OverlayWarningPanelX = _warningPanel.X;
                     s.OverlayWarningPanelY = _warningPanel.Y;
                     s.OverlayWarningPanelScale = _warningPanel.Scale;
+                    s.OverlayWarningPanelOpacity = _warningPanel.Opacity;
                 }
                 if (_nearbyPanel != null)
                 {
                     s.OverlayNearbyPanelX = _nearbyPanel.X;
                     s.OverlayNearbyPanelY = _nearbyPanel.Y;
                     s.OverlayNearbyPanelScale = _nearbyPanel.Scale;
+                    s.OverlayNearbyPanelOpacity = _nearbyPanel.Opacity;
                     s.OverlayNearbyWidth = _nearbyPanel.BoxWidth;
                 }
                 if (_slowCarPanel != null)
@@ -391,12 +553,35 @@ namespace BeltTensionTest.WPF.Views
                     s.OverlaySlowCarPanelX = _slowCarPanel.X;
                     s.OverlaySlowCarPanelY = _slowCarPanel.Y;
                     s.OverlaySlowCarPanelScale = _slowCarPanel.Scale;
+                    s.OverlaySlowCarPanelOpacity = _slowCarPanel.Opacity;
                 }
                 if (_youtubePanel != null)
                 {
                     s.OverlayYouTubePanelX = _youtubePanel.X;
                     s.OverlayYouTubePanelY = _youtubePanel.Y;
                     s.OverlayYouTubePanelScale = _youtubePanel.Scale;
+                    s.OverlayYouTubePanelOpacity = _youtubePanel.Opacity;
+                }
+                if (_gpuPanel != null)
+                {
+                    s.OverlayGpuPanelX = _gpuPanel.X;
+                    s.OverlayGpuPanelY = _gpuPanel.Y;
+                    s.OverlayGpuPanelScale = _gpuPanel.Scale;
+                    s.OverlayGpuPanelOpacity = _gpuPanel.Opacity;
+                }
+                if (_incidentPanel != null)
+                {
+                    s.OverlayIncidentPanelX = _incidentPanel.X;
+                    s.OverlayIncidentPanelY = _incidentPanel.Y;
+                    s.OverlayIncidentPanelScale = _incidentPanel.Scale;
+                    s.OverlayIncidentPanelOpacity = _incidentPanel.Opacity;
+                }
+                if (_displayPanel != null)
+                {
+                    s.OverlayDisplayPanelX = _displayPanel.X;
+                    s.OverlayDisplayPanelY = _displayPanel.Y;
+                    s.OverlayDisplayPanelScale = _displayPanel.Scale;
+                    s.OverlayDisplayPanelOpacity = _displayPanel.Opacity;
                 }
                 s.OverlaySizeX = _host.DisplaySize.X;
                 s.OverlaySizeY = _host.DisplaySize.Y;
@@ -442,9 +627,20 @@ namespace BeltTensionTest.WPF.Views
             Log($"{target.Name} resized to {target.Scale * 100:0}% — saved.");
         }
 
+        // Fires on the UI thread, once per opacity -/+/reset click.
+        private void OnOpacityChanged(OverlayRenderTarget target)
+        {
+            SaveLayout();
+            Log($"{target.Name} opacity set to {target.Opacity * 100:0}% — saved.");
+        }
+
         private void OnTick(object? sender, EventArgs e)
         {
             if (_host == null) return;
+
+            // Panels that only apply in the car or in the replay follow the
+            // sim's state, which can change between any two ticks.
+            _panelVisibility?.Apply();
 
             try
             {
@@ -491,6 +687,8 @@ namespace BeltTensionTest.WPF.Views
             _timer.Stop();
             _resolutionTimer.Stop();
             _preview?.Close();
+            _toggleBindings?.Dispose();
+            _toggleBindings = null;
             _host?.Dispose();
             _host = null;
         }
@@ -645,39 +843,65 @@ namespace BeltTensionTest.WPF.Views
             ResolutionValue.Text = $"{_host.CanvasWidth} × {_host.CanvasHeight} px";
         }
 
+        /// <summary>One of the overlay display values adjustable in edit mode.</summary>
+        private enum DisplaySetting { Width, Height, Distance, Dpi }
+
         private void DisplaySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
             if (_host == null || _syncingEditUi) return;
+            ApplyDisplaySetting(
+                sender == SizeXSlider ? DisplaySetting.Width
+                : sender == SizeYSlider ? DisplaySetting.Height
+                : sender == DpiSlider ? DisplaySetting.Dpi
+                : DisplaySetting.Distance,
+                e.NewValue);
+        }
 
-            // Only the slider that moved is applied — the others may be showing
-            // a snapped approximation of an exact depth-only value.
+        /// <summary>
+        /// Apply one display value — from this window's sliders or from the
+        /// in-VR Display panel — then mirror the result back into this
+        /// window's sliders, save it, and debounce the canvas rebuild.
+        /// </summary>
+        private void ApplyDisplaySetting(DisplaySetting setting, double value)
+        {
+            if (_host == null) return;
+
             bool resolutionMayChange = true;
             var size = _host.DisplaySize;
-            if (sender == SizeXSlider) _host.DisplaySize = new System.Numerics.Vector2((float)e.NewValue, size.Y);
-            else if (sender == SizeYSlider) _host.DisplaySize = new System.Numerics.Vector2(size.X, (float)e.NewValue);
-            else if (sender == DpiSlider) _dpi = e.NewValue;
-            else if (sender == DistanceSlider && DepthOnlyCheck.IsChecked == true && _host.Distance > 0)
+            switch (setting)
             {
-                // Depth only: scale the quad about the view origin, so it covers
-                // exactly the same angle (looks the same size, the mouse
-                // calibration stays valid) and only its stereo depth changes.
-                // DPI shrinks by the same factor so the canvas resolution — and
-                // with it the panel layout — is untouched.
-                float factor = (float)e.NewValue / _host.Distance;
-                _host.Distance = (float)e.NewValue;
-                _host.DisplaySize = size * factor;
-                _dpi /= factor;
-                resolutionMayChange = false;
-
-                _syncingEditUi = true;
-                SizeXSlider.Value = _host.DisplaySize.X;
-                SizeYSlider.Value = _host.DisplaySize.Y;
-                DpiSlider.Value = _dpi;
-                _syncingEditUi = false;
+                case DisplaySetting.Width:
+                    _host.DisplaySize = new System.Numerics.Vector2(
+                        Math.Max(MinDisplayMeters, (float)value), size.Y);
+                    break;
+                case DisplaySetting.Height:
+                    _host.DisplaySize = new System.Numerics.Vector2(
+                        size.X, Math.Max(MinDisplayMeters, (float)value));
+                    break;
+                case DisplaySetting.Dpi:
+                    _dpi = value;
+                    break;
+                case DisplaySetting.Distance when DepthOnlyCheck.IsChecked == true && _host.Distance > 0:
+                    // Depth only: scale the quad about the view origin, so it covers
+                    // exactly the same angle (looks the same size, the mouse
+                    // calibration stays valid) and only its stereo depth changes.
+                    // DPI shrinks by the same factor so the canvas resolution — and
+                    // with it the panel layout — is untouched.
+                    float factor = (float)value / _host.Distance;
+                    _host.Distance = (float)value;
+                    _host.DisplaySize = size * factor;
+                    _dpi /= factor;
+                    resolutionMayChange = false;
+                    break;
+                default:
+                    _host.Distance = (float)value;
+                    break;
             }
-            else if (sender == DistanceSlider) _host.Distance = (float)e.NewValue;
 
-            UpdateEditValueLabels();
+            // Show what the host really ended up with: the sliders snap to
+            // their ticks, a depth-only distance change moves three values at
+            // once, and the in-VR panel writes here too.
+            SyncEditPanel();
             SaveLayout();
 
             // The canvas resolution follows size × DPI; (re)start the debounce

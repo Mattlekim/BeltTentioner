@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using IRSDKSharper;
 
 namespace BeltTensionTest.WPF.Services.Data
@@ -14,6 +14,7 @@ namespace BeltTensionTest.WPF.Services.Data
     {
         // CarIdxTrackSurface values (irsdk TrkLoc enum).
         private const int SurfaceNotInWorld = -1;
+        private const int SurfaceOffTrack = 0;
         private const int SurfaceInPitStall = 1;
 
         public int CarIdx { get; private set; } = -1;
@@ -35,6 +36,27 @@ namespace BeltTensionTest.WPF.Services.Data
 
         /// <summary>Technical incident points of the current driver (CurDriverIncidentCount).</summary>
         public int IncidentPoints { get; private set; }
+
+        /// <summary>Car number as shown on the car ("7", "007").</summary>
+        public string CarNumber { get; private set; } = string.Empty;
+
+        /// <summary>Class color from the session info (CarClassColor, 0xRRGGBB); -1 when unknown.</summary>
+        public int ClassColor { get; private set; } = -1;
+
+        /// <summary>Driver iRating (0 for AI / hosted cars without one).</summary>
+        public int IRating { get; private set; }
+
+        /// <summary>License and safety rating, e.g. "A 3.45".</summary>
+        public string LicString { get; private set; } = string.Empty;
+
+        /// <summary>Safety rating x100 (LicSubLevel), e.g. 345 = 3.45.</summary>
+        public int LicSubLevel { get; private set; }
+
+        /// <summary>License color from the session info (LicColor, 0xRRGGBB); -1 when unknown.</summary>
+        public int LicColor { get; private set; } = -1;
+
+        /// <summary>True for an AI driver (CarIsAI).</summary>
+        public bool IsAi { get; private set; }
 
         // ----- Telemetry (CarIdx* arrays) -----
         public int Gear { get; private set; }
@@ -74,6 +96,15 @@ namespace BeltTensionTest.WPF.Services.Data
 
         public bool IsOnTrack { get; private set; }
 
+        /// <summary>
+        /// Raw CarIdxTrackSurface (irsdk TrkLoc): -1 not in world, 0 off
+        /// track, 1 in the pit stall, 2 approaching pits, 3 on track.
+        /// </summary>
+        public int TrackSurface { get; private set; } = SurfaceNotInWorld;
+
+        /// <summary>True while the car has all four wheels off the racing surface.</summary>
+        public bool IsOffTrack => TrackSurface == SurfaceOffTrack;
+
         private IRacingSdkDatum? _datumGear;
         private IRacingSdkDatum? _datumLap;
         private IRacingSdkDatum? _datumLapCompleted;
@@ -96,6 +127,7 @@ namespace BeltTensionTest.WPF.Services.Data
         {
             _datumsReady = false;
             CarIdx = -1;
+            TrackSurface = SurfaceNotInWorld;
         }
 
         private bool SetupDatums(IRacingSdk sdk)
@@ -130,6 +162,16 @@ namespace BeltTensionTest.WPF.Services.Data
             }
         }
 
+        /// <summary>Parse a session-info color string ("0xfc0706") into 0xRRGGBB, or -1.</summary>
+        private static int ParseHexColor(string? hex)
+        {
+            if (string.IsNullOrEmpty(hex)) return -1;
+            var digits = hex.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? hex.Substring(2) : hex;
+            return int.TryParse(digits, System.Globalization.NumberStyles.HexNumber,
+                                System.Globalization.CultureInfo.InvariantCulture, out int v)
+                ? v & 0xFFFFFF : -1;
+        }
+
         /// <summary>Pull this car's current values out of the SDK.</summary>
         public void Update(IRacingSdk sdk, int carIdx)
         {
@@ -152,6 +194,13 @@ namespace BeltTensionTest.WPF.Services.Data
                         CarClassId = d.CarClassID;
                         ClassEstLapTime = d.CarClassEstLapTime;
                         IncidentPoints = d.CurDriverIncidentCount;
+                        CarNumber = d.CarNumber ?? string.Empty;
+                        ClassColor = ParseHexColor(d.CarClassColor);
+                        IRating = d.IRating;
+                        LicString = d.LicString ?? string.Empty;
+                        LicSubLevel = d.LicSubLevel;
+                        LicColor = ParseHexColor(d.LicColor);
+                        IsAi = d.CarIsAI != 0;
                         break;
                     }
                 }
@@ -175,6 +224,7 @@ namespace BeltTensionTest.WPF.Services.Data
                     TireCompound = sdk.Data.GetInt(_datumTireCompound, carIdx);
 
                 int surface = sdk.Data.GetInt(_datumTrackSurface, carIdx);
+                TrackSurface = surface;
                 bool isPlayerCar = sdk.Data.SessionInfo?.DriverInfo?.DriverCarIdx == carIdx;
                 if (isPlayerCar)
                 {

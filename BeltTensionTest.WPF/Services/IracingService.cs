@@ -1,4 +1,4 @@
-using BeltAPI;
+﻿using BeltAPI;
 using IRSDKSharper;
 using System;
 using System.Collections.Generic;
@@ -59,6 +59,14 @@ namespace BeltTensionTest.WPF.Services
         private IRacingSdkDatum? _datumSessionNum;
         private IRacingSdkDatum? _datumSessionTime;
         private IRacingSdkDatum? _datumCarLeftRight;
+        private IRacingSdkDatum? _datumSessionState;
+        private IRacingSdkDatum? _datumFuelLevel;
+        private IRacingSdkDatum? _datumBrakeBias;   // dcBrakeBias: only cars with an adjustable bias
+        private IRacingSdkDatum? _datumTrackTemp;
+        private IRacingSdkDatum? _datumAirTemp;
+        private IRacingSdkDatum? _datumClutch;
+        private IRacingSdkDatum? _datumReplayFrame;
+        private IRacingSdkDatum? _datumReplayFrameEnd;
 
         /// <summary>
         /// Type of the session currently running ("Practice", "Lone Qualify",
@@ -91,6 +99,99 @@ namespace BeltTensionTest.WPF.Services
         /// SplitTimeInfo YAML, or null until connected. Used for sector timing.
         /// </summary>
         public IReadOnlyList<float>? SectorStartPcts { get; private set; }
+
+        /// <summary>
+        /// iRacing session state (SessionState telemetry var, irsdk_SessionState):
+        /// see the SessionState* constants. 0 until connected.
+        /// </summary>
+        public int SessionState { get; private set; }
+
+        public const int SessionStateGetInCar = 1;
+        public const int SessionStateWarmup = 2;
+        public const int SessionStateParadeLaps = 3;
+        public const int SessionStateRacing = 4;
+        public const int SessionStateCheckered = 5;
+        public const int SessionStateCoolDown = 6;
+
+        /// <summary>True when the event uses a standing start (WeekendOptions.StandingStart).</summary>
+        public bool StandingStart { get; private set; }
+
+        /// <summary>
+        /// Starting grid of the current session, keyed by CarIdx: overall and
+        /// class grid position, both 1-based. Taken from the session's
+        /// QualifyPositions, falling back to QualifyResultsInfo. Empty until
+        /// a grid is published.
+        /// </summary>
+        public IReadOnlyDictionary<int, (int Pos, int ClassPos)> GridPositions { get; private set; }
+            = new Dictionary<int, (int, int)>();
+        private object? _gridSource;
+
+        /// <summary>Player fuel in liters (FuelLevel).</summary>
+        public float FuelLevel { get; private set; }
+
+        /// <summary>Player brake bias in % front (dcBrakeBias); NaN when the car has no adjustable bias.</summary>
+        public float BrakeBias { get; private set; } = float.NaN;
+
+        /// <summary>Track surface temperature in degrees C (TrackTempCrew); NaN until connected.</summary>
+        public float TrackTempC { get; private set; } = float.NaN;
+
+        /// <summary>Air temperature in degrees C (AirTemp); NaN until connected.</summary>
+        public float AirTempC { get; private set; } = float.NaN;
+
+        /// <summary>Clutch pedal pressed, 0..1 (1 - Clutch; the SDK reports engagement).</summary>
+        public float ClutchPressed { get; private set; }
+
+        /// <summary>Replay position, in frames from the start of the buffer (ReplayFrameNum).</summary>
+        public int ReplayFrameNum { get; private set; }
+
+        /// <summary>Last frame in the replay buffer — "now" (ReplayFrameNumEnd).</summary>
+        public int ReplayFrameNumEnd { get; private set; }
+
+        /// <summary>True only while a replay is actually rolling (IsReplayPlaying).</summary>
+        public bool IsReplayPlaying => isReplay;
+
+        // How close to the end of the buffer still counts as live: scrubbing
+        // back further than this is what tells a paused replay apart from
+        // sitting in the car (IsReplayPlaying is false for both).
+        private const int LiveEdgeFrames = 30;
+
+        /// <summary>
+        /// True while the sim is showing the replay rather than the live edge
+        /// — playing, or paused somewhere behind the end of the buffer.
+        /// </summary>
+        public bool InReplay =>
+            isReplay || (ReplayFrameNumEnd > 0 && ReplayFrameNum < ReplayFrameNumEnd - LiveEdgeFrames);
+
+        /// <summary>
+        /// Jump the replay to an absolute frame (counted from the start of the
+        /// buffer). False when there is no connection to act on.
+        /// </summary>
+        public bool SeekReplayToFrame(int frame)
+        {
+            if (_sdk == null || !_isConnected) return false;
+            try
+            {
+                _sdk.ReplaySetPlayPosition(IRacingSdkEnum.RpyPosMode.Begin, Math.Max(0, frame));
+                return true;
+            }
+            catch { return false; }
+        }
+
+        /// <summary>
+        /// Point the replay camera at a car by its car number, keeping the
+        /// camera group and camera the user is on (0 = "leave as is").
+        /// </summary>
+        public bool FocusCameraOnCar(string carNumber)
+        {
+            if (_sdk == null || !_isConnected) return false;
+            if (!int.TryParse(carNumber, out int number)) return false;
+            try
+            {
+                _sdk.CamSwitchNum(IRacingSdkEnum.CamSwitchMode.FocusAtDriver, number, 0, 0);
+                return true;
+            }
+            catch { return false; }
+        }
 
         public bool IsConnected => _isConnected;
         public bool Enabled { get; set; } = true;
@@ -169,6 +270,17 @@ namespace BeltTensionTest.WPF.Services
             _trackLengthRaw = string.Empty;
             SessionTime = 0;
             SectorStartPcts = null;
+            SessionState = 0;
+            StandingStart = false;
+            GridPositions = new Dictionary<int, (int, int)>();
+            _gridSource = null;
+            FuelLevel = 0f;
+            BrakeBias = float.NaN;
+            TrackTempC = float.NaN;
+            AirTempC = float.NaN;
+            ClutchPressed = 0f;
+            ReplayFrameNum = 0;
+            ReplayFrameNumEnd = 0;
             PlayerCar.Reset();
             _carsByIdx.Clear();
             _cars = new List<Data.Car>();
@@ -199,6 +311,14 @@ namespace BeltTensionTest.WPF.Services
                 try { _datumSessionNum = _sdk.Data.TelemetryDataProperties["SessionNum"]; } catch { _datumSessionNum = null; }
                 try { _datumSessionTime = _sdk.Data.TelemetryDataProperties["SessionTime"]; } catch { _datumSessionTime = null; }
                 try { _datumCarLeftRight = _sdk.Data.TelemetryDataProperties["CarLeftRight"]; } catch { _datumCarLeftRight = null; }
+                try { _datumSessionState = _sdk.Data.TelemetryDataProperties["SessionState"]; } catch { _datumSessionState = null; }
+                try { _datumFuelLevel = _sdk.Data.TelemetryDataProperties["FuelLevel"]; } catch { _datumFuelLevel = null; }
+                try { _datumBrakeBias = _sdk.Data.TelemetryDataProperties["dcBrakeBias"]; } catch { _datumBrakeBias = null; }
+                try { _datumTrackTemp = _sdk.Data.TelemetryDataProperties["TrackTempCrew"]; } catch { _datumTrackTemp = null; }
+                try { _datumAirTemp = _sdk.Data.TelemetryDataProperties["AirTemp"]; } catch { _datumAirTemp = null; }
+                try { _datumClutch = _sdk.Data.TelemetryDataProperties["Clutch"]; } catch { _datumClutch = null; }
+                try { _datumReplayFrame = _sdk.Data.TelemetryDataProperties["ReplayFrameNum"]; } catch { _datumReplayFrame = null; }
+                try { _datumReplayFrameEnd = _sdk.Data.TelemetryDataProperties["ReplayFrameNumEnd"]; } catch { _datumReplayFrameEnd = null; }
 
                 _dataInitialized = true;
                 return true;
@@ -243,6 +363,15 @@ namespace BeltTensionTest.WPF.Services
                 CarsAlongside = _datumCarLeftRight != null
                     ? (CarLeftRight)_sdk!.Data.GetInt(_datumCarLeftRight)
                     : CarLeftRight.Off;
+
+                if (_datumSessionState != null) SessionState = _sdk!.Data.GetInt(_datumSessionState);
+                if (_datumReplayFrame != null) ReplayFrameNum = _sdk!.Data.GetInt(_datumReplayFrame);
+                if (_datumReplayFrameEnd != null) ReplayFrameNumEnd = _sdk!.Data.GetInt(_datumReplayFrameEnd);
+                if (_datumFuelLevel != null) FuelLevel = _sdk!.Data.GetFloat(_datumFuelLevel);
+                BrakeBias = _datumBrakeBias != null ? _sdk!.Data.GetFloat(_datumBrakeBias) : float.NaN;
+                if (_datumTrackTemp != null) TrackTempC = _sdk!.Data.GetFloat(_datumTrackTemp);
+                if (_datumAirTemp != null) AirTempC = _sdk!.Data.GetFloat(_datumAirTemp);
+                if (_datumClutch != null) ClutchPressed = Math.Clamp(1f - _sdk!.Data.GetFloat(_datumClutch), 0f, 1f);
 
                 var split = _sdk!.Data.SessionInfo?.SplitTimeInfo?.Sectors;
                 if (split != null && split.Count > 0 &&
@@ -397,6 +526,8 @@ namespace BeltTensionTest.WPF.Services
                         TrackLengthMeters = km * 1000f;
                 }
 
+                StandingStart = (_sdk?.Data.SessionInfo?.WeekendInfo?.WeekendOptions?.StandingStart ?? 0) != 0;
+
                 int num = _sdk!.Data.GetInt(_datumSessionNum);
                 foreach (var s in sessions)
                 {
@@ -407,10 +538,42 @@ namespace BeltTensionTest.WPF.Services
                         SessionType = type;
                         SessionTypeChanged?.Invoke(type);
                     }
+                    UpdateGridPositions(s);
                     break;
                 }
             }
             catch { }
+        }
+
+        /// <summary>
+        /// Rebuild <see cref="GridPositions"/> when the session info's grid
+        /// list object changes (the YAML is re-parsed into new objects on
+        /// every session info update, so a reference check is enough).
+        /// Positions in the YAML are 0-based; they are stored 1-based.
+        /// </summary>
+        private void UpdateGridPositions(IRacingSdkSessionInfo.SessionInfoModel.SessionModel session)
+        {
+            var grid = new Dictionary<int, (int, int)>();
+            if (session.QualifyPositions is { Count: > 0 } qp)
+            {
+                if (ReferenceEquals(qp, _gridSource)) return;
+                _gridSource = qp;
+                foreach (var q in qp)
+                    grid[q.CarIdx] = (q.Position + 1, q.ClassPosition + 1);
+            }
+            else if (_sdk?.Data.SessionInfo?.QualifyResultsInfo?.Results is { Count: > 0 } qr)
+            {
+                if (ReferenceEquals(qr, _gridSource)) return;
+                _gridSource = qr;
+                foreach (var q in qr)
+                    grid[q.CarIdx] = (q.Position + 1, q.ClassPosition + 1);
+            }
+            else
+            {
+                if (_gridSource == null) return;
+                _gridSource = null;
+            }
+            GridPositions = grid;
         }
 
         /// <summary>
