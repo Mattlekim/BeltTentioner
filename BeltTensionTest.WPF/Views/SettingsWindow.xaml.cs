@@ -28,6 +28,7 @@ namespace BeltTensionTest.WPF.Views
             chk_MinimizeToTaskbar.IsChecked = _vm.AppSettings?.MinimizeToTaskbarOnClose ?? false;
             chk_YouTubeOverlay.IsChecked = _vm.AppSettings?.EnableYouTubeOverlay ?? false;
             chk_AutoStartOverlay.IsChecked = _vm.AppSettings?.AutoStartOpenXrOverlay ?? false;
+            chk_EnableOverlay.IsChecked = _vm.AppSettings?.EnableOpenXrOverlay ?? false;
 
             // Initialize telemetry source radio buttons from the current view model state.
             // The VM already enforces that iRacing and SimHub cannot both be enabled.
@@ -57,6 +58,7 @@ namespace BeltTensionTest.WPF.Views
                 kb_NavNextControl.IsGlobal = _vm.AppSettings.NavNextControlGlobal;
                 kb_NavPrevControl.Gesture = _vm.AppSettings.NavPrevControlKey ?? string.Empty;
                 kb_NavPrevControl.IsGlobal = _vm.AppSettings.NavPrevControlGlobal;
+                kb_RecenterOverlay.Gesture = _vm.AppSettings.RecenterOverlayKey ?? string.Empty;
             }
 
             // Also load on-disk settings to ensure mappings saved from previous runs are shown
@@ -83,6 +85,7 @@ namespace BeltTensionTest.WPF.Views
                     kb_NavNextControl.IsGlobal = disk.NavNextControlGlobal;
                     if (!string.IsNullOrWhiteSpace(disk.NavPrevControlKey)) kb_NavPrevControl.Gesture = disk.NavPrevControlKey;
                     kb_NavPrevControl.IsGlobal = disk.NavPrevControlGlobal;
+                    if (!string.IsNullOrWhiteSpace(disk.RecenterOverlayKey)) kb_RecenterOverlay.Gesture = disk.RecenterOverlayKey;
                 }
             }
             catch { }
@@ -100,6 +103,7 @@ namespace BeltTensionTest.WPF.Views
                 kb_NavDecrease.GestureChanged += Kb_GestureChanged;
                 kb_NavNextControl.GestureChanged += Kb_GestureChanged;
                 kb_NavPrevControl.GestureChanged += Kb_GestureChanged;
+                kb_RecenterOverlay.GestureChanged += Kb_GestureChanged;
 
                 kb_ToggleFan.GlobalChanged += Kb_GlobalChanged;
                 kb_IncreaseWindRest.GlobalChanged += Kb_GlobalChanged;
@@ -149,6 +153,7 @@ namespace BeltTensionTest.WPF.Views
             _vm.AppSettings.MinimizeToTaskbarOnClose = minimizeToTaskbar;
             _vm.AppSettings.EnableYouTubeOverlay = chk_YouTubeOverlay.IsChecked == true;
             _vm.AppSettings.AutoStartOpenXrOverlay = chk_AutoStartOverlay.IsChecked == true;
+            _vm.AppSettings.EnableOpenXrOverlay = chk_EnableOverlay.IsChecked == true;
             // Save keybindings
             _vm.AppSettings.ToggleFanKey = kb_ToggleFan.Gesture ?? string.Empty;
             _vm.AppSettings.ToggleFanGlobal = kb_ToggleFan.IsGlobal;
@@ -168,6 +173,7 @@ namespace BeltTensionTest.WPF.Views
             _vm.AppSettings.NavNextControlGlobal = kb_NavNextControl.IsGlobal;
             _vm.AppSettings.NavPrevControlKey = kb_NavPrevControl.Gesture ?? string.Empty;
             _vm.AppSettings.NavPrevControlGlobal = kb_NavPrevControl.IsGlobal;
+            _vm.AppSettings.RecenterOverlayKey = kb_RecenterOverlay.Gesture ?? string.Empty;
 
             // Persist
             _settingsSvc.Save(_vm.AppSettings);
@@ -215,6 +221,7 @@ namespace BeltTensionTest.WPF.Views
                     _vm.AppSettings.NavDecreaseKey = loaded.NavDecreaseKey;
                     _vm.AppSettings.NavNextControlKey = loaded.NavNextControlKey;
                     _vm.AppSettings.NavPrevControlKey = loaded.NavPrevControlKey;
+                    _vm.AppSettings.RecenterOverlayKey = loaded.RecenterOverlayKey;
                 }
             }
             catch { }
@@ -288,6 +295,7 @@ namespace BeltTensionTest.WPF.Views
                     }
                 }
                 else if (TryHandleNavBinding(sender)) { }
+                else if (TryHandleRecenterBinding(sender)) { }
 
                 _settingsSvc.Save(_vm.AppSettings);
             }
@@ -328,6 +336,22 @@ namespace BeltTensionTest.WPF.Views
             return true;
         }
 
+        // Store + (re)register the overlay recenter binding. It has no Global
+        // option: a keyboard gesture is always a system-wide hotkey (gamepad
+        // gestures are polled globally anyway and simply fail to register here).
+        private bool TryHandleRecenterBinding(object? sender)
+        {
+            if (_vm?.AppSettings == null || sender != kb_RecenterOverlay) return false;
+
+            string gesture = kb_RecenterOverlay.Gesture ?? string.Empty;
+            _vm.AppSettings.RecenterOverlayKey = gesture;
+
+            GlobalHotKeyManager.Unregister("RecenterOverlay");
+            if (!string.IsNullOrWhiteSpace(gesture))
+                GlobalHotKeyManager.Register("RecenterOverlay", gesture, () => { try { _vm.MenuStateText = MainWindow.RecenterOverlay("Hotkey", gesture); } catch { } });
+            return true;
+        }
+
         private void Kb_GlobalChanged(object? sender, EventArgs e)
         {
             try
@@ -355,6 +379,7 @@ namespace BeltTensionTest.WPF.Views
                         GlobalHotKeyManager.Register("DecreaseRest", kb_DecreaseWindRest.Gesture, () => { try { _vm.WindRestingPower = _vm.WindRestingPower - 1; _vm.MenuStateText = $"Hotkey triggered: DecreaseRest ({kb_DecreaseWindRest.Gesture})"; } catch { } });
                 }
                 else if (TryHandleNavBinding(sender)) { }
+                else if (TryHandleRecenterBinding(sender)) { }
 
                 _settingsSvc.Save(_vm.AppSettings);
             }

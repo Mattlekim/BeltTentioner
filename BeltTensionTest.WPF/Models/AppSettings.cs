@@ -40,8 +40,11 @@ namespace BeltTensionTest.WPF.Models
         public bool NavDecreaseGlobal { get; set; } = false;
         public bool NavNextControlGlobal { get; set; } = false;
         public bool NavPrevControlGlobal { get; set; } = false;
+        // Recenter the VR overlay on the headset (same as the overlay window's Recenter button).
+        // Always registered system-wide — it is only ever pressed while the sim has focus.
+        public string RecenterOverlayKey { get; set; } = string.Empty;
         // VR overlay layout (edit mode). Panel position is in canvas pixels,
-        // -1 = never dragged (use the coded default). Size/distance/resolution
+        // -1 = never dragged (use the coded default). Size/distance/DPI
         // 0 = unset (keep the host defaults).
         public int OverlayPanelX { get; set; } = -1;
         public int OverlayPanelY { get; set; } = -1;
@@ -54,6 +57,9 @@ namespace BeltTensionTest.WPF.Models
         // at all, and whether the overlay window opens itself on app start.
         public bool EnableYouTubeOverlay { get; set; } = false;
         public bool AutoStartOpenXrOverlay { get; set; } = false;
+        // Run the OpenXR overlay in the background from app start, without the
+        // overlay window having to be open (the window is then only for editing).
+        public bool EnableOpenXrOverlay { get; set; } = false;
         public int OverlayWarningPanelX { get; set; } = -1;
         public int OverlayWarningPanelY { get; set; } = -1;
         public int OverlayNearbyPanelX { get; set; } = -1;
@@ -64,11 +70,38 @@ namespace BeltTensionTest.WPF.Models
         public int OverlaySlowCarPanelY { get; set; } = -1;
         public int OverlayYouTubePanelX { get; set; } = -1;
         public int OverlayYouTubePanelY { get; set; } = -1;
+        // Per-panel size multiplier set with the edit-mode -/+ buttons or the
+        // corner resize grip; 0 = unset (100%).
+        public double OverlayPanelScale { get; set; } = 0;
+        public double OverlayMainPanelScale { get; set; } = 0;
+        public double OverlayWarningPanelScale { get; set; } = 0;
+        public double OverlayNearbyPanelScale { get; set; } = 0;
+        public double OverlaySlowCarPanelScale { get; set; } = 0;
+        public double OverlayYouTubePanelScale { get; set; } = 0;
         public double OverlaySizeX { get; set; } = 0;
         public double OverlaySizeY { get; set; } = 0;
         public double OverlayDistance { get; set; } = 0;
-        public int OverlayCanvasWidth { get; set; } = 0;
-        public int OverlayCanvasHeight { get; set; } = 0;
+        // View origin captured by the overlay's Recenter button/binding: the
+        // headset position (meters, OpenXR LOCAL space) and look direction
+        // (yaw/pitch, radians) the overlay is centered on. Unset = the
+        // runtime's own origin, looking level.
+        public bool OverlayOriginSet { get; set; } = false;
+        public double OverlayOriginX { get; set; } = 0;
+        public double OverlayOriginY { get; set; } = 0;
+        public double OverlayOriginZ { get; set; } = 0;
+        public double OverlayOriginYaw { get; set; } = 0;
+        public double OverlayOriginPitch { get; set; } = 0;
+        // Edit-cursor calibration (overlay window > Edit > Calibrate mouse):
+        // canvas fraction = Scale * game-window fraction + Offset, per axis, so
+        // the red cross lands on the game's own in-VR mouse cursor.
+        public bool OverlayCursorCalSet { get; set; } = false;
+        public double OverlayCursorCalScaleX { get; set; } = 1;
+        public double OverlayCursorCalOffsetX { get; set; } = 0;
+        public double OverlayCursorCalScaleY { get; set; } = 1;
+        public double OverlayCursorCalOffsetY { get; set; } = 0;
+        // Canvas pixels per meter of VR display size; the canvas resolution is
+        // derived as size × DPI. 0 = unset (use the coded default).
+        public double OverlayDpi { get; set; } = 0;
         // Window placement / size
         public double WindowWidth { get; set; } = 1100;
         public double WindowHeight { get; set; } = 400;

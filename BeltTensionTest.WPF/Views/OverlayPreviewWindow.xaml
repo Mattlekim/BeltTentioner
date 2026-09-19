@@ -36,7 +36,7 @@
 
             <!-- The overlay canvas, letterboxed to the window. Dark backing so
                  the canvas's transparent regions read as empty space. -->
-            <Border Margin="10" Background="#0E0E1A" BorderBrush="#46466A" BorderThickness="1">
+            <Border x:Name="PreviewArea" Margin="10" Background="#0E0E1A" BorderBrush="#46466A" BorderThickness="1">
                 <Image x:Name="PreviewImage" Stretch="Uniform"
                        RenderOptions.BitmapScalingMode="HighQuality"/>
             </Border>

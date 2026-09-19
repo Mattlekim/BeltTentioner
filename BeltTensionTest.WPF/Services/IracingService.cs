@@ -161,6 +161,9 @@ namespace BeltTensionTest.WPF.Services
             if (!_isConnected) return;
             _isConnected = false;
             _dataInitialized = false;
+            // Forget the last car so reconnecting in the same car re-fires CarNameChanged
+            // (the view model drops back to the "NA" profile on disconnect).
+            _oldCarName = string.Empty;
             SessionType = string.Empty;
             TrackLengthMeters = 0f;
             _trackLengthRaw = string.Empty;

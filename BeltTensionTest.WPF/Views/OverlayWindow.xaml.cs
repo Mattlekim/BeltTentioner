@@ -15,8 +15,14 @@ namespace BeltTensionTest.WPF.Views
     /// </summary>
     public partial class OverlayWindow : Window
     {
-        private const int CanvasXSize = 1920; // pixel size of the overlay canvas
-        private const int CanvasYSize = 1024; // pixel size of the overlay canvas
+        // Initial canvas size only — ApplySavedLayout immediately re-derives
+        // the resolution as display size (m) × DPI (px/m).
+        private const int CanvasXSize = 1920;
+        private const int CanvasYSize = 1024;
+
+        private const double DefaultDpi = 768; // 1920 px across the default 2.5 m width
+        private const int MinCanvasSize = 16, MaxCanvasSize = 8192;
+        private double _dpi = DefaultDpi;
 
         private MonoGameOverlayHost? _host;
         private readonly MainViewModel _vm;
@@ -38,6 +44,9 @@ namespace BeltTensionTest.WPF.Views
         // MaxFrameRate, so capped ticks cost only the input poll.
         private readonly DispatcherTimer _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         private readonly System.Diagnostics.Stopwatch _clock = System.Diagnostics.Stopwatch.StartNew();
+        // Debounces canvas re-creation while a size/DPI slider is being
+        // dragged (SetCanvasResolution rebuilds the shared overlay texture).
+        private readonly DispatcherTimer _resolutionTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
         private bool _lastAttached;
         private bool _statusLogged;
 
@@ -55,6 +64,10 @@ namespace BeltTensionTest.WPF.Views
                 ApplySavedLayout();
                 SetupRenderTargets();
                 _host.DragCompleted += OnDragCompleted;
+                _host.ScaleChanged += OnScaleChanged;
+                _host.CursorCalibrationCompleted += OnCursorCalibrationCompleted;
+                // Edit mode can also be toggled from the icon in VR — mirror it here.
+                _host.EditModeChanged += editing => EditButton.IsChecked = editing;
                 _host.EditFont = Services.RuntimeSpriteFont.Bake(_host.GraphicsDevice, "Segoe UI", 22f);
 
                 // When the mouse is inside the preview window, drive the edit
@@ -70,9 +83,45 @@ namespace BeltTensionTest.WPF.Views
                 StatusLabel.Text = "Init failed — see log.";
             }
 
+            RecenterRequested += Recenter;
+            _resolutionTimer.Tick += OnResolutionTimerTick;
             _timer.Tick += OnTick;
             _timer.Start();
+            Closing += OnClosing;
             Closed += OnClosed;
+        }
+
+        /// <summary>
+        /// True = the overlay keeps running in the background when this window
+        /// is closed (Preferences > OpenXR > Enable OpenXR overlay): closing
+        /// only hides the window. The window may also never be shown at all —
+        /// everything (host, render timer, panels) runs without it being visible.
+        /// </summary>
+        public bool KeepRunningWhenClosed { get; set; }
+
+        /// <summary>True once the overlay has really shut down (not just hidden).</summary>
+        public bool IsShutDown { get; private set; }
+
+        private bool _shuttingDown;
+
+        /// <summary>Really stop the overlay and close the window, even when <see cref="KeepRunningWhenClosed"/>.</summary>
+        public void Shutdown()
+        {
+            _shuttingDown = true;
+            Cleanup(); // a never-shown window may not raise Closed
+            try { Close(); } catch { }
+        }
+
+        private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
+        {
+            if (!KeepRunningWhenClosed || _shuttingDown) return;
+
+            // Background mode: hide instead of closing. Leave edit mode first so
+            // the red border/cursor and button bars don't stay up in VR.
+            e.Cancel = true;
+            EditButton.IsChecked = false;
+            _preview?.Close();
+            Hide();
         }
 
         // =====================================================================
@@ -139,8 +188,10 @@ namespace BeltTensionTest.WPF.Views
             var s = _vm.AppSettings;
             if (s != null && s.OverlayPanelX >= 0 && s.OverlayPanelY >= 0)
             {
-                x = Math.Min(s.OverlayPanelX, Math.Max(0, _host.CanvasWidth - panelWidth));
-                y = Math.Min(s.OverlayPanelY, Math.Max(0, _host.CanvasHeight - panelHeight));
+                // Clamp against the size it will actually be shown at (its saved scale).
+                double beltScale = s.OverlayPanelScale > 0 ? s.OverlayPanelScale : 1.0;
+                x = Math.Min(s.OverlayPanelX, Math.Max(0, _host.CanvasWidth - (int)(panelWidth * beltScale)));
+                y = Math.Min(s.OverlayPanelY, Math.Max(0, _host.CanvasHeight - (int)(panelHeight * beltScale)));
             }
 
             _beltPanel = _host.AddRenderTarget(new BeltSettingsOverlay(
@@ -210,24 +261,99 @@ namespace BeltTensionTest.WPF.Views
                 _youtubePanel = _host.AddRenderTarget(new YouTubeOverlay(
                     _host.GraphicsDevice, ytX, ytY));
             }
+
+            // Restore each panel's saved size (edit-mode -/+ buttons / corner
+            // grip), then pull anything the new size pushed off the canvas back on.
+            if (s != null)
+            {
+                RestoreScale(_beltPanel, s.OverlayPanelScale);
+                RestoreScale(_mainPanel, s.OverlayMainPanelScale);
+                RestoreScale(_warningPanel, s.OverlayWarningPanelScale);
+                RestoreScale(_nearbyPanel, s.OverlayNearbyPanelScale);
+                RestoreScale(_slowCarPanel, s.OverlaySlowCarPanelScale);
+                RestoreScale(_youtubePanel, s.OverlayYouTubePanelScale);
+                ClampPanelsToCanvas();
+            }
+        }
+
+        private static void RestoreScale(OverlayRenderTarget? panel, double savedScale)
+        {
+            if (panel != null && savedScale > 0) panel.Scale = (float)savedScale;
         }
         // ===================== END MONOGAME RENDER SECTION ===================
 
-        /// <summary>Apply persisted overlay size/distance/resolution to the freshly created host.</summary>
+        /// <summary>Apply persisted overlay size/distance/DPI to the freshly created host.</summary>
         private void ApplySavedLayout()
         {
             var s = _vm.AppSettings;
-            if (_host == null || s == null) return;
+            if (_host == null) return;
 
-            if (s.OverlayCanvasWidth >= 16 && s.OverlayCanvasHeight >= 16)
-                _host.SetCanvasResolution(s.OverlayCanvasWidth, s.OverlayCanvasHeight);
-            if (s.OverlaySizeX > 0 && s.OverlaySizeY > 0)
-                _host.DisplaySize = new System.Numerics.Vector2((float)s.OverlaySizeX, (float)s.OverlaySizeY);
-            if (s.OverlayDistance > 0)
-                _host.Distance = (float)s.OverlayDistance;
+            if (s != null)
+            {
+                if (s.OverlaySizeX > 0 && s.OverlaySizeY > 0)
+                    _host.DisplaySize = new System.Numerics.Vector2((float)s.OverlaySizeX, (float)s.OverlaySizeY);
+                if (s.OverlayDistance > 0)
+                    _host.Distance = (float)s.OverlayDistance;
+                if (s.OverlayDpi > 0)
+                    _dpi = s.OverlayDpi;
+                if (s.OverlayCursorCalSet)
+                    _host.SetCursorCalibration((float)s.OverlayCursorCalScaleX, (float)s.OverlayCursorCalOffsetX,
+                                               (float)s.OverlayCursorCalScaleY, (float)s.OverlayCursorCalOffsetY);
+                if (s.OverlayOriginSet)
+                    _host.SetOrigin(
+                        new System.Numerics.Vector3((float)s.OverlayOriginX, (float)s.OverlayOriginY, (float)s.OverlayOriginZ),
+                        (float)s.OverlayOriginYaw, (float)s.OverlayOriginPitch);
+            }
+            ApplyCanvasResolution();
         }
 
-        /// <summary>Persist the current overlay layout (panel position, size, distance, resolution).</summary>
+        /// <summary>
+        /// Derive the canvas pixel resolution from the VR display size and the
+        /// DPI (pixels per meter) and apply it, so pixels stay square and the
+        /// panels keep their physical size when the overlay is resized.
+        /// </summary>
+        private void ApplyCanvasResolution()
+        {
+            if (_host == null) return;
+            int w = Math.Clamp((int)Math.Round(_host.DisplaySize.X * _dpi), MinCanvasSize, MaxCanvasSize);
+            int h = Math.Clamp((int)Math.Round(_host.DisplaySize.Y * _dpi), MinCanvasSize, MaxCanvasSize);
+            if (w == _host.CanvasWidth && h == _host.CanvasHeight) return;
+
+            try
+            {
+                _host.SetCanvasResolution(w, h);
+                ClampPanelsToCanvas();
+                Log($"Canvas resolution set to {w}×{h} ({_dpi:0} px/m).");
+            }
+            catch (Exception ex)
+            {
+                Log("RESOLUTION CHANGE FAILED: " + ex);
+            }
+        }
+
+        /// <summary>Pull panels back onto the canvas after it shrank (same rule as the startup restore).</summary>
+        private void ClampPanelsToCanvas()
+        {
+            if (_host == null) return;
+            var panels = new OverlayRenderTarget?[]
+                { _beltPanel, _mainPanel, _warningPanel, _nearbyPanel, _slowCarPanel, _youtubePanel };
+            foreach (var p in panels)
+            {
+                if (p == null) continue;
+                p.X = Math.Min(p.X, Math.Max(0, _host.CanvasWidth - Math.Min(100, p.DisplayWidth)));
+                p.Y = Math.Min(p.Y, Math.Max(0, _host.CanvasHeight - Math.Min(100, p.DisplayHeight)));
+            }
+        }
+
+        private void OnResolutionTimerTick(object? sender, EventArgs e)
+        {
+            _resolutionTimer.Stop();
+            ApplyCanvasResolution();
+            UpdateEditValueLabels();
+            SaveLayout();
+        }
+
+        /// <summary>Persist the current overlay layout (panel position, size, distance, DPI).</summary>
         private void SaveLayout()
         {
             var s = _vm.AppSettings;
@@ -238,39 +364,62 @@ namespace BeltTensionTest.WPF.Views
                 {
                     s.OverlayPanelX = _beltPanel.X;
                     s.OverlayPanelY = _beltPanel.Y;
+                    s.OverlayPanelScale = _beltPanel.Scale;
                 }
                 if (_mainPanel != null)
                 {
                     s.OverlayMainPanelX = _mainPanel.X;
                     s.OverlayMainPanelY = _mainPanel.Y;
+                    s.OverlayMainPanelScale = _mainPanel.Scale;
                     s.OverlayMainColumnOrder = _mainPanel.ColumnOrder;
                 }
                 if (_warningPanel != null)
                 {
                     s.OverlayWarningPanelX = _warningPanel.X;
                     s.OverlayWarningPanelY = _warningPanel.Y;
+                    s.OverlayWarningPanelScale = _warningPanel.Scale;
                 }
                 if (_nearbyPanel != null)
                 {
                     s.OverlayNearbyPanelX = _nearbyPanel.X;
                     s.OverlayNearbyPanelY = _nearbyPanel.Y;
+                    s.OverlayNearbyPanelScale = _nearbyPanel.Scale;
                     s.OverlayNearbyWidth = _nearbyPanel.BoxWidth;
                 }
                 if (_slowCarPanel != null)
                 {
                     s.OverlaySlowCarPanelX = _slowCarPanel.X;
                     s.OverlaySlowCarPanelY = _slowCarPanel.Y;
+                    s.OverlaySlowCarPanelScale = _slowCarPanel.Scale;
                 }
                 if (_youtubePanel != null)
                 {
                     s.OverlayYouTubePanelX = _youtubePanel.X;
                     s.OverlayYouTubePanelY = _youtubePanel.Y;
+                    s.OverlayYouTubePanelScale = _youtubePanel.Scale;
                 }
                 s.OverlaySizeX = _host.DisplaySize.X;
                 s.OverlaySizeY = _host.DisplaySize.Y;
                 s.OverlayDistance = _host.Distance;
-                s.OverlayCanvasWidth = _host.CanvasWidth;
-                s.OverlayCanvasHeight = _host.CanvasHeight;
+                s.OverlayDpi = _dpi;
+                s.OverlayCursorCalSet = _host.CursorCalibrated;
+                if (_host.CursorCalibrated)
+                {
+                    var cal = _host.CursorCalibration;
+                    s.OverlayCursorCalScaleX = cal.ScaleX;
+                    s.OverlayCursorCalOffsetX = cal.OffsetX;
+                    s.OverlayCursorCalScaleY = cal.ScaleY;
+                    s.OverlayCursorCalOffsetY = cal.OffsetY;
+                }
+                if (_originSet)
+                {
+                    s.OverlayOriginSet = true;
+                    s.OverlayOriginX = _host.OriginPosition.X;
+                    s.OverlayOriginY = _host.OriginPosition.Y;
+                    s.OverlayOriginZ = _host.OriginPosition.Z;
+                    s.OverlayOriginYaw = _host.OriginYaw;
+                    s.OverlayOriginPitch = _host.OriginPitch;
+                }
                 _settingsSvc.Save(s);
             }
             catch (Exception ex)
@@ -284,6 +433,13 @@ namespace BeltTensionTest.WPF.Views
         {
             SaveLayout();
             Log($"Panel moved to ({target.X}, {target.Y}) — saved.");
+        }
+
+        // Fires on the UI thread, once per -/+/reset click or grip release.
+        private void OnScaleChanged(OverlayRenderTarget target)
+        {
+            SaveLayout();
+            Log($"{target.Name} resized to {target.Scale * 100:0}% — saved.");
         }
 
         private void OnTick(object? sender, EventArgs e)
@@ -320,16 +476,23 @@ namespace BeltTensionTest.WPF.Views
             // readback is skipped when the canvas didn't change this tick).
             if (_preview != null)
             {
-                try { _preview.UpdateFrame(_host.CanvasTexture, _host.CanvasVersion); }
+                try { _preview.UpdateFrame(_host); }
                 catch (Exception ex) { Log("PREVIEW FAILED: " + ex.Message); _preview.Close(); }
             }
         }
 
-        private void OnClosed(object? sender, EventArgs e)
+        private void OnClosed(object? sender, EventArgs e) => Cleanup();
+
+        private void Cleanup()
         {
+            if (IsShutDown) return;
+            IsShutDown = true;
+            RecenterRequested -= Recenter;
             _timer.Stop();
+            _resolutionTimer.Stop();
             _preview?.Close();
             _host?.Dispose();
+            _host = null;
         }
 
         /// <summary>Open/close the desktop preview of the overlay canvas (no VR needed).</summary>
@@ -363,6 +526,87 @@ namespace BeltTensionTest.WPF.Views
 
         private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
 
+        // True once the user has recentered in this session; only then does
+        // SaveLayout write the origin (a never-recentered layout stays unset).
+        private bool _originSet;
+
+        // Lets the recenter key/gamepad binding (MainWindow, SettingsWindow)
+        // reach whichever overlay window is open without holding a reference.
+        private static event Action? RecenterRequested;
+
+        /// <summary>Recenter the open overlay, if any. False when no overlay window is open.</summary>
+        public static bool RequestRecenter()
+        {
+            var handler = RecenterRequested;
+            if (handler == null) return false;
+            handler();
+            return true;
+        }
+
+        private void RecenterButton_Click(object sender, RoutedEventArgs e) => Recenter();
+
+        /// <summary>Center the overlay on where the headset is looking right now.</summary>
+        private void Recenter()
+        {
+            if (_host == null) return;
+            if (!_host.Recenter())
+            {
+                Log(_host.LayerAttached
+                    ? "Recenter failed — no headset pose from the layer. Restart the VR game so it loads the updated layer."
+                    : "Recenter needs a running OpenXR app — start the game, look straight ahead, then press Recenter.");
+                return;
+            }
+
+            _originSet = true;
+            SaveLayout();
+            var p = _host.OriginPosition;
+            Log($"Recentered on headset gaze: head at ({p.X:0.00}, {p.Y:0.00}, {p.Z:0.00}) m, " +
+                $"heading {_host.OriginYaw * 180 / Math.PI:0}°, pitch {_host.OriginPitch * 180 / Math.PI:0}° — saved.");
+            if (_host.CursorCalibrated)
+                Log("The overlay moved — if the red cursor no longer sits on the game's cursor, run Edit > Calibrate mouse again.");
+        }
+
+        /// <summary>Start the two-click calibration that lines the red edit cursor up with the game's own cursor.</summary>
+        private void CalibrateMouse_Click(object sender, RoutedEventArgs e)
+        {
+            if (_host == null) return;
+            if (_host.IsCalibratingCursor)
+            {
+                _host.CancelCursorCalibration();
+                return;
+            }
+            if (!_host.BeginCursorCalibration())
+            {
+                Log("Mouse calibration needs the VR game running (its window is what gets matched) and edit mode on.");
+                return;
+            }
+            Log("Mouse calibration started — in VR: put the GAME'S mouse cursor on the green cross and left-click, twice. " +
+                "Panels are hidden until it finishes. Press Calibrate mouse again to cancel.");
+        }
+
+        private void ResetMouseCalibration_Click(object sender, RoutedEventArgs e)
+        {
+            if (_host == null) return;
+            _host.CancelCursorCalibration();
+            _host.ResetCursorCalibration();
+            SaveLayout();
+            Log("Mouse calibration reset — the game window maps onto the whole overlay again.");
+        }
+
+        // Fires on the UI thread (RenderFrame runs on the DispatcherTimer).
+        private void OnCursorCalibrationCompleted(bool applied)
+        {
+            if (applied)
+            {
+                SaveLayout();
+                Log("Mouse calibrated — the red cursor now follows the game's cursor. Saved.");
+            }
+            else
+            {
+                Log("Mouse calibration cancelled or unusable (the two clicks were too close together) — previous mapping kept.");
+            }
+        }
+
         private bool _syncingEditUi;
 
         private void EditButton_Changed(object sender, RoutedEventArgs e)
@@ -384,47 +628,64 @@ namespace BeltTensionTest.WPF.Views
             SizeXSlider.Value = _host.DisplaySize.X;
             SizeYSlider.Value = _host.DisplaySize.Y;
             DistanceSlider.Value = _host.Distance;
-            ResWidthBox.Text = _host.CanvasWidth.ToString();
-            ResHeightBox.Text = _host.CanvasHeight.ToString();
+            DpiSlider.Value = _dpi;
             _syncingEditUi = false;
             UpdateEditValueLabels();
         }
 
+        // Labels show the host's real values: in depth-only mode they are exact
+        // and can sit between (or beyond) the sliders' snap ticks.
         private void UpdateEditValueLabels()
         {
-            SizeXValue.Text = SizeXSlider.Value.ToString("0.00");
-            SizeYValue.Text = SizeYSlider.Value.ToString("0.00");
-            DistanceValue.Text = DistanceSlider.Value.ToString("0.00");
+            if (_host == null) return;
+            SizeXValue.Text = _host.DisplaySize.X.ToString("0.00");
+            SizeYValue.Text = _host.DisplaySize.Y.ToString("0.00");
+            DistanceValue.Text = _host.Distance.ToString("0.00");
+            DpiValue.Text = _dpi.ToString("0");
+            ResolutionValue.Text = $"{_host.CanvasWidth} × {_host.CanvasHeight} px";
         }
 
         private void DisplaySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
             if (_host == null || _syncingEditUi) return;
-            _host.DisplaySize = new System.Numerics.Vector2((float)SizeXSlider.Value, (float)SizeYSlider.Value);
-            _host.Distance = (float)DistanceSlider.Value;
+
+            // Only the slider that moved is applied — the others may be showing
+            // a snapped approximation of an exact depth-only value.
+            bool resolutionMayChange = true;
+            var size = _host.DisplaySize;
+            if (sender == SizeXSlider) _host.DisplaySize = new System.Numerics.Vector2((float)e.NewValue, size.Y);
+            else if (sender == SizeYSlider) _host.DisplaySize = new System.Numerics.Vector2(size.X, (float)e.NewValue);
+            else if (sender == DpiSlider) _dpi = e.NewValue;
+            else if (sender == DistanceSlider && DepthOnlyCheck.IsChecked == true && _host.Distance > 0)
+            {
+                // Depth only: scale the quad about the view origin, so it covers
+                // exactly the same angle (looks the same size, the mouse
+                // calibration stays valid) and only its stereo depth changes.
+                // DPI shrinks by the same factor so the canvas resolution — and
+                // with it the panel layout — is untouched.
+                float factor = (float)e.NewValue / _host.Distance;
+                _host.Distance = (float)e.NewValue;
+                _host.DisplaySize = size * factor;
+                _dpi /= factor;
+                resolutionMayChange = false;
+
+                _syncingEditUi = true;
+                SizeXSlider.Value = _host.DisplaySize.X;
+                SizeYSlider.Value = _host.DisplaySize.Y;
+                DpiSlider.Value = _dpi;
+                _syncingEditUi = false;
+            }
+            else if (sender == DistanceSlider) _host.Distance = (float)e.NewValue;
+
             UpdateEditValueLabels();
             SaveLayout();
-        }
 
-        private void ApplyResolution_Click(object sender, RoutedEventArgs e)
-        {
-            if (_host == null) return;
-            if (!int.TryParse(ResWidthBox.Text, out int w) || !int.TryParse(ResHeightBox.Text, out int h)
-                || w < 16 || h < 16 || w > 8192 || h > 8192)
+            // The canvas resolution follows size × DPI; (re)start the debounce
+            // so it is rebuilt once the slider settles.
+            if (resolutionMayChange)
             {
-                Log("Invalid resolution — enter width/height between 16 and 8192.");
-                return;
-            }
-
-            try
-            {
-                _host.SetCanvasResolution(w, h);
-                Log($"Canvas resolution set to {w}×{h} (VR display size unchanged).");
-                SaveLayout();
-            }
-            catch (Exception ex)
-            {
-                Log("RESOLUTION CHANGE FAILED: " + ex);
+                _resolutionTimer.Stop();
+                _resolutionTimer.Start();
             }
         }
 

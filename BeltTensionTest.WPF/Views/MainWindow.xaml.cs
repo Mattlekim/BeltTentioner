@@ -67,6 +67,15 @@ namespace BeltTensionTest.WPF.Views
                         RegisterNavHotkey("NavDecrease", vm.AppSettings.NavDecreaseKey, vm.AppSettings.NavDecreaseGlobal, MonoXR.Client.OverlayNavAction.Decrease);
                         RegisterNavHotkey("NavNextControl", vm.AppSettings.NavNextControlKey, vm.AppSettings.NavNextControlGlobal, MonoXR.Client.OverlayNavAction.NextControl);
                         RegisterNavHotkey("NavPrevControl", vm.AppSettings.NavPrevControlKey, vm.AppSettings.NavPrevControlGlobal, MonoXR.Client.OverlayNavAction.PreviousControl);
+
+                        // Always global: recentering happens with the headset on and the sim focused.
+                        if (!string.IsNullOrWhiteSpace(vm.AppSettings.RecenterOverlayKey))
+                        {
+                            GlobalHotKeyManager.Register("RecenterOverlay", vm.AppSettings.RecenterOverlayKey, () =>
+                            {
+                                try { vm.MenuStateText = RecenterOverlay("Hotkey", vm.AppSettings.RecenterOverlayKey); } catch { }
+                            });
+                        }
                     }
                     catch { }
                 }
@@ -139,9 +148,11 @@ namespace BeltTensionTest.WPF.Views
 
             VM?.LoadCarSettings(VM?.CarNameDisplay);
 
-            // Preferences → OpenXR: open the overlay window on startup.
+            // Preferences → OpenXR: run the overlay in the background and/or
+            // open its window on startup.
             try
             {
+                ApplyOverlayEnabledSetting();
                 if (VM?.AppSettings?.AutoStartOpenXrOverlay == true)
                     OpenOverlayWindow();
             }
@@ -335,6 +346,25 @@ namespace BeltTensionTest.WPF.Views
                 e.Handled = true;
                 return;
             }
+
+            // Recenter the VR overlay on the headset
+            if (Match(vm.AppSettings.RecenterOverlayKey))
+            {
+                vm.MenuStateText = RecenterOverlay("Hotkey", currentGesture);
+                e.Handled = true;
+                return;
+            }
+        }
+
+        /// <summary>
+        /// Recenter the open OpenXR overlay (same as its Recenter button) and
+        /// return the status text for the trigger that fired it.
+        /// </summary>
+        internal static string RecenterOverlay(string source, string gesture)
+        {
+            return OverlayWindow.RequestRecenter()
+                ? $"{source} triggered: RecenterOverlay ({gesture})"
+                : $"{source} triggered: RecenterOverlay ({gesture}) — OpenXR overlay is not open";
         }
 
         private void RegisterNavHotkey(string id, string gesture, bool isGlobal, MonoXR.Client.OverlayNavAction action)
@@ -410,6 +440,10 @@ namespace BeltTensionTest.WPF.Views
                 MonoXR.Client.OverlayNavigation.Raise(MonoXR.Client.OverlayNavAction.PreviousControl);
                 vm.MenuStateText = $"Gamepad triggered: NavPrevControl ({gesture})";
             }
+            else if (Match(vm.AppSettings.RecenterOverlayKey))
+            {
+                vm.MenuStateText = RecenterOverlay("Gamepad", gesture);
+            }
         }
 
         private void OpenPreferences_Click(object sender, RoutedEventArgs e)
@@ -417,6 +451,7 @@ namespace BeltTensionTest.WPF.Views
             var dlg = new SettingsWindow(VM);
             dlg.Owner = this;
             dlg.ShowDialog();
+            try { ApplyOverlayEnabledSetting(); } catch { }
         }
 
         private void OpenMotorSettings_Click(object sender, RoutedEventArgs e)
@@ -440,15 +475,40 @@ namespace BeltTensionTest.WPF.Views
 
         private void OpenOverlayWindow()
         {
-            if (_overlayWindow == null || !_overlayWindow.IsLoaded)
+            var window = EnsureOverlayWindow();
+            if (!window.IsVisible) window.Show();
+            window.Activate();
+        }
+
+        /// <summary>The running overlay (window possibly hidden or never shown), created on demand.</summary>
+        private OverlayWindow EnsureOverlayWindow()
+        {
+            if (_overlayWindow == null || _overlayWindow.IsShutDown)
             {
                 _overlayWindow = new OverlayWindow(VM);
                 _overlayWindow.Owner = this;
-                _overlayWindow.Show();
             }
-            else
+            _overlayWindow.KeepRunningWhenClosed = VM?.AppSettings?.EnableOpenXrOverlay == true;
+            return _overlayWindow;
+        }
+
+        /// <summary>
+        /// Preferences → OpenXR → Enable OpenXR overlay: when on, the overlay
+        /// runs without its window (created hidden; closing the window only
+        /// hides it). When turned off, a hidden overlay is stopped; an open
+        /// window just goes back to stopping the overlay when it is closed.
+        /// </summary>
+        private void ApplyOverlayEnabledSetting()
+        {
+            bool enabled = VM?.AppSettings?.EnableOpenXrOverlay == true;
+            if (enabled)
             {
-                _overlayWindow.Activate();
+                EnsureOverlayWindow();
+            }
+            else if (_overlayWindow != null && !_overlayWindow.IsShutDown)
+            {
+                _overlayWindow.KeepRunningWhenClosed = false;
+                if (!_overlayWindow.IsVisible) _overlayWindow.Shutdown();
             }
         }
 
@@ -630,6 +690,10 @@ namespace BeltTensionTest.WPF.Views
                 ShowTrayIcon();
                 return;
             }
+
+            // Really exiting: stop a background (hidden) overlay too — it would
+            // otherwise just hide again and keep the process alive.
+            try { _overlayWindow?.Shutdown(); } catch { }
 
             // Dispose viewmodel when actually exiting
             try { VM?.Dispose(); } catch { }

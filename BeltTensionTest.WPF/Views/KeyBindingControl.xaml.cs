@@ -24,6 +24,19 @@ namespace BeltTensionTest.WPF.Views
             set => SetValue(IsGlobalProperty, value);
         }
 
+        // False hides the "Global" checkbox, for bindings that are always
+        // registered system-wide and so have nothing to choose.
+        public static readonly DependencyProperty ShowGlobalOptionProperty = DependencyProperty.Register(
+            nameof(ShowGlobalOption), typeof(bool), typeof(KeyBindingControl),
+            new PropertyMetadata(true, (d, e) =>
+                ((KeyBindingControl)d).PART_Global.Visibility = (bool)e.NewValue ? Visibility.Visible : Visibility.Collapsed));
+
+        public bool ShowGlobalOption
+        {
+            get => (bool)GetValue(ShowGlobalOptionProperty);
+            set => SetValue(ShowGlobalOptionProperty, value);
+        }
+
         public event EventHandler? GestureChanged;
         public event EventHandler? GlobalChanged;
 
@@ -85,7 +98,7 @@ namespace BeltTensionTest.WPF.Views
                 // F13–F24 come from a Stream Deck (or macro device), which is typically pressed
                 // while the sim has focus — a non-global binding would never fire. Turning the
                 // checkbox on raises GlobalChanged, which persists and registers the hotkey.
-                if (IsStreamDeckKey(Gesture) && !IsGlobal)
+                if (ShowGlobalOption && IsStreamDeckKey(Gesture) && !IsGlobal)
                     PART_Global.IsChecked = true;
             }
         }
