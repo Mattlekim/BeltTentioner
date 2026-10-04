@@ -125,6 +125,34 @@
                         <CheckBox x:Name="chk_YouTubeOverlay" Content="YouTube overlay" Foreground="#A0A0BE" Margin="0,4"
                                   ToolTip="Adds the YouTube live-chat panel to the OpenXR overlay. Takes effect the next time the overlay window is opened."/>
 
+                        <TextBlock Text="Car behind" FontWeight="SemiBold" Margin="0,12,0,4" Foreground="{StaticResource TextPrimaryBrush}"/>
+                        <Separator Margin="0,0,0,8" Background="#46466A"/>
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="50"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Show within (s):" VerticalAlignment="Center" Foreground="#A0A0BE"
+                                       ToolTip="The car-behind box appears once the car behind is closer than this many seconds."/>
+                            <Slider x:Name="sld_CarBehindShow" Grid.Row="0" Grid.Column="1" Minimum="0.01" Maximum="5" SmallChange="0.05" LargeChange="0.5"
+                                    TickFrequency="0.01" IsSnapToTickEnabled="True" VerticalAlignment="Center" Margin="6,4"/>
+                            <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding Value, ElementName=sld_CarBehindShow, StringFormat=0.00}"
+                                       VerticalAlignment="Center" Foreground="#A0A0BE"/>
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Close distance (s):" VerticalAlignment="Center" Foreground="#A0A0BE"
+                                       ToolTip="Inside this gap the readout turns red (and flashes, if enabled below)."/>
+                            <Slider x:Name="sld_CarBehindClose" Grid.Row="1" Grid.Column="1" Minimum="0.05" Maximum="0.5" SmallChange="0.01" LargeChange="0.05"
+                                    TickFrequency="0.01" IsSnapToTickEnabled="True" VerticalAlignment="Center" Margin="6,4"/>
+                            <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding Value, ElementName=sld_CarBehindClose, StringFormat=0.00}"
+                                       VerticalAlignment="Center" Foreground="#A0A0BE"/>
+                        </Grid>
+                        <CheckBox x:Name="chk_CarBehindFlash" Content="Flash when close" Foreground="#A0A0BE" Margin="0,4"
+                                  ToolTip="Flashes the car-behind readout while the car is inside the close distance."/>
+
                         <Separator Margin="0,8" Background="#46466A"/>
 
                         <CheckBox x:Name="chk_EnableOverlay" Content="Enable OpenXR overlay" Foreground="#A0A0BE" Margin="0,4"

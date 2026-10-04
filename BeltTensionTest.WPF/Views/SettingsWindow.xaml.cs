@@ -29,6 +29,11 @@ namespace BeltTensionTest.WPF.Views
             chk_YouTubeOverlay.IsChecked = _vm.AppSettings?.EnableYouTubeOverlay ?? false;
             chk_AutoStartOverlay.IsChecked = _vm.AppSettings?.AutoStartOpenXrOverlay ?? false;
             chk_EnableOverlay.IsChecked = _vm.AppSettings?.EnableOpenXrOverlay ?? false;
+            double behindShow = _vm.AppSettings?.OverlayCarBehindShowGap ?? 0;
+            double behindClose = _vm.AppSettings?.OverlayCarBehindCloseGap ?? 0;
+            sld_CarBehindShow.Value = behindShow > 0 ? behindShow : Services.Overlays.CarBehindOverlay.DefaultShowGap;
+            sld_CarBehindClose.Value = behindClose > 0 ? behindClose : Services.Overlays.CarBehindOverlay.DefaultCloseGap;
+            chk_CarBehindFlash.IsChecked = _vm.AppSettings?.OverlayCarBehindFlashClose ?? false;
 
             // Initialize telemetry source radio buttons from the current view model state.
             // The VM already enforces that iRacing and SimHub cannot both be enabled.
@@ -154,6 +159,9 @@ namespace BeltTensionTest.WPF.Views
             _vm.AppSettings.EnableYouTubeOverlay = chk_YouTubeOverlay.IsChecked == true;
             _vm.AppSettings.AutoStartOpenXrOverlay = chk_AutoStartOverlay.IsChecked == true;
             _vm.AppSettings.EnableOpenXrOverlay = chk_EnableOverlay.IsChecked == true;
+            _vm.AppSettings.OverlayCarBehindShowGap = Math.Round(sld_CarBehindShow.Value, 2);
+            _vm.AppSettings.OverlayCarBehindCloseGap = Math.Round(sld_CarBehindClose.Value, 2);
+            _vm.AppSettings.OverlayCarBehindFlashClose = chk_CarBehindFlash.IsChecked == true;
             // Save keybindings
             _vm.AppSettings.ToggleFanKey = kb_ToggleFan.Gesture ?? string.Empty;
             _vm.AppSettings.ToggleFanGlobal = kb_ToggleFan.IsGlobal;

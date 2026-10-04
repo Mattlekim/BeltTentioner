@@ -41,6 +41,7 @@ namespace BeltTensionTest.WPF.Views
         private WarningOverlay? _warningPanel;
         private NearbyCarsOverlay? _nearbyPanel;
         private SlowCarOverlay? _slowCarPanel;
+        private CarBehindOverlay? _carBehindPanel;
         private YouTubeOverlay? _youtubePanel;
         private GpuStatsOverlay? _gpuPanel;
         private IncidentsOverlay? _incidentPanel;
@@ -296,6 +297,17 @@ namespace BeltTensionTest.WPF.Views
             }
             _slowCarPanel = _host.AddRenderTarget(new SlowCarOverlay(
                 _host.GraphicsDevice, slowX, slowY));
+
+            // Distance-to-car-behind box: defaults just above the spotter
+            // strip, bottom-center (where a mirror glance would go).
+            int behindX = (_host.CanvasWidth - 160) / 2, behindY = Math.Max(0, _host.CanvasHeight - 200 - 80 - 12);
+            if (s != null && s.OverlayCarBehindPanelX >= 0 && s.OverlayCarBehindPanelY >= 0)
+            {
+                behindX = Math.Min(s.OverlayCarBehindPanelX, Math.Max(0, _host.CanvasWidth - 100));
+                behindY = Math.Min(s.OverlayCarBehindPanelY, Math.Max(0, _host.CanvasHeight - 100));
+            }
+            _carBehindPanel = _host.AddRenderTarget(new CarBehindOverlay(
+                _host.GraphicsDevice, behindX, behindY, () => _vm.AppSettings));
             if (s != null && s.OverlayNearbyWidth > 0)
                 _nearbyPanel.BoxWidth = s.OverlayNearbyWidth;
             _nearbyPanel.BoxWidthChanged += SaveLayout; // persist slider resizes like drags
@@ -377,6 +389,7 @@ namespace BeltTensionTest.WPF.Views
                 RestoreScale(_warningPanel, s.OverlayWarningPanelScale);
                 RestoreScale(_nearbyPanel, s.OverlayNearbyPanelScale);
                 RestoreScale(_slowCarPanel, s.OverlaySlowCarPanelScale);
+                RestoreScale(_carBehindPanel, s.OverlayCarBehindPanelScale);
                 RestoreScale(_youtubePanel, s.OverlayYouTubePanelScale);
                 RestoreScale(_gpuPanel, s.OverlayGpuPanelScale);
                 RestoreScale(_incidentPanel, s.OverlayIncidentPanelScale);
@@ -388,6 +401,7 @@ namespace BeltTensionTest.WPF.Views
                 RestoreOpacity(_warningPanel, s.OverlayWarningPanelOpacity);
                 RestoreOpacity(_nearbyPanel, s.OverlayNearbyPanelOpacity);
                 RestoreOpacity(_slowCarPanel, s.OverlaySlowCarPanelOpacity);
+                RestoreOpacity(_carBehindPanel, s.OverlayCarBehindPanelOpacity);
                 RestoreOpacity(_youtubePanel, s.OverlayYouTubePanelOpacity);
                 RestoreOpacity(_gpuPanel, s.OverlayGpuPanelOpacity);
                 RestoreOpacity(_incidentPanel, s.OverlayIncidentPanelOpacity);
@@ -483,7 +497,7 @@ namespace BeltTensionTest.WPF.Views
         private IEnumerable<OverlayRenderTarget> AllPanels()
         {
             var panels = new OverlayRenderTarget?[]
-                { _beltPanel, _racePanel, _qualifyingPanel, _warningPanel, _nearbyPanel, _slowCarPanel, _youtubePanel, _gpuPanel,
+                { _beltPanel, _racePanel, _qualifyingPanel, _warningPanel, _nearbyPanel, _slowCarPanel, _carBehindPanel, _youtubePanel, _gpuPanel,
                   _incidentPanel, _displayPanel };
             foreach (var p in panels)
                 if (p != null) yield return p;
@@ -554,6 +568,13 @@ namespace BeltTensionTest.WPF.Views
                     s.OverlaySlowCarPanelY = _slowCarPanel.Y;
                     s.OverlaySlowCarPanelScale = _slowCarPanel.Scale;
                     s.OverlaySlowCarPanelOpacity = _slowCarPanel.Opacity;
+                }
+                if (_carBehindPanel != null)
+                {
+                    s.OverlayCarBehindPanelX = _carBehindPanel.X;
+                    s.OverlayCarBehindPanelY = _carBehindPanel.Y;
+                    s.OverlayCarBehindPanelScale = _carBehindPanel.Scale;
+                    s.OverlayCarBehindPanelOpacity = _carBehindPanel.Opacity;
                 }
                 if (_youtubePanel != null)
                 {
