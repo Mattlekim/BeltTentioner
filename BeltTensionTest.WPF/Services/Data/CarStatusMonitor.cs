@@ -20,6 +20,14 @@ namespace BeltTensionTest.WPF.Services.Data
         public bool SlowHazard;   // this car is currently triggering the slow-car warning
     }
 
+    /// <summary>Lap relation of the car behind, which tints the car-behind box.</summary>
+    public enum BehindLap : byte
+    {
+        SameLap,  // racing for position (black)
+        LappedBy, // you are 500 m+ ahead of it: a lapped car behind (blue)
+        LapsUp,   // it is 500 m+ ahead of you: a leader closing to lap you (red)
+    }
+
     /// <summary>
     /// Shared per-car status detector, fed from CarsUpdated on the SDK
     /// telemetry thread. Tracks, for every car:
@@ -30,6 +38,9 @@ namespace BeltTensionTest.WPF.Services.Data
     ///  - whether that car is *triggering* a warning right now (ahead of the
     ///    player and within 10 seconds), plus the aggregate nearest gaps that
     ///    WarningOverlay / SlowCarOverlay display,
+    ///  - the nearest car behind the player on track (IrachingHud's
+    ///    DeltaToCarBehind) and whether it is on the same lap, for
+    ///    CarBehindOverlay,
     ///  - an estimated pit phase: entering pit road from the track = PitIn,
     ///    stopped in the stall or in the garage = Pit, moving on pit road
     ///    after a stop (or freshly appeared there) = PitOut, then OutLap for
@@ -49,6 +60,11 @@ namespace BeltTensionTest.WPF.Services.Data
         private const float CatchRateOff = 0.125f; // slow-car: s/s → clear again
         private const float WarnWindowSeconds = 10f;
         private const float StallSpeedKmh = 5f;    // under this on pit road = in the stall
+
+        // CarIdxTrackSurface values (irsdk TrkLoc enum).
+        private const int SurfaceNotInWorld = -1;
+        private const int SurfaceOffTrack = 0;
+        private const int SurfaceOnTrack = 3;
 
         private sealed class Watch
         {
@@ -72,12 +88,26 @@ namespace BeltTensionTest.WPF.Services.Data
         private double _lastTime;
         private bool _yellowActive, _slowActive;
         private float _yellowGap, _slowGap;
+        private bool _behindActive;
+        private float _behindGap;
+        private BehindLap _behindLap;
 
         /// <summary>Nearest car currently triggering the yellow-flag warning (gap in seconds).</summary>
         public (bool Active, float Gap) Yellow { get { lock (_lock) return (_yellowActive, _yellowGap); } }
 
         /// <summary>Nearest car currently triggering the slow-car warning (gap in seconds).</summary>
         public (bool Active, float Gap) Slow { get { lock (_lock) return (_slowActive, _slowGap); } }
+
+        /// <summary>
+        /// Nearest car behind the player on track: gap in seconds (negative,
+        /// e.g. -0.85) and its lap relation. Only cars on or just off the
+        /// racing surface count, and only while the player is on track or on
+        /// pit road, matching IrachingHud. Callers apply their own show window.
+        /// </summary>
+        public (bool Active, float Gap, BehindLap Lap) Behind
+        {
+            get { lock (_lock) return (_behindActive, _behindGap, _behindLap); }
+        }
 
         public CarStatus StatusOf(int carIdx)
         {
@@ -97,7 +127,7 @@ namespace BeltTensionTest.WPF.Services.Data
         private void ResetLocked()
         {
             _watch.Clear();
-            _yellowActive = _slowActive = false;
+            _yellowActive = _slowActive = _behindActive = false;
         }
 
         // SDK telemetry thread.
@@ -115,9 +145,15 @@ namespace BeltTensionTest.WPF.Services.Data
                 _lastTime = time;
                 if (dt <= 0 || dt > 2) return; // paused / first tick / huge jump
 
-                _yellowActive = _slowActive = false;
+                _yellowActive = _slowActive = _behindActive = false;
                 _yellowGap = _slowGap = float.PositiveInfinity;
+                _behindGap = float.NegativeInfinity;
                 if (!svc.IsConnected || trackLen <= 0 || player.CarIdx < 0) return;
+
+                // IrachingHud only measures the car behind while the player is
+                // on track, off track or on pit road (not in the garage).
+                bool playerRacing = player.TrackSurface != SurfaceNotInWorld && !player.IsInGarage;
+                float playerMeters = (player.Lap + Math.Clamp(player.LapDistPct, 0f, 1f)) * trackLen;
 
                 foreach (var car in cars)
                 {
@@ -174,6 +210,20 @@ namespace BeltTensionTest.WPF.Services.Data
                     {
                         if (gap > lapTime * 0.5f) gap -= lapTime;
                         else if (gap < -lapTime * 0.5f) gap += lapTime;
+                    }
+
+                    // Car behind: the closest negative gap among cars on (or
+                    // just off) the racing surface. Tinted by lap relation
+                    // using total distance, with IrachingHud's 500 m margin.
+                    if (playerRacing && gap < 0 && gap > _behindGap &&
+                        (car.TrackSurface == SurfaceOnTrack || car.TrackSurface == SurfaceOffTrack))
+                    {
+                        float carMeters = dist * trackLen;
+                        _behindActive = true;
+                        _behindGap = gap;
+                        _behindLap = playerMeters - carMeters > 500f ? BehindLap.LappedBy
+                                   : carMeters - playerMeters > 500f ? BehindLap.LapsUp
+                                   : BehindLap.SameLap;
                     }
 
                     // Slow-car: closing rate measured over a ~1 s baseline.

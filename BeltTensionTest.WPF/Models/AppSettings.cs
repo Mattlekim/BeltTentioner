@@ -77,6 +77,14 @@ namespace BeltTensionTest.WPF.Models
         public int OverlayNearbyWidth { get; set; } = 0;
         public int OverlaySlowCarPanelX { get; set; } = -1;
         public int OverlaySlowCarPanelY { get; set; } = -1;
+        public int OverlayCarBehindPanelX { get; set; } = -1;
+        public int OverlayCarBehindPanelY { get; set; } = -1;
+        // Car-behind box (IrachingHud's "Delta Behind"): shown while the car
+        // behind is within ShowGap seconds; the readout turns red (and
+        // flashes, if enabled) inside CloseGap seconds. 0 = default.
+        public double OverlayCarBehindShowGap { get; set; } = 2.0;
+        public double OverlayCarBehindCloseGap { get; set; } = 0.2;
+        public bool OverlayCarBehindFlashClose { get; set; } = false;
         public int OverlayYouTubePanelX { get; set; } = -1;
         public int OverlayYouTubePanelY { get; set; } = -1;
         public int OverlayGpuPanelX { get; set; } = -1;
@@ -95,6 +103,7 @@ namespace BeltTensionTest.WPF.Models
         public double OverlayWarningPanelScale { get; set; } = 0;
         public double OverlayNearbyPanelScale { get; set; } = 0;
         public double OverlaySlowCarPanelScale { get; set; } = 0;
+        public double OverlayCarBehindPanelScale { get; set; } = 0;
         public double OverlayYouTubePanelScale { get; set; } = 0;
         public double OverlayGpuPanelScale { get; set; } = 0;
         public double OverlayIncidentPanelScale { get; set; } = 0;
@@ -107,6 +116,7 @@ namespace BeltTensionTest.WPF.Models
         public double OverlayWarningPanelOpacity { get; set; } = 0;
         public double OverlayNearbyPanelOpacity { get; set; } = 0;
         public double OverlaySlowCarPanelOpacity { get; set; } = 0;
+        public double OverlayCarBehindPanelOpacity { get; set; } = 0;
         public double OverlayYouTubePanelOpacity { get; set; } = 0;
         public double OverlayGpuPanelOpacity { get; set; } = 0;
         public double OverlayIncidentPanelOpacity { get; set; } = 0;
