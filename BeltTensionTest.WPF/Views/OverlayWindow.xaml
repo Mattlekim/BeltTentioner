@@ -19,7 +19,10 @@
             <Border DockPanel.Dock="Top" Height="36" Background="{StaticResource BgLightBrush}">
                 <Grid MouseDown="TitleBar_MouseDown">
                     <TextBlock VerticalAlignment="Center" Margin="12,0,40,0" FontWeight="SemiBold"
-                               Foreground="{StaticResource TextPrimaryBrush}" Text="OpenXR Overlay" />
+                               Foreground="{StaticResource TextPrimaryBrush}">
+                        <Run Text="OpenXR Overlay"/>
+                        <Run x:Name="TitleState" Text="— Disabled" FontWeight="Normal"/>
+                    </TextBlock>
                     <Button Width="36" Height="24" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0"
                             Click="CloseButton_Click" Background="Transparent" BorderBrush="Transparent" Padding="0"
                             BorderThickness="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">

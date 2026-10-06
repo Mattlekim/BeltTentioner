@@ -148,15 +148,8 @@ namespace BeltTensionTest.WPF.Views
 
             VM?.LoadCarSettings(VM?.CarNameDisplay);
 
-            // Preferences → OpenXR: run the overlay in the background and/or
-            // open its window on startup.
-            try
-            {
-                ApplyOverlayEnabledSetting();
-                if (VM?.AppSettings?.AutoStartOpenXrOverlay == true)
-                    OpenOverlayWindow();
-            }
-            catch { }
+            // Preferences → OpenXR → Run OpenXR overlay.
+            try { ApplyOverlayEnabledSetting(); } catch { }
         }
 
         private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -364,7 +357,7 @@ namespace BeltTensionTest.WPF.Views
         {
             return OverlayWindow.RequestRecenter()
                 ? $"{source} triggered: RecenterOverlay ({gesture})"
-                : $"{source} triggered: RecenterOverlay ({gesture}) — OpenXR overlay is not open";
+                : $"{source} triggered: RecenterOverlay ({gesture}) — OpenXR overlay is not running";
         }
 
         private void RegisterNavHotkey(string id, string gesture, bool isGlobal, MonoXR.Client.OverlayNavAction action)
@@ -480,36 +473,27 @@ namespace BeltTensionTest.WPF.Views
             window.Activate();
         }
 
-        /// <summary>The running overlay (window possibly hidden or never shown), created on demand.</summary>
+        /// <summary>The overlay window (possibly hidden or never shown), created on demand.</summary>
         private OverlayWindow EnsureOverlayWindow()
         {
-            if (_overlayWindow == null || _overlayWindow.IsShutDown)
+            if (_overlayWindow == null)
             {
                 _overlayWindow = new OverlayWindow(VM);
                 _overlayWindow.Owner = this;
             }
-            _overlayWindow.KeepRunningWhenClosed = VM?.AppSettings?.EnableOpenXrOverlay == true;
             return _overlayWindow;
         }
 
         /// <summary>
-        /// Preferences → OpenXR → Enable OpenXR overlay: when on, the overlay
-        /// runs without its window (created hidden; closing the window only
-        /// hides it). When turned off, a hidden overlay is stopped; an open
-        /// window just goes back to stopping the overlay when it is closed.
+        /// Preferences → OpenXR → Run OpenXR overlay starts/stops the overlay.
+        /// Its window is only for editing: showing or closing it (closing just
+        /// hides it) leaves the overlay's running state alone.
         /// </summary>
         private void ApplyOverlayEnabledSetting()
         {
             bool enabled = VM?.AppSettings?.EnableOpenXrOverlay == true;
-            if (enabled)
-            {
-                EnsureOverlayWindow();
-            }
-            else if (_overlayWindow != null && !_overlayWindow.IsShutDown)
-            {
-                _overlayWindow.KeepRunningWhenClosed = false;
-                if (!_overlayWindow.IsVisible) _overlayWindow.Shutdown();
-            }
+            if (enabled) EnsureOverlayWindow().SetRunning(true);
+            else _overlayWindow?.SetRunning(false);
         }
 
         private void OpenTestingWindow_Click(object sender, RoutedEventArgs e)

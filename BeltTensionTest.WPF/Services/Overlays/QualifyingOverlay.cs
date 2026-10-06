@@ -45,6 +45,25 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         protected override string EmptyMessage => "Shown during practice and qualifying";
 
+        /// <summary>
+        /// The box covers every non-race session, so the title names the one
+        /// actually on screen: "Practice" only on a practice screen,
+        /// "Qualifying" in qualifying, and so on. The panel's <see cref="Name"/>
+        /// stays "Qualifying" — it keys the saved toggle binding and show mode.
+        /// </summary>
+        protected override string DisplayName
+        {
+            get
+            {
+                string type = CurrentSessionType;
+                if (type.IndexOf("Qual", StringComparison.OrdinalIgnoreCase) >= 0) return "Qualifying";
+                if (type.IndexOf("Practice", StringComparison.OrdinalIgnoreCase) >= 0) return "Practice";
+                if (type.IndexOf("Warmup", StringComparison.OrdinalIgnoreCase) >= 0) return "Warmup";
+                if (type.IndexOf("Test", StringComparison.OrdinalIgnoreCase) >= 0) return "Testing";
+                return Name;
+            }
+        }
+
         private string _fastestText = string.Empty;
         private string _temps = string.Empty;
 

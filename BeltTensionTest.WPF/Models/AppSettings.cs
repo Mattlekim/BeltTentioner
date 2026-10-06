@@ -58,16 +58,41 @@ namespace BeltTensionTest.WPF.Models
         public int OverlayRacePanelY { get; set; } = -1;
         public int OverlayQualifyingPanelX { get; set; } = -1;
         public int OverlayQualifyingPanelY { get; set; } = -1;
+        public int OverlayStandingsPanelX { get; set; } = -1;
+        public int OverlayStandingsPanelY { get; set; } = -1;
+        public int OverlayHudSettingsPanelX { get; set; } = -1;
+        public int OverlayHudSettingsPanelY { get; set; } = -1;
         // Race / Qualifying panel column order (comma-separated column
         // names); empty = the coded default order.
         public string OverlayRaceColumnOrder { get; set; } = "";
         public string OverlayQualifyingColumnOrder { get; set; } = "";
+        public string OverlayStandingsColumnOrder { get; set; } = "";
+        // Drivers marked as a friend or a rival, keyed by iRacing customer id
+        // ("name:<driver>" for AI): "Friend" or "Rival" (Services.Data.DriverTag).
+        // Set by clicking a row on the in-VR standings board.
+        public Dictionary<string, string> OverlayDriverTags { get; set; } = new();
+        // Row colours those tags paint (0xRRGGBB), how strongly the colour
+        // fills the row (0..0.8), and whether the Race / Qualifying relative
+        // boxes use them too. All set from the in-VR HUD Settings panel.
+        public int OverlayFriendColor { get; set; } = 0x2E8CD8;
+        public int OverlayRivalColor { get; set; } = 0xD8462E;
+        public double OverlayTagTint { get; set; } = 0.35;
+        public bool OverlayTagsInRelativeBoxes { get; set; } = true;
+        // Rows the standings board grows to before it starts leaving cars out.
+        public int OverlayStandingsRows { get; set; } = 26;
+        // Gaze focus: what looking at a panel does to it (Services.GazeEffect),
+        // where the look direction comes from (Services.GazeSource), how far
+        // the other panels dim (0..0.7) and how much the looked-at one grows
+        // (1.0..1.6). Set from the in-VR HUD Settings panel.
+        public string OverlayGazeEffect { get; set; } = "Brighten";
+        public string OverlayGazeSource { get; set; } = "Off";
+        public double OverlayGazeDim { get; set; } = 0.45;
+        public double OverlayGazeGrow { get; set; } = 1.25;
         // OpenXR overlay preferences: whether the YouTube chat overlay exists
-        // at all, and whether the overlay window opens itself on app start.
+        // at all, and whether the overlay runs.
         public bool EnableYouTubeOverlay { get; set; } = false;
-        public bool AutoStartOpenXrOverlay { get; set; } = false;
-        // Run the OpenXR overlay in the background from app start, without the
-        // overlay window having to be open (the window is then only for editing).
+        // Run the OpenXR overlay (from app start, saved). Independent of the
+        // overlay window: opening/closing it neither starts nor stops the overlay.
         public bool EnableOpenXrOverlay { get; set; } = false;
         public int OverlayWarningPanelX { get; set; } = -1;
         public int OverlayWarningPanelY { get; set; } = -1;
@@ -100,6 +125,8 @@ namespace BeltTensionTest.WPF.Models
         public double OverlayMainPanelScale { get; set; } = 0; // legacy, see OverlayMainPanelX
         public double OverlayRacePanelScale { get; set; } = 0;
         public double OverlayQualifyingPanelScale { get; set; } = 0;
+        public double OverlayStandingsPanelScale { get; set; } = 0;
+        public double OverlayHudSettingsPanelScale { get; set; } = 0;
         public double OverlayWarningPanelScale { get; set; } = 0;
         public double OverlayNearbyPanelScale { get; set; } = 0;
         public double OverlaySlowCarPanelScale { get; set; } = 0;
@@ -113,6 +140,8 @@ namespace BeltTensionTest.WPF.Models
         public double OverlayPanelOpacity { get; set; } = 0;
         public double OverlayRacePanelOpacity { get; set; } = 0;
         public double OverlayQualifyingPanelOpacity { get; set; } = 0;
+        public double OverlayStandingsPanelOpacity { get; set; } = 0;
+        public double OverlayHudSettingsPanelOpacity { get; set; } = 0;
         public double OverlayWarningPanelOpacity { get; set; } = 0;
         public double OverlayNearbyPanelOpacity { get; set; } = 0;
         public double OverlaySlowCarPanelOpacity { get; set; } = 0;

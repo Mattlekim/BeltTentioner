@@ -38,6 +38,8 @@ namespace BeltTensionTest.WPF.Views
         private BeltSettingsOverlay? _beltPanel;
         private RaceOverlay? _racePanel;
         private QualifyingOverlay? _qualifyingPanel;
+        private StandingsOverlay? _standingsPanel;
+        private HudSettingsOverlay? _hudSettingsPanel;
         private WarningOverlay? _warningPanel;
         private NearbyCarsOverlay? _nearbyPanel;
         private SlowCarOverlay? _slowCarPanel;
@@ -47,6 +49,7 @@ namespace BeltTensionTest.WPF.Views
         private IncidentsOverlay? _incidentPanel;
         private DisplaySettingsOverlay? _displayPanel;
         private OverlayPreviewWindow? _preview;
+        private Services.GazeFocus? _gazeFocus;
         private Services.PanelToggleBindings? _toggleBindings;
         private Services.PanelVisibility? _panelVisibility;
 
@@ -70,6 +73,31 @@ namespace BeltTensionTest.WPF.Views
             _vm = vm;
             InitializeComponent();
 
+            _resolutionTimer.Tick += OnResolutionTimerTick;
+            _timer.Tick += OnTick;
+            Closing += OnClosing;
+            Closed += OnClosed;
+            UpdateRunningUi();
+        }
+
+        /// <summary>True while the overlay is running (Preferences > OpenXR > Run OpenXR overlay).</summary>
+        public bool IsRunning => _host != null;
+
+        /// <summary>
+        /// Start or stop the overlay. This is driven only by the Preferences
+        /// setting — showing or closing this window never starts or stops it.
+        /// </summary>
+        public void SetRunning(bool run)
+        {
+            if (_closed) return;
+            if (run && _host == null) Start();
+            else if (!run && _host != null) Stop();
+        }
+
+        private void Start()
+        {
+            _lastAttached = false;
+            _statusLogged = false;
             try
             {
                 Log("Creating MonoGame overlay host...");
@@ -77,6 +105,17 @@ namespace BeltTensionTest.WPF.Views
                 Log("Host ready: MonoGame device up, overlay published (World, 3m ahead, 2.5m).");
 
                 ApplySavedLayout();
+
+                // Friend / rival tags and their colours, before the panels
+                // that read them are built. DriverTags keeps the settings
+                // dictionary by reference, so a tag set in VR is already in
+                // the settings object when SaveLayout runs.
+                var settings = _vm.AppSettings;
+                if (settings != null)
+                    Services.Data.DriverTags.Instance.Load(
+                        settings.OverlayDriverTags, settings.OverlayFriendColor, settings.OverlayRivalColor,
+                        settings.OverlayTagTint, settings.OverlayTagsInRelativeBoxes);
+
                 SetupRenderTargets();
                 _host.DragCompleted += OnDragCompleted;
                 _host.ScaleChanged += OnScaleChanged;
@@ -102,6 +141,11 @@ namespace BeltTensionTest.WPF.Views
                 _host.ShowButtonLabel = _panelVisibility.LabelFor;
                 _host.ShowModeCycleRequested += _panelVisibility.Cycle;
                 _panelVisibility.Apply();
+                // Gaze focus runs off the head pose the MonoXR layer
+                // publishes; edit mode suspends it so panels hold still while
+                // they are arranged.
+                _host.EditModeChanged += _ => _gazeFocus?.Reset();
+
                 _host.CursorCalibrationCompleted += OnCursorCalibrationCompleted;
                 // Edit mode can also be toggled from the icon in VR — mirror it here.
                 _host.EditModeChanged += editing => EditButton.IsChecked = editing;
@@ -118,31 +162,53 @@ namespace BeltTensionTest.WPF.Views
             catch (Exception ex)
             {
                 Log("INIT FAILED: " + ex);
+                Stop();
                 StatusLabel.Text = "Init failed — see log.";
+                return;
             }
 
             RecenterRequested += Recenter;
-            _resolutionTimer.Tick += OnResolutionTimerTick;
-            _timer.Tick += OnTick;
             _timer.Start();
-            Closing += OnClosing;
-            Closed += OnClosed;
+            UpdateRunningUi();
         }
 
-        /// <summary>
-        /// True = the overlay keeps running in the background when this window
-        /// is closed (Preferences > OpenXR > Enable OpenXR overlay): closing
-        /// only hides the window. The window may also never be shown at all —
-        /// everything (host, render timer, panels) runs without it being visible.
-        /// </summary>
-        public bool KeepRunningWhenClosed { get; set; }
+        private void Stop()
+        {
+            RecenterRequested -= Recenter;
+            _timer.Stop();
+            _resolutionTimer.Stop();
+            EditButton.IsChecked = false;
+            _preview?.Close();
+            _toggleBindings?.Dispose();
+            _toggleBindings = null;
+            _panelVisibility = null;
+            _gazeFocus = null;
+            _beltPanel = null; _racePanel = null; _qualifyingPanel = null; _standingsPanel = null;
+            _hudSettingsPanel = null; _warningPanel = null; _nearbyPanel = null; _slowCarPanel = null; _carBehindPanel = null;
+            _youtubePanel = null; _gpuPanel = null; _incidentPanel = null; _displayPanel = null;
+            bool wasRunning = _host != null;
+            _host?.Dispose();
+            _host = null;
+            if (wasRunning) Log("Overlay stopped.");
+            UpdateRunningUi();
+        }
 
-        /// <summary>True once the overlay has really shut down (not just hidden).</summary>
-        public bool IsShutDown { get; private set; }
+        /// <summary>Title-bar state and which controls work, for running vs. disabled.</summary>
+        private void UpdateRunningUi()
+        {
+            bool running = IsRunning;
+            TitleState.Text = running ? "— Running" : "— Disabled";
+            TitleState.Foreground = running
+                ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x50, 0xC8, 0x78))
+                : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xDC, 0x3C, 0x3C));
+            EditButton.IsEnabled = PreviewButton.IsEnabled = RecenterButton.IsEnabled = running;
+            if (!running)
+                StatusLabel.Text = "OpenXR overlay is off — turn on Settings → Preferences → OpenXR → Run OpenXR overlay.";
+        }
 
-        private bool _shuttingDown;
+        private bool _closed, _shuttingDown;
 
-        /// <summary>Really stop the overlay and close the window, even when <see cref="KeepRunningWhenClosed"/>.</summary>
+        /// <summary>Stop the overlay and really close the window (app exit).</summary>
         public void Shutdown()
         {
             _shuttingDown = true;
@@ -152,10 +218,11 @@ namespace BeltTensionTest.WPF.Views
 
         private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
         {
-            if (!KeepRunningWhenClosed || _shuttingDown) return;
+            if (_shuttingDown) return;
 
-            // Background mode: hide instead of closing. Leave edit mode first so
-            // the red border/cursor and button bars don't stay up in VR.
+            // Closing the window only hides it; the overlay keeps its current
+            // running state. Leave edit mode first so the red border/cursor and
+            // button bars don't stay up in VR.
             e.Cancel = true;
             EditButton.IsChecked = false;
             _preview?.Close();
@@ -264,6 +331,57 @@ namespace BeltTensionTest.WPF.Views
             if (!string.IsNullOrEmpty(s?.OverlayQualifyingColumnOrder))
                 _qualifyingPanel.ColumnOrder = s.OverlayQualifyingColumnOrder;
             _qualifyingPanel.ColumnOrderChanged += SaveLayout;
+
+            // Full-field standings board. It is much wider and taller than the
+            // relative boxes, so it defaults to the right-hand side at 70% —
+            // the size a full grid fits a default canvas at.
+            const float StandingsDefaultScale = 0.7f;
+            int standX = Math.Max(0, _host.CanvasWidth - (int)(StandingsOverlay.BoardWidth * StandingsDefaultScale) - 16);
+            int standY = 16;
+            if (s != null && s.OverlayStandingsPanelX >= 0 && s.OverlayStandingsPanelY >= 0)
+            {
+                standX = Math.Min(s.OverlayStandingsPanelX, Math.Max(0, _host.CanvasWidth - 100));
+                standY = Math.Min(s.OverlayStandingsPanelY, Math.Max(0, _host.CanvasHeight - 100));
+            }
+            _standingsPanel = _host.AddRenderTarget(new StandingsOverlay(
+                _host.GraphicsDevice, standX, standY));
+            _standingsPanel.Scale = StandingsDefaultScale; // RestoreScale overrides it when one was saved
+            if (!string.IsNullOrEmpty(s?.OverlayStandingsColumnOrder))
+                _standingsPanel.ColumnOrder = s.OverlayStandingsColumnOrder;
+            _standingsPanel.ColumnOrderChanged += SaveLayout;
+            _standingsPanel.MaxRows = s?.OverlayStandingsRows ?? StandingsOverlay.MaxRowSetting;
+
+            // Gaze focus has to exist before the settings panel that drives
+            // it; the panels it acts on come from the same AllPanels list.
+            _gazeFocus = new Services.GazeFocus(_host, AllPanels);
+            if (s != null)
+            {
+                if (Enum.TryParse(s.OverlayGazeEffect, out Services.GazeEffect gazeEffect))
+                    _gazeFocus.Effect = gazeEffect;
+                if (Enum.TryParse(s.OverlayGazeSource, out Services.GazeSource gazeSource))
+                    _gazeFocus.Source = gazeSource;
+                _gazeFocus.DimAmount = (float)s.OverlayGazeDim;
+                _gazeFocus.GrowFactor = (float)s.OverlayGazeGrow;
+            }
+
+            // HUD settings (tag colours, standings size). Not edit-mode only:
+            // these are changed while sitting in the pits. It starts collapsed
+            // to a pill near the bottom-left, which opens it when clicked.
+            var standingsRowsSetting = new BeltSettingRow(
+                "Rows on the board",
+                () => _standingsPanel?.MaxRows ?? 0,
+                v => { if (_standingsPanel != null) _standingsPanel.MaxRows = (int)v; },
+                StandingsOverlay.MinRowSetting, StandingsOverlay.MaxRowSetting, 1f, "0");
+
+            int hudX = 16, hudY = Math.Max(0, _host.CanvasHeight - 400); // above the GPU panel's corner
+            if (s != null && s.OverlayHudSettingsPanelX >= 0 && s.OverlayHudSettingsPanelY >= 0)
+            {
+                hudX = Math.Min(s.OverlayHudSettingsPanelX, Math.Max(0, _host.CanvasWidth - 100));
+                hudY = Math.Min(s.OverlayHudSettingsPanelY, Math.Max(0, _host.CanvasHeight - 100));
+            }
+            _hudSettingsPanel = _host.AddRenderTarget(new HudSettingsOverlay(
+                _host.GraphicsDevice, hudX, hudY, standingsRowsSetting, _gazeFocus, SaveLayout));
+            _hudSettingsPanel.State = MonoXR.Client.OverlayTargetState.Collapsed;
 
             // Yellow-flag warning card: defaults to top-center, above where
             // the eye already is for flags.
@@ -386,6 +504,8 @@ namespace BeltTensionTest.WPF.Views
                 double boxScale = s.OverlayMainPanelScale;
                 RestoreScale(_racePanel, s.OverlayRacePanelScale > 0 ? s.OverlayRacePanelScale : boxScale);
                 RestoreScale(_qualifyingPanel, s.OverlayQualifyingPanelScale > 0 ? s.OverlayQualifyingPanelScale : boxScale);
+                RestoreScale(_standingsPanel, s.OverlayStandingsPanelScale);
+                RestoreScale(_hudSettingsPanel, s.OverlayHudSettingsPanelScale);
                 RestoreScale(_warningPanel, s.OverlayWarningPanelScale);
                 RestoreScale(_nearbyPanel, s.OverlayNearbyPanelScale);
                 RestoreScale(_slowCarPanel, s.OverlaySlowCarPanelScale);
@@ -398,6 +518,8 @@ namespace BeltTensionTest.WPF.Views
                 RestoreOpacity(_beltPanel, s.OverlayPanelOpacity);
                 RestoreOpacity(_racePanel, s.OverlayRacePanelOpacity);
                 RestoreOpacity(_qualifyingPanel, s.OverlayQualifyingPanelOpacity);
+                RestoreOpacity(_standingsPanel, s.OverlayStandingsPanelOpacity);
+                RestoreOpacity(_hudSettingsPanel, s.OverlayHudSettingsPanelOpacity);
                 RestoreOpacity(_warningPanel, s.OverlayWarningPanelOpacity);
                 RestoreOpacity(_nearbyPanel, s.OverlayNearbyPanelOpacity);
                 RestoreOpacity(_slowCarPanel, s.OverlaySlowCarPanelOpacity);
@@ -414,6 +536,17 @@ namespace BeltTensionTest.WPF.Views
         {
             if (panel != null && savedScale > 0) panel.Scale = (float)savedScale;
         }
+
+        /// <summary>
+        /// A panel's own opacity / scale, with any gaze dimming or growth
+        /// taken back off — these are what gets saved, so a panel that was
+        /// being looked at when the layout was saved comes back the same size.
+        /// </summary>
+        private double SavedScaleOf(OverlayRenderTarget panel) =>
+            _gazeFocus?.BaseScaleOf(panel) ?? panel.Scale;
+
+        private double SavedOpacityOf(OverlayRenderTarget panel) =>
+            _gazeFocus?.BaseOpacityOf(panel) ?? panel.Opacity;
 
         private static void RestoreOpacity(OverlayRenderTarget? panel, double savedOpacity)
         {
@@ -497,8 +630,8 @@ namespace BeltTensionTest.WPF.Views
         private IEnumerable<OverlayRenderTarget> AllPanels()
         {
             var panels = new OverlayRenderTarget?[]
-                { _beltPanel, _racePanel, _qualifyingPanel, _warningPanel, _nearbyPanel, _slowCarPanel, _carBehindPanel, _youtubePanel, _gpuPanel,
-                  _incidentPanel, _displayPanel };
+                { _beltPanel, _racePanel, _qualifyingPanel, _standingsPanel, _hudSettingsPanel, _warningPanel,
+                  _nearbyPanel, _slowCarPanel, _carBehindPanel, _youtubePanel, _gpuPanel, _incidentPanel, _displayPanel };
             foreach (var p in panels)
                 if (p != null) yield return p;
         }
@@ -528,46 +661,76 @@ namespace BeltTensionTest.WPF.Views
                 {
                     s.OverlayPanelX = _beltPanel.X;
                     s.OverlayPanelY = _beltPanel.Y;
-                    s.OverlayPanelScale = _beltPanel.Scale;
-                    s.OverlayPanelOpacity = _beltPanel.Opacity;
+                    s.OverlayPanelScale = SavedScaleOf(_beltPanel);
+                    s.OverlayPanelOpacity = SavedOpacityOf(_beltPanel);
                 }
                 if (_racePanel != null)
                 {
                     s.OverlayRacePanelX = _racePanel.X;
                     s.OverlayRacePanelY = _racePanel.Y;
-                    s.OverlayRacePanelScale = _racePanel.Scale;
-                    s.OverlayRacePanelOpacity = _racePanel.Opacity;
+                    s.OverlayRacePanelScale = SavedScaleOf(_racePanel);
+                    s.OverlayRacePanelOpacity = SavedOpacityOf(_racePanel);
                     s.OverlayRaceColumnOrder = _racePanel.ColumnOrder;
                 }
                 if (_qualifyingPanel != null)
                 {
                     s.OverlayQualifyingPanelX = _qualifyingPanel.X;
                     s.OverlayQualifyingPanelY = _qualifyingPanel.Y;
-                    s.OverlayQualifyingPanelScale = _qualifyingPanel.Scale;
-                    s.OverlayQualifyingPanelOpacity = _qualifyingPanel.Opacity;
+                    s.OverlayQualifyingPanelScale = SavedScaleOf(_qualifyingPanel);
+                    s.OverlayQualifyingPanelOpacity = SavedOpacityOf(_qualifyingPanel);
                     s.OverlayQualifyingColumnOrder = _qualifyingPanel.ColumnOrder;
+                }
+                if (_standingsPanel != null)
+                {
+                    s.OverlayStandingsPanelX = _standingsPanel.X;
+                    s.OverlayStandingsPanelY = _standingsPanel.Y;
+                    s.OverlayStandingsPanelScale = SavedScaleOf(_standingsPanel);
+                    s.OverlayStandingsPanelOpacity = SavedOpacityOf(_standingsPanel);
+                    s.OverlayStandingsColumnOrder = _standingsPanel.ColumnOrder;
+                    s.OverlayStandingsRows = _standingsPanel.MaxRows;
+                }
+                if (_hudSettingsPanel != null)
+                {
+                    s.OverlayHudSettingsPanelX = _hudSettingsPanel.X;
+                    s.OverlayHudSettingsPanelY = _hudSettingsPanel.Y;
+                    s.OverlayHudSettingsPanelScale = SavedScaleOf(_hudSettingsPanel);
+                    s.OverlayHudSettingsPanelOpacity = SavedOpacityOf(_hudSettingsPanel);
+                }
+                // Driver tags and their colours live in DriverTags while the
+                // overlay runs; push them back into the settings before saving.
+                var tags = Services.Data.DriverTags.Instance;
+                s.OverlayFriendColor = tags.FriendColor;
+                s.OverlayRivalColor = tags.RivalColor;
+                s.OverlayTagTint = tags.TintStrength;
+                s.OverlayTagsInRelativeBoxes = tags.ShowInRelativeBoxes;
+                if (_gazeFocus != null)
+                {
+                    s.OverlayGazeEffect = _gazeFocus.Effect.ToString();
+                    s.OverlayGazeSource = _gazeFocus.Source.ToString();
+                    s.OverlayGazeDim = _gazeFocus.DimAmount;
+                    s.OverlayGazeGrow = _gazeFocus.GrowFactor;
                 }
                 if (_warningPanel != null)
                 {
                     s.OverlayWarningPanelX = _warningPanel.X;
                     s.OverlayWarningPanelY = _warningPanel.Y;
-                    s.OverlayWarningPanelScale = _warningPanel.Scale;
-                    s.OverlayWarningPanelOpacity = _warningPanel.Opacity;
+                    s.OverlayWarningPanelScale = SavedScaleOf(_warningPanel);
+                    s.OverlayWarningPanelOpacity = SavedOpacityOf(_warningPanel);
                 }
                 if (_nearbyPanel != null)
                 {
                     s.OverlayNearbyPanelX = _nearbyPanel.X;
                     s.OverlayNearbyPanelY = _nearbyPanel.Y;
-                    s.OverlayNearbyPanelScale = _nearbyPanel.Scale;
-                    s.OverlayNearbyPanelOpacity = _nearbyPanel.Opacity;
+                    s.OverlayNearbyPanelScale = SavedScaleOf(_nearbyPanel);
+                    s.OverlayNearbyPanelOpacity = SavedOpacityOf(_nearbyPanel);
                     s.OverlayNearbyWidth = _nearbyPanel.BoxWidth;
                 }
                 if (_slowCarPanel != null)
                 {
                     s.OverlaySlowCarPanelX = _slowCarPanel.X;
                     s.OverlaySlowCarPanelY = _slowCarPanel.Y;
-                    s.OverlaySlowCarPanelScale = _slowCarPanel.Scale;
-                    s.OverlaySlowCarPanelOpacity = _slowCarPanel.Opacity;
+                    s.OverlaySlowCarPanelScale = SavedScaleOf(_slowCarPanel);
+                    s.OverlaySlowCarPanelOpacity = SavedOpacityOf(_slowCarPanel);
                 }
                 if (_carBehindPanel != null)
                 {
@@ -580,29 +743,29 @@ namespace BeltTensionTest.WPF.Views
                 {
                     s.OverlayYouTubePanelX = _youtubePanel.X;
                     s.OverlayYouTubePanelY = _youtubePanel.Y;
-                    s.OverlayYouTubePanelScale = _youtubePanel.Scale;
-                    s.OverlayYouTubePanelOpacity = _youtubePanel.Opacity;
+                    s.OverlayYouTubePanelScale = SavedScaleOf(_youtubePanel);
+                    s.OverlayYouTubePanelOpacity = SavedOpacityOf(_youtubePanel);
                 }
                 if (_gpuPanel != null)
                 {
                     s.OverlayGpuPanelX = _gpuPanel.X;
                     s.OverlayGpuPanelY = _gpuPanel.Y;
-                    s.OverlayGpuPanelScale = _gpuPanel.Scale;
-                    s.OverlayGpuPanelOpacity = _gpuPanel.Opacity;
+                    s.OverlayGpuPanelScale = SavedScaleOf(_gpuPanel);
+                    s.OverlayGpuPanelOpacity = SavedOpacityOf(_gpuPanel);
                 }
                 if (_incidentPanel != null)
                 {
                     s.OverlayIncidentPanelX = _incidentPanel.X;
                     s.OverlayIncidentPanelY = _incidentPanel.Y;
-                    s.OverlayIncidentPanelScale = _incidentPanel.Scale;
-                    s.OverlayIncidentPanelOpacity = _incidentPanel.Opacity;
+                    s.OverlayIncidentPanelScale = SavedScaleOf(_incidentPanel);
+                    s.OverlayIncidentPanelOpacity = SavedOpacityOf(_incidentPanel);
                 }
                 if (_displayPanel != null)
                 {
                     s.OverlayDisplayPanelX = _displayPanel.X;
                     s.OverlayDisplayPanelY = _displayPanel.Y;
-                    s.OverlayDisplayPanelScale = _displayPanel.Scale;
-                    s.OverlayDisplayPanelOpacity = _displayPanel.Opacity;
+                    s.OverlayDisplayPanelScale = SavedScaleOf(_displayPanel);
+                    s.OverlayDisplayPanelOpacity = SavedOpacityOf(_displayPanel);
                 }
                 s.OverlaySizeX = _host.DisplaySize.X;
                 s.OverlaySizeY = _host.DisplaySize.Y;
@@ -644,6 +807,7 @@ namespace BeltTensionTest.WPF.Views
         // Fires on the UI thread, once per -/+/reset click or grip release.
         private void OnScaleChanged(OverlayRenderTarget target)
         {
+            _gazeFocus?.Recapture(target); // the new size is the user's baseline now
             SaveLayout();
             Log($"{target.Name} resized to {target.Scale * 100:0}% — saved.");
         }
@@ -651,6 +815,7 @@ namespace BeltTensionTest.WPF.Views
         // Fires on the UI thread, once per opacity -/+/reset click.
         private void OnOpacityChanged(OverlayRenderTarget target)
         {
+            _gazeFocus?.Recapture(target);
             SaveLayout();
             Log($"{target.Name} opacity set to {target.Opacity * 100:0}% — saved.");
         }
@@ -662,6 +827,10 @@ namespace BeltTensionTest.WPF.Views
             // Panels that only apply in the car or in the replay follow the
             // sim's state, which can change between any two ticks.
             _panelVisibility?.Apply();
+
+            // Fade / grow whatever the headset is pointed at. Runs before
+            // RenderFrame so this tick's frame already shows the change.
+            _gazeFocus?.Update(_host.EditMode);
 
             try
             {
@@ -702,16 +871,9 @@ namespace BeltTensionTest.WPF.Views
 
         private void Cleanup()
         {
-            if (IsShutDown) return;
-            IsShutDown = true;
-            RecenterRequested -= Recenter;
-            _timer.Stop();
-            _resolutionTimer.Stop();
-            _preview?.Close();
-            _toggleBindings?.Dispose();
-            _toggleBindings = null;
-            _host?.Dispose();
-            _host = null;
+            if (_closed) return;
+            _closed = true;
+            Stop();
         }
 
         /// <summary>Open/close the desktop preview of the overlay canvas (no VR needed).</summary>

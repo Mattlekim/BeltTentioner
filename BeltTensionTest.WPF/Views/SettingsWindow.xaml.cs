@@ -27,7 +27,6 @@ namespace BeltTensionTest.WPF.Views
             chk_StartWithWindows.IsChecked = _vm.AppSettings?.StartWithWindows ?? false;
             chk_MinimizeToTaskbar.IsChecked = _vm.AppSettings?.MinimizeToTaskbarOnClose ?? false;
             chk_YouTubeOverlay.IsChecked = _vm.AppSettings?.EnableYouTubeOverlay ?? false;
-            chk_AutoStartOverlay.IsChecked = _vm.AppSettings?.AutoStartOpenXrOverlay ?? false;
             chk_EnableOverlay.IsChecked = _vm.AppSettings?.EnableOpenXrOverlay ?? false;
             double behindShow = _vm.AppSettings?.OverlayCarBehindShowGap ?? 0;
             double behindClose = _vm.AppSettings?.OverlayCarBehindCloseGap ?? 0;
@@ -157,7 +156,6 @@ namespace BeltTensionTest.WPF.Views
             _vm.AppSettings.StartWithWindows = startWithWindows;
             _vm.AppSettings.MinimizeToTaskbarOnClose = minimizeToTaskbar;
             _vm.AppSettings.EnableYouTubeOverlay = chk_YouTubeOverlay.IsChecked == true;
-            _vm.AppSettings.AutoStartOpenXrOverlay = chk_AutoStartOverlay.IsChecked == true;
             _vm.AppSettings.EnableOpenXrOverlay = chk_EnableOverlay.IsChecked == true;
             _vm.AppSettings.OverlayCarBehindShowGap = Math.Round(sld_CarBehindShow.Value, 2);
             _vm.AppSettings.OverlayCarBehindCloseGap = Math.Round(sld_CarBehindClose.Value, 2);

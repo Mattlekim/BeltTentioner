@@ -155,10 +155,8 @@
 
                         <Separator Margin="0,8" Background="#46466A"/>
 
-                        <CheckBox x:Name="chk_EnableOverlay" Content="Enable OpenXR overlay" Foreground="#A0A0BE" Margin="0,4"
-                                  ToolTip="Runs the OpenXR overlay in the background from app start — the overlay window does not need to be open. Open it (Settings → OpenXR Overlay...) only to edit the layout; closing it keeps the overlay running."/>
-                        <CheckBox x:Name="chk_AutoStartOverlay" Content="Open the overlay window on startup" Foreground="#A0A0BE" Margin="0,4"
-                                  ToolTip="Opens the OpenXR overlay window automatically when the app starts."/>
+                        <CheckBox x:Name="chk_EnableOverlay" Content="Run OpenXR overlay" Foreground="#A0A0BE" Margin="0,4"
+                                  ToolTip="Runs the OpenXR overlay, from app start. The overlay window (Settings → OpenXR Overlay...) is only for editing the layout — opening or closing it does not start or stop the overlay."/>
                     </StackPanel>
                 </TabItem>
             </TabControl>

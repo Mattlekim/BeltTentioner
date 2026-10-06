@@ -43,6 +43,13 @@ namespace BeltTensionTest.WPF.Services.Data
         /// <summary>Class color from the session info (CarClassColor, 0xRRGGBB); -1 when unknown.</summary>
         public int ClassColor { get; private set; } = -1;
 
+        /// <summary>
+        /// iRacing customer id (UserID). It identifies the same driver in
+        /// every session, so it is what friend / rival tags are keyed on;
+        /// 0 or negative for AI and before the session info has arrived.
+        /// </summary>
+        public int UserId { get; private set; }
+
         /// <summary>Driver iRating (0 for AI / hosted cars without one).</summary>
         public int IRating { get; private set; }
 
@@ -196,6 +203,7 @@ namespace BeltTensionTest.WPF.Services.Data
                         IncidentPoints = d.CurDriverIncidentCount;
                         CarNumber = d.CarNumber ?? string.Empty;
                         ClassColor = ParseHexColor(d.CarClassColor);
+                        UserId = d.UserID;
                         IRating = d.IRating;
                         LicString = d.LicString ?? string.Empty;
                         LicSubLevel = d.LicSubLevel;
