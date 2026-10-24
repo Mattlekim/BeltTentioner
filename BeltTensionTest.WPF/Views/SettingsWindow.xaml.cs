@@ -8,6 +8,7 @@ using System.Windows.Input;
 using System.Windows.Controls;
 using System.ComponentModel;
 using System.Windows.Media;
+using System.Threading.Tasks;
 
 namespace BeltTensionTest.WPF.Views
 {
@@ -26,7 +27,10 @@ namespace BeltTensionTest.WPF.Views
             chk_AutoConnect.IsChecked = _vm.AppSettings?.AutoConnectOnStartup ?? false;
             chk_StartWithWindows.IsChecked = _vm.AppSettings?.StartWithWindows ?? false;
             chk_MinimizeToTaskbar.IsChecked = _vm.AppSettings?.MinimizeToTaskbarOnClose ?? false;
+            _initializing = true;
             chk_YouTubeOverlay.IsChecked = _vm.AppSettings?.EnableYouTubeOverlay ?? false;
+            _initializing = false;
+            UpdateYouTubeAccountUi();
             chk_EnableOverlay.IsChecked = _vm.AppSettings?.EnableOpenXrOverlay ?? false;
             double behindShow = _vm.AppSettings?.OverlayCarBehindShowGap ?? 0;
             double behindClose = _vm.AppSettings?.OverlayCarBehindCloseGap ?? 0;
@@ -142,7 +146,109 @@ namespace BeltTensionTest.WPF.Views
             };
         }
 
+        // ----- YouTube overlay ------------------------------------------------
+
+        private void UpdateYouTubeAccountUi()
+        {
+            bool enabled = chk_YouTubeOverlay.IsChecked == true;
+            pnl_YouTubeAccount.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
+            bool loggedIn = YouTubeAuth.IsLoggedIn;
+            string? name = loggedIn ? YouTubeAuth.UserName : null;
+            txt_YouTubeStatus.Text = !loggedIn ? "Not logged in"
+                : name != null ? $"Logged in as {name}"
+                : "Logged in to YouTube";
+            btn_YouTubeLogin.Visibility = loggedIn ? Visibility.Collapsed : Visibility.Visible;
+            btn_YouTubeLogout.Visibility = loggedIn ? Visibility.Visible : Visibility.Collapsed;
+
+            // Logged in before names were cached: look it up once in the background.
+            if (enabled && loggedIn && name == null && !_youTubeNameLookup)
+            {
+                _youTubeNameLookup = true;
+                _ = LookUpYouTubeNameAsync();
+            }
+        }
+
+        private bool _youTubeNameLookup;
+
+        private async Task LookUpYouTubeNameAsync()
+        {
+            using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(20));
+            if (await YouTubeAuth.RefreshUserNameAsync(null, cts.Token) != null)
+                UpdateYouTubeAccountUi();
+        }
+
+        private void YouTubeOverlay_Changed(object sender, RoutedEventArgs e)
+        {
+            UpdateYouTubeAccountUi();
+            if (_initializing || chk_YouTubeOverlay.IsChecked != true) return;
+
+            if (!YouTubeAuth.InstallSecret(out string error))
+            {
+                MessageBox.Show(this, "Could not set up the YouTube client secret:\n" + error,
+                    "YouTube overlay", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var answer = MessageBox.Show(this,
+                "For the YouTube overlay to work the app needs to restart.\n\nRestart now? (Your settings are saved first.)",
+                "Restart required", MessageBoxButton.YesNo, MessageBoxImage.Information);
+            if (answer != MessageBoxResult.Yes) return;
+
+            ApplySettings();
+            var main = Owner as MainWindow ?? Application.Current.MainWindow as MainWindow;
+            DialogResult = true;
+            Close();
+            // After this modal dialog has fully unwound.
+            if (main != null)
+                main.Dispatcher.BeginInvoke(new Action(main.RestartApp));
+        }
+
+        private async void YouTubeLogin_Click(object sender, RoutedEventArgs e)
+        {
+            if (!System.IO.File.Exists(YouTubeAuth.SecretPath) && !YouTubeAuth.InstallSecret(out string error))
+            {
+                MessageBox.Show(this, "Could not set up the YouTube client secret:\n" + error,
+                    "YouTube login", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            btn_YouTubeLogin.IsEnabled = false;
+            txt_YouTubeStatus.Text = "Waiting for browser sign-in…";
+            try
+            {
+                using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromMinutes(3));
+                await YouTubeAuth.SignInAsync(cts.Token);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, "YouTube login failed:\n" + ex.Message,
+                    "YouTube login", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+            finally
+            {
+                btn_YouTubeLogin.IsEnabled = true;
+                UpdateYouTubeAccountUi();
+            }
+        }
+
+        private async void YouTubeLogout_Click(object sender, RoutedEventArgs e)
+        {
+            btn_YouTubeLogout.IsEnabled = false;
+            await YouTubeAuth.LogoutAsync();
+            btn_YouTubeLogout.IsEnabled = true;
+            UpdateYouTubeAccountUi();
+        }
+
         private void Ok_Click(object sender, RoutedEventArgs e)
+        {
+            if (_vm.AppSettings == null) return;
+            ApplySettings();
+            DialogResult = true;
+            Close();
+        }
+
+        /// <summary>Copy every control into AppSettings, save, and update startup registration.</summary>
+        private void ApplySettings()
         {
             if (_vm.AppSettings == null) return;
 
@@ -238,9 +344,6 @@ namespace BeltTensionTest.WPF.Views
                 SetStartupRegistration(startWithWindows);
             }
             catch { }
-
-            DialogResult = true;
-            Close();
         }
 
         private void Cancel_Click(object sender, RoutedEventArgs e)

@@ -21,9 +21,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
 {
     /// <summary>
     /// In-VR YouTube live-chat panel, ported from IrachingHud's
-    /// WindowYouTubeChat. Signs into the user's Google account (OAuth client
-    /// secret expected at %AppData%\BeltTensioner\client_secret.json, token
-    /// cached next to it), finds the active live broadcast's chat, then polls
+    /// WindowYouTubeChat. Uses the Google sign-in made from Preferences
+    /// (see <see cref="YouTubeAuth"/>), finds the active live broadcast's chat, then polls
     /// new messages at the interval YouTube asks for. Messages are colored by
     /// author type (owner/mod/member/super chat), word-wrapped to the panel,
     /// and expire after 60 seconds; while there is nothing to show the panel
@@ -79,13 +78,6 @@ namespace BeltTensionTest.WPF.Services.Overlays
             new XnaColor(0xFF, 0xD5, 0x2E), // super chat — gold
         };
 
-        private static readonly string[] Scopes =
-        {
-            YouTubeService.Scope.Youtube,
-            YouTubeService.Scope.YoutubeForceSsl,
-            YouTubeService.Scope.YoutubeReadonly,
-        };
-
         private readonly SpriteBatch _sb;
         private readonly Texture2D _white;
         private readonly SpriteFont _font;     // title
@@ -112,10 +104,6 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private static int PanelHeight =>
             TitleBarHeight + Pad + MaxMsgLinesToDisplay * LineHeight + Pad;
 
-        /// <summary>Directory holding client_secret.json and the cached OAuth token.</summary>
-        private static string AuthDir => Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "BeltTensioner");
-
         public YouTubeOverlay(GraphicsDevice device, int x, int y)
             : base(device, PanelWidth, PanelHeight, x, y)
         {
@@ -127,7 +115,30 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _fontBody = RuntimeSpriteFont.Bake(device, "Segoe UI", 22f);
             _collapsedWidth = (int)_font.MeasureString(Name).X + 60;
 
+            YouTubeAuth.LoginChanged += OnLoginChanged;
             Task.Run(Connect);
+        }
+
+        // Login / Logout in Preferences: reconnect or drop the connection now,
+        // instead of waiting for the next app start.
+        private void OnLoginChanged()
+        {
+            if (_cts.IsCancellationRequested) return;
+            if (YouTubeAuth.IsLoggedIn)
+            {
+                SetStatus("YouTube Chat: connecting...");
+                Task.Run(Connect);
+                return;
+            }
+
+            IsConnected = false;
+            _liveChatId = null;
+            _newMsgsToken = null;
+            var old = _youtubeService;
+            _youtubeService = null;
+            old?.Dispose();
+            lock (_chatLines) _chatLines.Clear();
+            SetStatus("Not logged in — use Login in Preferences → OpenXR.");
         }
 
         // ----- chat client (background threads) ------------------------------
@@ -143,28 +154,26 @@ namespace BeltTensionTest.WPF.Services.Overlays
         {
             try
             {
-                string secretPath = Path.Combine(AuthDir, "client_secret.json");
-                if (!File.Exists(secretPath))
+                if (!File.Exists(YouTubeAuth.SecretPath) && !YouTubeAuth.InstallSecret(out string error))
                 {
-                    SetStatus($"No client_secret.json — put your Google OAuth client in {AuthDir}");
+                    SetStatus($"No client_secret.json — {error}");
+                    return false;
+                }
+                if (!YouTubeAuth.IsLoggedIn)
+                {
+                    SetStatus("Not logged in — use Login in Preferences → OpenXR.");
                     return false;
                 }
 
-                using (var stream = new FileStream(secretPath, FileMode.Open, FileAccess.Read))
-                {
-                    _credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
-                        GoogleClientSecrets.FromStream(stream).Secrets,
-                        Scopes,
-                        "user",
-                        _cts.Token,
-                        new FileDataStore(Path.Combine(AuthDir, "youtube_token"), true));
-                }
+                _credential = await YouTubeAuth.LoginAsync(_cts.Token);
 
+                var old = _youtubeService; // a reconnect after logging in again
                 _youtubeService = new YouTubeService(new BaseClientService.Initializer
                 {
                     HttpClientInitializer = _credential,
                     ApplicationName = "BeltTensioner YouTube Chat",
                 });
+                old?.Dispose();
 
                 await FindLiveChatId();
 
@@ -199,7 +208,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 }
                 catch (Exception ex)
                 {
-                    SetStatus($"Error: {ex.Message}");
+                    // A logout mid-request disposes the service; keep its status.
+                    if (_youtubeService != null) SetStatus($"Error: {ex.Message}");
                     wait = 8000; // back off a little after a failure
                 }
                 await Task.Delay(Math.Max(wait, 2000), _cts.Token).ContinueWith(_ => { });
@@ -519,6 +529,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public override void Dispose()
         {
+            YouTubeAuth.LoginChanged -= OnLoginChanged;
             _cts.Cancel();
             _cts.Dispose();
             _youtubeService?.Dispose();

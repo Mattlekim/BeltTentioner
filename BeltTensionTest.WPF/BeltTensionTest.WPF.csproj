@@ -56,6 +56,12 @@
     <None Update="Hex\belt-tentioner.ino.hex">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <!-- Google OAuth client for the YouTube overlay (git-ignored). Shipped next
+         to the exe; enabling the overlay copies it to %AppData%\BeltTensioner. -->
+    <None Update="youtube\client_secret.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
   </ItemGroup>
 
   <!--

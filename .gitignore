@@ -362,3 +362,6 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 /Sim_Hub_Plugin/SIMHUB_Plugin.csproj
+
+# Google OAuth client for the YouTube overlay (kept out of the public repo)
+BeltTensionTest.WPF/youtube/client_secret.json
