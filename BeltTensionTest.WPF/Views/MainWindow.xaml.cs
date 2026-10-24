@@ -672,6 +672,23 @@ namespace BeltTensionTest.WPF.Views
             Application.Current.Shutdown();
         }
 
+        /// <summary>
+        /// Exit (bypassing minimize-to-tray) and start a fresh instance once
+        /// this one has shut down, so the belt's serial port is free again.
+        /// </summary>
+        internal void RestartApp()
+        {
+            var exe = Environment.ProcessPath;
+            if (string.IsNullOrEmpty(exe)) return;
+            Application.Current.Exit += (_, _) =>
+            {
+                try { Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true }); } catch { }
+            };
+            _isExitRequested = true;
+            Close();
+            Application.Current.Shutdown();
+        }
+
         private void MainWindow_Closing(object? sender, CancelEventArgs e)
         {
             // If minimize-to-taskbar is enabled, cancel close and hide window to tray
