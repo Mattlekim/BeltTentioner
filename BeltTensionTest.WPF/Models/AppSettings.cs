@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
@@ -193,5 +194,7 @@ namespace BeltTensionTest.WPF.Models
         public string WindowState { get; set; } = "Normal";
         // Whether the Effects section on the Belt Tensioner tab is expanded
         public bool EffectsExpanded { get; set; } = true;
+        // When the app last asked the website for a newer version (UTC); it asks again every UpdateService.CheckInterval
+        public DateTime LastUpdateCheckUtc { get; set; } = DateTime.MinValue;
     }
 }

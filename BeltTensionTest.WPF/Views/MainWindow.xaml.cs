@@ -664,6 +664,14 @@ namespace BeltTensionTest.WPF.Views
 
         }
 
+        /// <summary>Quits for real, past minimize-to-tray - used when an update is about to be installed over this copy.</summary>
+        public void ExitForUpdate()
+        {
+            _isExitRequested = true;
+            Close();
+            Application.Current.Shutdown();
+        }
+
         private void MainWindow_Closing(object? sender, CancelEventArgs e)
         {
             // If minimize-to-taskbar is enabled, cancel close and hide window to tray

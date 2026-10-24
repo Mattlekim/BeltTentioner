@@ -676,10 +676,10 @@ namespace BeltTensionTest.WPF.ViewModels
             // Only allow testing gear shift when GearShift is enabled
             TestGearShiftCommand = new RelayCommand(DoTestGearShift, _ => GearShiftEnabled);
             CheckUpdatesCommand     = new AsyncRelayCommand(DoCheckUpdatesAsync);
-            OpenUpdateCommand       = new RelayCommand(DoOpenUpdate);
+            OpenUpdateCommand       = new RelayCommand(_ => _updateSvc.OpenReleasePage());
             // default update button behavior (app update)
             UpdateButtonCommand     = OpenUpdateCommand;
-            UpdateButtonText        = "Download";
+            UpdateButtonText        = "Install now";
 
             // Device events
             Device.HandshakeComplete    += OnHandshakeComplete;
@@ -750,17 +750,16 @@ namespace BeltTensionTest.WPF.ViewModels
                         });
                 });
             }
-            // Silent update check
-            _ = Task.Run(async () =>
+            // Ask the website for a newer version on every start, then again every
+            // UpdateService.CheckInterval while the app stays open (it may run for days).
+            _ = CheckForAppUpdateAsync(manual: false);
+            _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromHours(1) };
+            _updateTimer.Tick += (_, _) =>
             {
-                var info = await _updateSvc.CheckAsync().ConfigureAwait(false);
-                if (info.IsUpdateAvailable)
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        IsUpdateAvailable = true;
-                        UpdateTag = info.RemoteTag ?? string.Empty;
-                    });
-            });
+                if (DateTime.UtcNow - AppSettings.LastUpdateCheckUtc >= UpdateService.CheckInterval)
+                    _ = CheckForAppUpdateAsync(manual: false);
+            };
+            _updateTimer.Start();
         }
 
         
@@ -1012,7 +1011,7 @@ namespace BeltTensionTest.WPF.ViewModels
             });
 
             int lastestFirmwareHash = BeltSerialDevice.GetVersionHash(UpdateService.FIRMWARE_VERSION);
-            if (lastestFirmwareHash > Device.VersionHash)
+            if (lastestFirmwareHash > Device.VersionHash && _pendingUpdate == null)
             {
                 // Expose update banner and make the button perform a firmware flash
                 Application.Current.Dispatcher.Invoke(() =>
@@ -1558,29 +1557,136 @@ namespace BeltTensionTest.WPF.ViewModels
 
 
 
-        private async Task DoCheckUpdatesAsync(object? _)
+        // ?? App updates ????????????????????????????????????????????????????????
+        private DispatcherTimer? _updateTimer;
+        private UpdateService.UpdateInfo? _pendingUpdate;   // a newer version we know about
+        private string? _updateInstallerPath;               // its installer, once downloaded and verified
+        private bool _updateBusy;
+
+        private Task DoCheckUpdatesAsync(object? _) => CheckForAppUpdateAsync(manual: true);
+
+        /// <summary>
+        /// Asks the website for the newest version; if it is newer than this one, downloads the
+        /// installer and asks whether to install it now. Manual checks (Help > Check for Updates)
+        /// also report "up to date" and errors; the automatic ones stay quiet and, while a sim is
+        /// connected, leave the banner to show it rather than popping a dialog mid-race.
+        /// </summary>
+        private async Task CheckForAppUpdateAsync(bool manual)
         {
-            var info = await _updateSvc.CheckAsync().ConfigureAwait(false);
-            Application.Current.Dispatcher.Invoke(() =>
+            if (_updateBusy)
             {
-                if (info.IsUpdateAvailable)
+                if (manual) RunOnUi(() => ThemedMessageBox.Show("An update is already being downloaded.", "Update Check", MessageBoxButton.OK, MessageBoxImage.Information));
+                return;
+            }
+            _updateBusy = true;
+            try
+            {
+                var info = _pendingUpdate != null && _updateInstallerPath != null ? _pendingUpdate : await _updateSvc.CheckAsync().ConfigureAwait(false);
+                if (info.Error == null)
+                {
+                    AppSettings.LastUpdateCheckUtc = DateTime.UtcNow;
+                    _settingsSvc.Save(AppSettings);
+                }
+
+                if (info.Error != null)
+                {
+                    if (manual) RunOnUi(() => ThemedMessageBox.Show($"Could not check for updates:\n{info.Error}", "Update Check", MessageBoxButton.OK, MessageBoxImage.Warning));
+                    return;
+                }
+                if (!info.IsUpdateAvailable)
+                {
+                    if (manual) RunOnUi(() => ThemedMessageBox.Show($"You are on the latest version ({UpdateService.AppVersion}).", "Update Check", MessageBoxButton.OK, MessageBoxImage.Information));
+                    return;
+                }
+
+                _pendingUpdate = info;
+                RunOnUi(() =>
                 {
                     IsUpdateAvailable = true;
                     UpdateTag = info.RemoteTag ?? string.Empty;
-                    // app update -> download release
-                    UpdateButtonText = "Download";
-                    UpdateButtonCommand = OpenUpdateCommand;
-                    UpdateBannerMessage = $"Update available: {UpdateTag}";
-                }
-                else
+                    UpdateBannerMessage = $"Update available: {UpdateTag} - downloading...";
+                    UpdateButtonText = "Downloading...";
+                    UpdateButtonCommand = new RelayCommand(_ => { }, _ => false);
+                });
+
+                string path;
+                try
                 {
-                    ThemedMessageBox.Show("You are on the latest version.", "Update Check",
-                        MessageBoxButton.OK, MessageBoxImage.Information);
+                    var progress = new Progress<double>(p => RunOnUi(() => UpdateBannerMessage = $"Update available: {UpdateTag} - downloading {p:P0}"));
+                    path = await _updateSvc.DownloadAsync(info, progress, CancellationToken.None).ConfigureAwait(false);
                 }
-            });
+                catch (Exception ex)
+                {
+                    RunOnUi(() =>
+                    {
+                        UpdateBannerMessage = $"Update {UpdateTag} could not be downloaded.";
+                        UpdateButtonText = "Retry";
+                        UpdateButtonCommand = new RelayCommand(_ => { var retry = CheckForAppUpdateAsync(manual: true); });
+                        if (manual)
+                        {
+                            var open = ThemedMessageBox.Show($"The update could not be downloaded:\n{ex.Message}\n\nOpen the downloads page instead?",
+                                "Update", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                            if (open == MessageBoxResult.Yes) _updateSvc.OpenReleasePage();
+                        }
+                    });
+                    return;
+                }
+
+                _updateInstallerPath = path;
+                bool prompt = manual || !(_iracing.IsConnected || _simHubConnected);
+                RunOnUi(() =>
+                {
+                    UpdateBannerMessage = $"Update {UpdateTag} is ready to install.";
+                    UpdateButtonText = "Install now";
+                    UpdateButtonCommand = new RelayCommand(_ => PromptInstallUpdate());
+                    if (prompt) PromptInstallUpdate();
+                });
+            }
+            finally { _updateBusy = false; }
         }
 
-        private void DoOpenUpdate(object? _) => _updateSvc.OpenReleasePage();
+        private static void RunOnUi(Action a)
+        {
+            var d = Application.Current?.Dispatcher;
+            if (d == null || d.HasShutdownStarted) return;
+            if (d.CheckAccess()) a(); else d.Invoke(a);
+        }
+
+        private void PromptInstallUpdate()
+        {
+            if (_pendingUpdate == null || _updateInstallerPath == null) return;
+            var notes = string.IsNullOrWhiteSpace(_pendingUpdate.Notes) ? string.Empty : $"\n\nWhat's new:\n{_pendingUpdate.Notes}";
+            var answer = ThemedMessageBox.Show(
+                $"Version {_pendingUpdate.RemoteTag} has been downloaded (you have {UpdateService.AppVersion}).\n\n" +
+                $"Belt Tensioner will close, install the update and open again by itself. Install now?{notes}",
+                "Update ready", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (answer == MessageBoxResult.Yes) InstallPendingUpdate();
+        }
+
+        private void InstallPendingUpdate()
+        {
+            if (_updateInstallerPath == null) return;
+
+            if (!UpdateService.IsInstalledCopy)
+            {
+                // a portable zip has no installer behind it to update in place
+                ThemedMessageBox.Show(
+                    "This copy was not installed with the setup program, so it cannot update itself in place.\n\n" +
+                    "The new installer has been downloaded - run it to install the update.",
+                    "Update", MessageBoxButton.OK, MessageBoxImage.Information);
+                UpdateService.RevealInstaller(_updateInstallerPath);
+                return;
+            }
+
+            if (!_updateSvc.InstallAndRestart(_updateInstallerPath, out var error))
+            {
+                ThemedMessageBox.Show($"The update could not be started:\n{error}", "Update", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+            // the installer waits for this process to end, installs, and starts the new version
+            if (Application.Current.MainWindow is Views.MainWindow w) w.ExitForUpdate();
+            else Application.Current.Shutdown();
+        }
 
         private void DoOpenFlashNano()
         {
