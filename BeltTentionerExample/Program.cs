@@ -61,7 +61,7 @@ serialSendDataTimer.Elapsed += (s, e) =>
     {
         case BeltTentionerExample.TestState.Idle:
             bmd = _motorSettings.Setup(0, 0, 1, _carSettings);
-            bmd.SendDataToSerial(bsd, _carSettings);
+            bmd.SendDataToSerial(bsd, _carSettings, true);
             break;
         case BeltTentionerExample.TestState.TestSurge:
             testValue += 0.02f;
@@ -69,7 +69,7 @@ serialSendDataTimer.Elapsed += (s, e) =>
             output = Math.Abs((float)(Math.Sin(testValue) * 7f));
 
             bmd = bsd.SetupMotorsForData(output, 0, 1, _carSettings);
-            bmd.SendDataToSerial(bsd, _carSettings);
+            bmd.SendDataToSerial(bsd, _carSettings, true);
 
            
             
@@ -81,7 +81,7 @@ serialSendDataTimer.Elapsed += (s, e) =>
             output = (float)(Math.Sin(testValue) * 5f);
 
             bmd = bsd.SetupMotorsForData(0, output, 1, _carSettings);
-            bmd.SendDataToSerial(bsd, _carSettings);
+            bmd.SendDataToSerial(bsd, _carSettings, true);
 
             Console.SetCursorPosition(30, 10);
             Console.Write("Sway Output: " + output.ToString("0.00") + "    ");
@@ -91,7 +91,7 @@ serialSendDataTimer.Elapsed += (s, e) =>
             output = (float)(Math.Sin(testValue) * 3f);
 
             bmd = bsd.SetupMotorsForData(0, 0, output + 1, _carSettings);
-            bmd.SendDataToSerial(bsd, _carSettings);
+            bmd.SendDataToSerial(bsd, _carSettings, true);
 
             Console.SetCursorPosition(30, 10);
             Console.Write("Heave Output: " + output.ToString("0.00") + "    ");
@@ -101,7 +101,7 @@ serialSendDataTimer.Elapsed += (s, e) =>
             output = (float)(Math.Sin(testValue) * 3f);
             bmd = bsd.SetupMotorsForData(0, -Math.Abs(output), 1, _carSettings);
 
-            bmd.SendDataToSerial(bsd, _carSettings);
+            bmd.SendDataToSerial(bsd, _carSettings, true);
 
             Console.SetCursorPosition(30, 10);
             Console.Write("Left Output: " + Math.Abs(output).ToString("0.00") + "    ");
@@ -112,7 +112,7 @@ serialSendDataTimer.Elapsed += (s, e) =>
             output = (float)(Math.Sin(testValue) * 3f);
             bmd = bsd.SetupMotorsForData(0, Math.Abs(output), 1, _carSettings);
 
-            bmd.SendDataToSerial(bsd, _carSettings);
+            bmd.SendDataToSerial(bsd, _carSettings, true);
 
             Console.SetCursorPosition(30, 10);
             Console.Write("Right Output: " + Math.Abs(output).ToString("0.00") + "    ");
@@ -122,7 +122,7 @@ serialSendDataTimer.Elapsed += (s, e) =>
 
             bmd = bsd.SetupMotorsForData(0, 0, 0, _carSettings);
 
-            bmd.SendDataToSerial(bsd, _carSettings);
+            bmd.SendDataToSerial(bsd, _carSettings, true);
 
             Console.SetCursorPosition(30, 10);
             Console.Write("Setting Motors To Minium angle");
@@ -135,7 +135,7 @@ serialSendDataTimer.Elapsed += (s, e) =>
             tmpsettings.SurgeStrenght = 100;
             bmd = bsd.SetupMotorsForData(200, 0, 0, tmpsettings);
 
-            bmd.SendDataToSerial(bsd, tmpsettings);
+            bmd.SendDataToSerial(bsd, tmpsettings, true);
 
             Console.SetCursorPosition(30, 10);
             Console.Write("Setting Motors To Maximum angle");
@@ -146,7 +146,7 @@ serialSendDataTimer.Elapsed += (s, e) =>
             noiseSway  = Math.Clamp(noiseSway  + (float)(noiseRng.NextDouble() * 2 - 1) * noiseMaxDeltaSway,  -5f, 5f);
             noiseHeave = Math.Clamp(noiseHeave + (float)(noiseRng.NextDouble() * 2 - 1) * noiseMaxDeltaHeave, -2f, 3f);
             bmd = bsd.SetupMotorsForData(noiseSurge, noiseSway, noiseHeave, _carSettings);
-            bmd.SendDataToSerial(bsd, _carSettings);
+            bmd.SendDataToSerial(bsd, _carSettings, true);
             Console.SetCursorPosition(30, 10);
             Console.Write($"Noise  S:{noiseSurge:F2}  Sw:{noiseSway:F2}  H:{noiseHeave:F2}    ");
             break;
@@ -157,7 +157,7 @@ serialSendDataTimer.Elapsed += (s, e) =>
                 testValue = 20f;
                 
                 bmd = bsd.SetupMotorsForData(testValue, 0, 1, _carSettings);
-                bmd.SendDataToSerial(bsd, _carSettings);
+                bmd.SendDataToSerial(bsd, _carSettings, true);
                 Console.SetCursorPosition(30, 10);
                 Console.Write("Setting Motor Position");
                 
@@ -170,7 +170,7 @@ serialSendDataTimer.Elapsed += (s, e) =>
             }
             testValue = 0f;
             bmd = bsd.SetupMotorsForData(testValue, 0, 1, _carSettings);
-            bmd.SendDataToSerial(bsd, _carSettings);
+            bmd.SendDataToSerial(bsd, _carSettings, true);
             Console.SetCursorPosition(30, 10);
             Console.Write("Slow Mode Enabled");
             break;

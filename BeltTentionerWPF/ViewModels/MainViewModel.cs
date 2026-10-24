@@ -444,7 +444,7 @@ namespace BeltTentionerWPF.ViewModels
             }
 
             bool removeGravity = _irConnected;
-            value.SendDataToSerial(BeltDevice, settings, removeGravity, _simRotation);
+            value.SendDataToSerial(BeltDevice, settings, true, removeGravity, _simRotation);
 
             _lastMotorData = value;
             _displaySurge = value.LeftSurgeOutput;
