@@ -17,7 +17,7 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2022  # the WPF csproj asks CMake for the "Visual Studio 17 2022" generator; windows-latest now ships VS 2026 only
     permissions:
       contents: write
 
