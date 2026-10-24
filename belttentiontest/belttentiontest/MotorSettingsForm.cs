@@ -103,11 +103,11 @@ namespace belttentiontest
             {
                 if (lb_SelectedMotor.SelectedIndex == 1)
                 {
-                    device.SendRightTestAngle(angle);
+                    device.SendRightAngle(angle);
                 }
                 else
                 {
-                    device.SendLeftTestAngle(angle);
+                    device.SendLeftAngle(angle);
                 }
             }
             catch { }

@@ -518,7 +518,7 @@ namespace belttentiontest
 
                 // Combined output bar (right side)
                 var   combined      = device.DeviceMotorSettings.Setup(_lastLongForceInput, _lastLatForceInput, _lastVertForceInput, CarSettingsDatabase.Instance.CurrentSettings, Rotation.Zero);
-                float combinedValue = Math.Abs(combined.CalculateDataToSerail(device, CarSettingsDatabase.Instance.CurrentSettings));
+                float combinedValue = Math.Abs(combined.CalculateDataForGraph(device, CarSettingsDatabase.Instance.CurrentSettings, false, Rotation.Zero));
                 float barMaxVal     = minV + motorRange * (CarSettingsDatabase.Instance.CurrentSettings.MaxPower / 100f);
                 float barPercent    = Math.Clamp((combinedValue - minV) / (barMaxVal - minV), 0f, 1f);
                 int   barMaxHeight  = (int)((barMaxVal - minV) / motorRange * (graphHeight - 1));

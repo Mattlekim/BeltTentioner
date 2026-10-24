@@ -1103,7 +1103,7 @@ namespace belttentiontest
             
             bool removeGravity = irCommunicator?.Isconnected ?? false; //we need to remove gravity for iracing
 
-            float yValue = value.SendDataToSerial(BeltTentionerDevice, CarSettingsDatabase.Instance.CurrentSettings, removeGravity, simRotation);
+            float yValue = value.SendDataToSerial(BeltTentionerDevice, CarSettingsDatabase.Instance.CurrentSettings, true, removeGravity, simRotation);
             
 
             float tmp = _lastMotorOutputValues.LeftSurgeOutput;
