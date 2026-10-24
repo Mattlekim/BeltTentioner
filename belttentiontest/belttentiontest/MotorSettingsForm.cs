@@ -85,6 +85,14 @@ namespace belttentiontest
                 ck_Inverted.Checked = ms.RightInverted;
             }
 
+            else
+            {
+                ttb_motorStart.Value = ms.LeftMinimumAngle;
+                ttb_motorEnd.Value = ms.LeftMaximumAngle;
+                ck_Inverted.Checked = ms.LeftInverted;
+            }
+        }
+
         private void Bnt_Test_Click(object? sender, EventArgs e)
         {
             if (device == null) return;
@@ -103,13 +111,6 @@ namespace belttentiontest
                 }
             }
             catch { }
-        }
-            else
-            {
-                ttb_motorStart.Value = ms.LeftMinimumAngle;
-                ttb_motorEnd.Value = ms.LeftMaximumAngle;
-                ck_Inverted.Checked = ms.LeftInverted;
-            }
         }
 
         private void Bnt_Apply_Click(object? sender, EventArgs e)

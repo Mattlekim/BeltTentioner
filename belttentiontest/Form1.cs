@@ -66,6 +66,9 @@ namespace belttentiontest
                 {
                     _instance = new Form1();
                 }
+                return _instance;
+            }
+        }
 
         private sealed class DarkToolStripRenderer : ToolStripProfessionalRenderer
         {
@@ -132,9 +135,6 @@ namespace belttentiontest
             {
                 e.TextColor = _text;
                 base.OnRenderItemText(e);
-            }
-        }
-                return _instance;
             }
         }
 
