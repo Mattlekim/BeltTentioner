@@ -14,10 +14,25 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
+    defaults:
+      run:
+        working-directory: belttentiontest
 
     steps:
+      # The WPF project references ..\..\MonoXR relative to its own folder (and the solution
+      # references ..\MonoXR), so both repos must sit side by side in the workspace:
+      #   <workspace>\belttentiontest   (this repo)
+      #   <workspace>\MonoXR            (sibling repo)
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          path: belttentiontest
+
+      - name: Checkout MonoXR (sibling repo)
+        uses: actions/checkout@v4
+        with:
+          repository: Mattlekim/MonoXR
+          path: MonoXR
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -78,7 +93,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: BeltTentioner-v${{ steps.version.outputs.VERSION }}-Release
-          path: ./publish
+          path: belttentiontest/publish
           retention-days: 30
 
       - name: Create Release
@@ -103,7 +118,7 @@ jobs:
             - Built on: ${{ github.event.head_commit.timestamp }}
             - Branch: ${{ github.ref_name }}
           files: |
-            BeltTentioner-v${{ steps.version.outputs.VERSION }}-Windows.zip
+            belttentiontest/BeltTentioner-v${{ steps.version.outputs.VERSION }}-Windows.zip
           draft: false
           prerelease: false
         env:
