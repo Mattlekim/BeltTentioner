@@ -26,6 +26,13 @@
     <Content Include="Assets\Icon.ico" />
   </ItemGroup>
 
+  <!-- SimHub plugin (built from Sim_Hub_Plugin, which needs a local SimHub SDK so
+       CI cannot build it). Commit the built BeltTentioner.dll here and it ships
+       as SimHubPlugin\BeltTentioner.dll, where "Install SimHub plugin" looks. -->
+  <ItemGroup Condition="Exists('SimHubPlugin\BeltTentioner.dll')">
+    <Content Include="SimHubPlugin\BeltTentioner.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="ArduinoUploader.NET" Version="7.1.0" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
