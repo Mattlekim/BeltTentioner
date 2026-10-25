@@ -633,7 +633,7 @@ namespace BeltTensionTest.WPF.Views
         {
             var candidates = new List<string>
             {
-                Path.Combine(AppContext.BaseDirectory, "SimHubPlugin", "BeltTentioner.dll"),
+                Path.Combine(AppContext.BaseDirectory, "simhub", "BeltTentioner.dll"),
                 Path.Combine(AppContext.BaseDirectory, "BeltTentioner.dll"),
             };
 
@@ -641,6 +641,7 @@ namespace BeltTensionTest.WPF.Views
             var dir = new DirectoryInfo(AppContext.BaseDirectory);
             while (dir != null)
             {
+                candidates.Add(Path.Combine(dir.FullName, "BeltTensionTest.WPF", "simhub", "BeltTentioner.dll"));
                 candidates.Add(Path.Combine(dir.FullName, "Sim_Hub_Plugin", "bin", "Release", "BeltTentioner.dll"));
                 candidates.Add(Path.Combine(dir.FullName, "Sim_Hub_Plugin", "bin", "Debug", "BeltTentioner.dll"));
                 dir = dir.Parent;
