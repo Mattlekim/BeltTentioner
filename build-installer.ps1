@@ -15,9 +15,8 @@ $proj = Join-Path $PSScriptRoot 'BeltTensionTest.WPF\BeltTensionTest.WPF.csproj'
 $out  = Join-Path $PSScriptRoot 'publish\BeltTensioner'
 $iss  = Join-Path $PSScriptRoot 'installer\BeltTensioner.iss'
 
-# Version comes from the csproj so installer and app never drift.
-$version = ([xml](Get-Content $proj)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
-if (-not $version) { throw "No <Version> found in $proj" }
+# Version comes from version.txt (same source as the csproj) so installer and app never drift.
+$version = "$((Get-Content (Join-Path $PSScriptRoot 'version.txt') -Raw).Trim()).0"
 
 if (-not $SkipPublish) {
     if (Test-Path $out) { Remove-Item $out -Recurse -Force }
