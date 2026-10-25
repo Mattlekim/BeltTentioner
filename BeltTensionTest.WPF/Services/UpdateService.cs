@@ -30,6 +30,13 @@ namespace BeltTensionTest.WPF.Services
 
         public static readonly string AppVersion = ReadAppVersion();
 
+        /// <summary>
+        /// True for builds not stamped by CI (e.g. run from Visual Studio): their
+        /// build number is 0, so they would always look older than the latest release.
+        /// </summary>
+        public static readonly bool IsDevBuild =
+            Version.TryParse(AppVersion, out var v) && v.Build <= 0;
+
         public class UpdateInfo
         {
             public bool IsUpdateAvailable { get; set; }

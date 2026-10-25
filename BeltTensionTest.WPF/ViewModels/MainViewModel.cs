@@ -1562,6 +1562,9 @@ namespace BeltTensionTest.WPF.ViewModels
         /// </summary>
         private async Task CheckForAppUpdateAsync(bool userInitiated)
         {
+            // Dev builds (not stamped by CI) always look outdated; only check when asked.
+            if (!userInitiated && UpdateService.IsDevBuild) return;
+
             var info = await _updateSvc.CheckAsync().ConfigureAwait(false);
             Application.Current.Dispatcher.Invoke(() =>
             {
