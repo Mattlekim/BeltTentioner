@@ -750,20 +750,12 @@ namespace BeltTensionTest.WPF.ViewModels
                         });
                 });
             }
-            // Silent update check
-            _ = Task.Run(async () =>
-            {
-                var info = await _updateSvc.CheckAsync().ConfigureAwait(false);
-                if (info.IsUpdateAvailable)
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        IsUpdateAvailable = true;
-                        UpdateTag = info.RemoteTag ?? string.Empty;
-                    });
-            });
+            // Update check on launch, then every UpdateService.CheckInterval while running.
+            _ = CheckForAppUpdateAsync(userInitiated: false);
+            _updateTimer = new DispatcherTimer { Interval = UpdateService.CheckInterval };
+            _updateTimer.Tick += async (_, _) => await CheckForAppUpdateAsync(userInitiated: false);
+            _updateTimer.Start();
         }
-
-        
 
         private void _iracing_GearChanged(int arg1, int arg2)
         {
@@ -1558,29 +1550,53 @@ namespace BeltTensionTest.WPF.ViewModels
 
 
 
-        private async Task DoCheckUpdatesAsync(object? _)
+        private DispatcherTimer? _updateTimer;
+        private UpdateService.UpdateInfo? _pendingUpdate;
+        private string? _downloadedUpdateZip;
+
+        private Task DoCheckUpdatesAsync(object? _) => CheckForAppUpdateAsync(userInitiated: true);
+
+        /// <summary>
+        /// Looks for a newer GitHub release. Only shows the banner (never blocks
+        /// the app); the user opts in to download/install from there.
+        /// </summary>
+        private async Task CheckForAppUpdateAsync(bool userInitiated)
         {
             var info = await _updateSvc.CheckAsync().ConfigureAwait(false);
             Application.Current.Dispatcher.Invoke(() =>
             {
                 if (info.IsUpdateAvailable)
                 {
+                    // A different release than the one already downloaded invalidates that download.
+                    if (_pendingUpdate?.RemoteTag != info.RemoteTag) _downloadedUpdateZip = null;
+                    _pendingUpdate = info;
                     IsUpdateAvailable = true;
                     UpdateTag = info.RemoteTag ?? string.Empty;
-                    // app update -> download release
-                    UpdateButtonText = "Download";
+                    // app update -> notes / download / install window
+                    UpdateButtonText = "View update";
                     UpdateButtonCommand = OpenUpdateCommand;
                     UpdateBannerMessage = $"Update available: {UpdateTag}";
                 }
-                else
+                else if (userInitiated)
                 {
-                    ThemedMessageBox.Show("You are on the latest version.", "Update Check",
-                        MessageBoxButton.OK, MessageBoxImage.Information);
+                    ThemedMessageBox.Show(info.Error == null
+                            ? "You are on the latest version."
+                            : $"Could not check for updates: {info.Error}",
+                        "Update Check", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
             });
         }
 
-        private void DoOpenUpdate(object? _) => _updateSvc.OpenReleasePage();
+        private void DoOpenUpdate(object? _)
+        {
+            if (_pendingUpdate == null) return;
+            var owner = Application.Current.MainWindow;
+            var win = new Views.UpdateWindow(_updateSvc, _pendingUpdate, _downloadedUpdateZip) { Owner = owner };
+            win.ShowDialog();
+            _downloadedUpdateZip = win.DownloadedZip;
+            if (win.InstallStarted && owner is Views.MainWindow main)
+                main.ExitForUpdate();
+        }
 
         private void DoOpenFlashNano()
         {
@@ -1706,6 +1722,7 @@ namespace BeltTensionTest.WPF.ViewModels
             _simHubTimer.Stop();
             
             _saveTimer?.Stop();
+            _updateTimer?.Stop();
             _saveTimer?.Dispose();
             _carSettingsSvc.SaveCurrentCarSettings(_carName);
             // Unsubscribe events to allow clean shutdown

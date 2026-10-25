@@ -14,8 +14,10 @@
     <AssemblyName>BeltTensionTest.WPF</AssemblyName>
     <RootNamespace>BeltTensionTest.WPF</RootNamespace>
     <ApplicationIcon>Assets\Icon.ico</ApplicationIcon>
-    <Version>1.0.0</Version>
-    <AssemblyVersion>1.0.0</AssemblyVersion>
+    <!-- Major.Minor comes from ..\version.txt; CI appends the build number
+         (-p:Version=2.1.<run>) and uses the same number for the GitHub release,
+         which is what the in-app updater compares against. Local builds get .0. -->
+    <Version>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)..\version.txt').Trim()).0</Version>
     <!-- Windows Store / MSIX packaging support -->
     <WindowsPackageType>None</WindowsPackageType>
   </PropertyGroup>

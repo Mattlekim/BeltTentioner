@@ -1,19 +1,15 @@
 name: Build WPF App (versioned)
 
-# Builds and releases BeltTensionTest.WPF when a version tag is pushed:
-#   git tag v1.2.3 && git push origin v1.2.3
-# The tag's number becomes the app version. Can also be run manually from
-# the Actions tab with a version number.
+# Builds and releases BeltTensionTest.WPF on every push to master.
+# Version = <version.txt major.minor>.<run number>, so every build gets a new,
+# higher number. That number is stamped into the exe and used as the GitHub
+# release tag (v<version>); the in-app updater installs from that release.
+# Bump version.txt to change major/minor. Can also be run manually.
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [master, main]
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version number (e.g. 1.2.3)'
-        required: true
 
 jobs:
   build:
@@ -30,6 +26,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: belttentiontest
+          fetch-depth: 0
 
       - name: Checkout MonoXR (sibling repo)
         uses: actions/checkout@v4
@@ -46,17 +43,28 @@ jobs:
         id: version
         shell: pwsh
         run: |
-          $v = "${{ github.event.inputs.version }}"
-          if (-not $v) { $v = "$env:GITHUB_REF_NAME" -replace '^v', '' }
-          if ($v -notmatch '^\d+\.\d+(\.\d+){0,2}') {
-            Write-Error "Tag/input '$v' is not a version number (expected e.g. 1.2.3)"
+          $base = (Get-Content belttentiontest/version.txt -Raw).Trim()
+          if ($base -notmatch '^\d+\.\d+$') {
+            Write-Error "version.txt must contain Major.Minor (e.g. 2.1), found '$base'"
             exit 1
           }
-          # AssemblyVersion must be purely numeric — strip any -suffix.
-          $numeric = ($v -split '-')[0]
+          $v = "$base.$env:GITHUB_RUN_NUMBER"
           echo "VERSION=$v" >> $env:GITHUB_OUTPUT
-          echo "NUMERIC=$numeric" >> $env:GITHUB_OUTPUT
+          echo "NUMERIC=$v" >> $env:GITHUB_OUTPUT
           echo "Building version: $v"
+
+      # Release notes shown in the app's update window: commits since the
+      # previous release tag.
+      - name: Build release notes
+        id: notes
+        shell: pwsh
+        working-directory: belttentiontest
+        run: |
+          $prev = git describe --tags --abbrev=0 2>$null
+          $range = if ($prev) { "$prev..HEAD" } else { "HEAD" }
+          $lines = git log $range --no-merges --pretty=format:"- %s" | Select-Object -First 50
+          if (-not $lines) { $lines = "- Maintenance build" }
+          $lines -join "`n" | Out-File -FilePath ../release-notes.md -Encoding utf8
 
       # dotnet publish also builds the native MonoXR OpenXR layer via the
       # csproj's CMake target (VS2022 + CMake are on windows-latest).
@@ -85,11 +93,13 @@ jobs:
           retention-days: 30
 
       - name: Create GitHub release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ steps.version.outputs.VERSION }}
+          target_commitish: ${{ github.sha }}
           name: BeltTensioner v${{ steps.version.outputs.VERSION }}
+          body_path: release-notes.md
           files: BeltTensioner-v${{ steps.version.outputs.VERSION }}-win-x64.zip
-          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

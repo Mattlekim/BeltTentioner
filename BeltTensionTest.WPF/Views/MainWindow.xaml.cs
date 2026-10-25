@@ -681,6 +681,17 @@ namespace BeltTensionTest.WPF.Views
             Application.Current.Shutdown();
         }
 
+        /// <summary>
+        /// Exit (bypassing minimize-to-tray) after an update installer has been
+        /// started; the installer waits for this process to end, then relaunches.
+        /// </summary>
+        internal void ExitForUpdate()
+        {
+            _isExitRequested = true;
+            Close();
+            Application.Current.Shutdown();
+        }
+
         private void MainWindow_Closing(object? sender, CancelEventArgs e)
         {
             // If minimize-to-taskbar is enabled, cancel close and hide window to tray
