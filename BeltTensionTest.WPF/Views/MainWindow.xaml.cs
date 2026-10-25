@@ -580,11 +580,21 @@ namespace BeltTensionTest.WPF.Views
                 string? simHubDir = FindSimHubDirectory();
                 if (simHubDir == null)
                 {
+                    if (MessageBox.Show(this,
+                        "SimHub doesn't appear to be installed on this PC.\n\nInstall SimHub first (simhubdash.com), then run this again.\n\nIf SimHub is installed in a custom location, choose Yes to browse for its folder.",
+                        "SimHub Plugin", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+
                     var dlg = new Microsoft.Win32.OpenFolderDialog
                     {
                         Title = "Select your SimHub installation folder"
                     };
                     if (dlg.ShowDialog(this) != true) return;
+                    if (!IsSimHubDirectory(dlg.FolderName))
+                    {
+                        MessageBox.Show(this, $"{SimHubExeName} was not found in that folder, so it doesn't look like a SimHub installation.",
+                            "SimHub Plugin", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
                     simHubDir = dlg.FolderName;
                 }
 
@@ -618,9 +628,25 @@ namespace BeltTensionTest.WPF.Views
                         throw new IOException("Elevated copy failed.");
                 }
 
-                MessageBox.Show(this,
-                    $"Plugin installed to:\n{targetPath}\n\nStart SimHub and enable the \"BeltTentioner\" plugin when prompted (or via Settings > Plugins).",
-                    "SimHub Plugin", MessageBoxButton.OK, MessageBoxImage.Information);
+                string simHubExe = Path.Combine(simHubDir, SimHubExeName);
+                bool canLaunch = File.Exists(simHubExe) && Process.GetProcessesByName("SimHubWPF").Length == 0;
+                string installed = $"Plugin installed to:\n{targetPath}\n\nEnable the \"BeltTentioner\" plugin when SimHub prompts (or via Settings > Plugins).";
+
+                if (!canLaunch)
+                {
+                    MessageBox.Show(this, installed + "\n\nStart SimHub to use it.",
+                        "SimHub Plugin", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                else if (MessageBox.Show(this, installed + "\n\nLaunch SimHub now?",
+                    "SimHub Plugin", MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.Yes)
+                {
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = simHubExe,
+                        WorkingDirectory = simHubDir,
+                        UseShellExecute = true
+                    });
+                }
             }
             catch (Exception ex)
             {
@@ -650,14 +676,63 @@ namespace BeltTensionTest.WPF.Views
             return candidates.FirstOrDefault(File.Exists);
         }
 
+        private const string SimHubExeName = "SimHubWPF.exe";
+
+        private static bool IsSimHubDirectory(string? dir) =>
+            !string.IsNullOrWhiteSpace(dir) && File.Exists(Path.Combine(dir, SimHubExeName));
+
         private static string? FindSimHubDirectory()
         {
+            // 1. SimHub is running right now - its process tells us exactly where it lives
+            foreach (var proc in Process.GetProcessesByName("SimHubWPF"))
+            {
+                try
+                {
+                    string? dir = Path.GetDirectoryName(proc.MainModule?.FileName);
+                    if (IsSimHubDirectory(dir)) return dir;
+                }
+                catch { /* access denied - fall through to the other checks */ }
+                finally { proc.Dispose(); }
+            }
+
+            // 2. Uninstall registry entries (covers custom install locations)
+            foreach (var (hive, view) in new[]
+            {
+                (Microsoft.Win32.RegistryHive.LocalMachine, Microsoft.Win32.RegistryView.Registry64),
+                (Microsoft.Win32.RegistryHive.LocalMachine, Microsoft.Win32.RegistryView.Registry32),
+                (Microsoft.Win32.RegistryHive.CurrentUser, Microsoft.Win32.RegistryView.Default),
+            })
+            {
+                try
+                {
+                    using var baseKey = Microsoft.Win32.RegistryKey.OpenBaseKey(hive, view);
+                    using var uninstall = baseKey.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall");
+                    if (uninstall == null) continue;
+                    foreach (string name in uninstall.GetSubKeyNames())
+                    {
+                        using var key = uninstall.OpenSubKey(name);
+                        string? display = key?.GetValue("DisplayName") as string;
+                        if (display == null || !display.Contains("SimHub", StringComparison.OrdinalIgnoreCase)) continue;
+
+                        string? loc = (key!.GetValue("InstallLocation") as string)?.Trim().Trim('"');
+                        if (IsSimHubDirectory(loc)) return loc;
+
+                        string? icon = (key.GetValue("DisplayIcon") as string)?.Split(',')[0].Trim('"');
+                        string? iconDir = string.IsNullOrEmpty(icon) ? null : Path.GetDirectoryName(icon);
+                        if (IsSimHubDirectory(iconDir)) return iconDir;
+                    }
+                }
+                catch { /* unreadable hive - ignore */ }
+            }
+
+            // 3. Default install folders
             var candidates = new[]
             {
                 Environment.ExpandEnvironmentVariables(@"%ProgramFiles(x86)%\SimHub"),
                 Environment.ExpandEnvironmentVariables(@"%ProgramFiles%\SimHub"),
+                Environment.ExpandEnvironmentVariables(@"%LocalAppData%\Programs\SimHub"),
             };
-            return candidates.FirstOrDefault(d => File.Exists(Path.Combine(d, "SimHubWPF.exe")));
+            return candidates.FirstOrDefault(IsSimHubDirectory);
         }
 
         private void MenuItem_Click(object sender, RoutedEventArgs e)
