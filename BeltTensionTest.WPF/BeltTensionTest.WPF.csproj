@@ -31,7 +31,9 @@
        simhub\ (commit it) and it ships as simhub\BeltTentioner.dll, where
        "Install SimHub plugin" looks. -->
   <ItemGroup Condition="Exists('simhub\BeltTentioner.dll')">
-    <Content Include="simhub\BeltTentioner.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <!-- ExcludeFromSingleFile: it is a managed DLL, so PublishSingleFile would otherwise
+         bundle it inside the exe instead of leaving the file for the installer to copy. -->
+    <Content Include="simhub\BeltTentioner.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
   </ItemGroup>
 
   <ItemGroup>
