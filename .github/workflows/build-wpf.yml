@@ -79,7 +79,24 @@ jobs:
           -p:Version=${{ steps.version.outputs.VERSION }}
           -p:AssemblyVersion=${{ steps.version.outputs.NUMERIC }}
           -p:FileVersion=${{ steps.version.outputs.NUMERIC }}
+          -p:DebugType=none
+          -p:DebugSymbols=false
           --output ./publish
+
+      # MonoGame pulls in stray .NET Core 2.1 runtime files that an app on
+      # .NET 8 never loads; drop them (and any symbols) from the release.
+      - name: Prune unused runtime files
+        shell: pwsh
+        run: |
+          Get-ChildItem ./publish -File | Where-Object {
+            $_.Extension -eq '.pdb' -or
+            $_.Name -like 'api-ms-win-*.dll' -or
+            $_.Name -in 'dbgshim.dll','mscorrc.debug.dll','ucrtbase.dll','sos.dll' -or
+            $_.Name -like 'mscordaccore_*.dll' -or $_.Name -like 'sos_*.dll'
+          } | Remove-Item -Force -Verbose
+          foreach ($f in 'BeltTensionTest.WPF.exe','XR_APILAYER_NOVELTY_monoxr.dll','MonoXR.json') {
+            if (-not (Test-Path ./publish/$f)) { throw "Missing $f after pruning" }
+          }
 
       - name: Create ZIP archive
         shell: pwsh
