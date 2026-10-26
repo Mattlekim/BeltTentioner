@@ -101,6 +101,7 @@ namespace BeltTensionTest.WPF.Views
         public void RefreshFeatures()
         {
             if (_closed || _host == null) return;
+            if (_gazeFocus != null) _gazeFocus.Enabled = _vm.AppSettings?.EnableEyeTracking ?? true;
             if ((_beltPanel != null) == _vm.BeltFeatureEnabled) return;
             Stop();
             Start();
@@ -129,6 +130,8 @@ namespace BeltTensionTest.WPF.Views
                         settings.OverlayTagTint, settings.OverlayTagsInRelativeBoxes);
 
                 SetupRenderTargets();
+                ApplySavedPanelStates();
+                _host.StateChanged += OnPanelStateChanged;
                 _host.DragCompleted += OnDragCompleted;
                 _host.ScaleChanged += OnScaleChanged;
                 _host.OpacityChanged += OnOpacityChanged;
@@ -377,6 +380,7 @@ namespace BeltTensionTest.WPF.Views
                     _gazeFocus.Source = gazeSource;
                 _gazeFocus.DimAmount = (float)s.OverlayGazeDim;
                 _gazeFocus.GrowFactor = (float)s.OverlayGazeGrow;
+                _gazeFocus.Enabled = s.EnableEyeTracking;
             }
 
             // HUD settings (tag colours, standings size). Not edit-mode only:
@@ -821,6 +825,29 @@ namespace BeltTensionTest.WPF.Views
         }
 
         // Fires on the UI thread, once per -/+/reset click or grip release.
+        /// <summary>Put each panel back in the hidden / collapsed / shown state it was left in.</summary>
+        private void ApplySavedPanelStates()
+        {
+            var states = _vm.AppSettings?.OverlayPanelStates;
+            if (states == null) return;
+            foreach (var panel in AllPanels())
+                if (states.TryGetValue(panel.Name, out var saved) &&
+                    Enum.TryParse(saved, out MonoXR.Client.OverlayTargetState state))
+                    panel.State = state;
+        }
+
+        // Hide / Collapse / Show pressed in edit mode: remember it. (Toggling a
+        // panel with a bound controller button is a live toggle and is not kept.)
+        private void OnPanelStateChanged(OverlayRenderTarget target)
+        {
+            var settings = _vm.AppSettings;
+            if (settings == null) return;
+            settings.OverlayPanelStates ??= new Dictionary<string, string>();
+            settings.OverlayPanelStates[target.Name] = target.State.ToString();
+            SaveLayout();
+            Log($"{target.Name} is now {target.State.ToString().ToLowerInvariant()} — saved.");
+        }
+
         private void OnScaleChanged(OverlayRenderTarget target)
         {
             _gazeFocus?.Recapture(target); // the new size is the user's baseline now

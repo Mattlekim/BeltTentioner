@@ -254,11 +254,13 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _gazeSource.SelectedIndex = (int)_gaze.Source;
             _gazeDim.Value = _gaze.DimAmount * 100f;
             _gazeGrow.Value = _gaze.GrowFactor * 100f;
-            _gazeDim.IsEnabled = _gaze.Effect is GazeEffect.Brighten or GazeEffect.Both;
-            _gazeGrow.IsEnabled = _gaze.Effect is GazeEffect.Enlarge or GazeEffect.Both;
+            _gazeEffect.IsEnabled = _gazeSource.IsEnabled = _gaze.Enabled;
+            _gazeDim.IsEnabled = _gaze.Enabled && _gaze.Effect is GazeEffect.Brighten or GazeEffect.Both;
+            _gazeGrow.IsEnabled = _gaze.Enabled && _gaze.Effect is GazeEffect.Enlarge or GazeEffect.Both;
 
             string gazeStatus =
-                _gaze.Source == GazeSource.Off || _gaze.Effect == GazeEffect.None ? "Gaze off"
+                !_gaze.Enabled ? "Eye tracking is off in Preferences"
+                : _gaze.Source == GazeSource.Off || _gaze.Effect == GazeEffect.None ? "Gaze off"
                 : !_gaze.HasSignal ? "No head pose - start the sim in VR"
                 : _gaze.Source == GazeSource.Eye ? "Eye gaze unavailable - using head"
                 : string.IsNullOrEmpty(_gaze.FocusedName) ? "Looking away from the panels"

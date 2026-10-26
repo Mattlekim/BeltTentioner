@@ -34,6 +34,7 @@ namespace BeltTensionTest.WPF.Views
             _initializing = false;
             UpdateYouTubeAccountUi();
             chk_EnableOverlay.IsChecked = _vm.AppSettings?.EnableOpenXrOverlay ?? false;
+            chk_EyeTracking.IsChecked = _vm.AppSettings?.EnableEyeTracking ?? true;
             double behindShow = _vm.AppSettings?.OverlayCarBehindShowGap ?? 0;
             double behindClose = _vm.AppSettings?.OverlayCarBehindCloseGap ?? 0;
             sld_CarBehindShow.Value = behindShow > 0 ? behindShow : Services.Overlays.CarBehindOverlay.DefaultShowGap;
@@ -269,6 +270,7 @@ namespace BeltTensionTest.WPF.Views
             _vm.AppSettings.MinimizeToTaskbarOnClose = minimizeToTaskbar;
             _vm.AppSettings.EnableYouTubeOverlay = chk_YouTubeOverlay.IsChecked == true;
             _vm.AppSettings.EnableOpenXrOverlay = chk_EnableOverlay.IsChecked == true;
+            _vm.AppSettings.EnableEyeTracking = chk_EyeTracking.IsChecked == true;
             _vm.AppSettings.OverlayCarBehindShowGap = Math.Round(sld_CarBehindShow.Value, 2);
             _vm.AppSettings.OverlayCarBehindCloseGap = Math.Round(sld_CarBehindClose.Value, 2);
             _vm.AppSettings.OverlayCarBehindFlashClose = chk_CarBehindFlash.IsChecked == true;

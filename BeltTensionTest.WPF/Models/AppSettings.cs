@@ -92,6 +92,9 @@ namespace BeltTensionTest.WPF.Models
         public string OverlayGazeSource { get; set; } = "Off";
         public double OverlayGazeDim { get; set; } = 0.45;
         public double OverlayGazeGrow { get; set; } = 1.25;
+        // Master switch for gaze focus (Preferences > OpenXR > Enable eye tracking).
+        // Off ignores the Effect / Tracked with choices above without losing them.
+        public bool EnableEyeTracking { get; set; } = true;
         // OpenXR overlay preferences: whether the YouTube chat overlay exists
         // at all, and whether the overlay runs.
         public bool EnableYouTubeOverlay { get; set; } = false;
@@ -164,6 +167,10 @@ namespace BeltTensionTest.WPF.Models
         // the panel's Show button in the overlay's edit mode; a panel with no
         // entry uses the mode it ships with.
         public Dictionary<string, string> OverlayPanelShowModes { get; set; } = new();
+        // A panel's state as last set with its Hide / Collapse buttons in the
+        // overlay's edit mode, keyed by panel name: "Visible", "Collapsed" or
+        // "Hidden". A panel with no entry starts in the state it ships with.
+        public Dictionary<string, string> OverlayPanelStates { get; set; } = new();
         public double OverlaySizeX { get; set; } = 0;
         public double OverlaySizeY { get; set; } = 0;
         public double OverlayDistance { get; set; } = 0;

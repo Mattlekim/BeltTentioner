@@ -96,6 +96,13 @@ namespace BeltTensionTest.WPF.Services
         }
 
         public GazeSource Source { get; set; } = GazeSource.Off;
+
+        /// <summary>
+        /// Master switch (Preferences > OpenXR > Enable eye tracking). When off the
+        /// feature does nothing whatever <see cref="Source"/> and <see cref="Effect"/>
+        /// are set to, and those choices are kept for when it is turned back on.
+        /// </summary>
+        public bool Enabled { get; set; } = true;
         public GazeEffect Effect { get; set; } = GazeEffect.Brighten;
 
         /// <summary>How far unfocused panels dim, 0 (not at all) to 0.7.</summary>
@@ -115,7 +122,7 @@ namespace BeltTensionTest.WPF.Services
         private float _grow = 1.25f;
 
         /// <summary>True when the feature is doing anything at all.</summary>
-        public bool IsActive => Source != GazeSource.Off && Effect != GazeEffect.None;
+        public bool IsActive => Enabled && Source != GazeSource.Off && Effect != GazeEffect.None;
 
         /// <summary>Name of the panel currently in focus, for the settings readout.</summary>
         public string FocusedName => _focused?.Name ?? string.Empty;
