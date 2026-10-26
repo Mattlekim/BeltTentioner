@@ -52,6 +52,8 @@ namespace BeltTensionTest.WPF.ViewModels
         
 
         private string _carName = "NA";
+        /// <summary>Name of the car profile currently loaded.</summary>
+        public string ActiveCarName => _carName;
         private bool _motorSettingsLoaded;
         private bool _wasInCar;
         private bool _haveTestingData;
@@ -91,10 +93,52 @@ namespace BeltTensionTest.WPF.ViewModels
                 if (SetField(ref _enableForCar, value))
                 {
                     OnCarSettingChanged();
+                    // With the Wind feature off nothing is ever sent to the nano.
+                    if (!WindFeatureEnabled) return;
                     if (value) StartWindLoop(); else StopWindLoop();
                 }
             }
         }
+
+        // ── Features (Preferences → Features) ────────────────────────────────
+        // A disabled feature is hidden from the main window and sends nothing
+        // to the nano.
+        private bool _beltFeatureEnabled = true;
+        public bool BeltFeatureEnabled
+        {
+            get => _beltFeatureEnabled;
+            set
+            {
+                if (!SetField(ref _beltFeatureEnabled, value)) return;
+                AppSettings.BeltTensionerFeatureEnabled = value;
+                _settingsSvc.Save(AppSettings);
+                OnPropertyChanged(nameof(AnyFeatureEnabled));
+                OnPropertyChanged(nameof(NoFeatureEnabled));
+                // Drop any in-flight test pulses so they don't fire on re-enable.
+                if (!value) _testAbs = _testRubble = _testGearShift = false;
+            }
+        }
+
+        private bool _windFeatureEnabled = true;
+        public bool WindFeatureEnabled
+        {
+            get => _windFeatureEnabled;
+            set
+            {
+                if (!SetField(ref _windFeatureEnabled, value)) return;
+                AppSettings.WindFeatureEnabled = value;
+                _settingsSvc.Save(AppSettings);
+                OnPropertyChanged(nameof(AnyFeatureEnabled));
+                OnPropertyChanged(nameof(NoFeatureEnabled));
+                // Disabling stops the fan (one zero is sent so it doesn't keep
+                // running at the last power); enabling resumes it if the car wants it.
+                if (!value) StopWindLoop();
+                else if (_enableForCar) StartWindLoop();
+            }
+        }
+
+        public bool AnyFeatureEnabled => _beltFeatureEnabled || _windFeatureEnabled;
+        public bool NoFeatureEnabled => !AnyFeatureEnabled;
         // Public helper to request a refresh of the wind graph (used by the view when the tab/image becomes visible)
         public void RefreshWindGraph(int width = 320, int height = 160)
         {
@@ -667,6 +711,8 @@ namespace BeltTensionTest.WPF.ViewModels
             _useIracing  = AppSettings.UseIracing;
             _useSimHub   = AppSettings.UseSimHub;
             _effectsExpanded = AppSettings.EffectsExpanded;
+            _beltFeatureEnabled = AppSettings.BeltTensionerFeatureEnabled;
+            _windFeatureEnabled = AppSettings.WindFeatureEnabled;
 
             // Commands
             ConnectCommand          = new AsyncRelayCommand(DoConnectAsync);
@@ -1112,7 +1158,7 @@ namespace BeltTensionTest.WPF.ViewModels
 
         private void OnAbsTriggered()
         {
-            if (_absEnabled)
+            if (_absEnabled && BeltFeatureEnabled)
                 Device.SendABS((int)_absStrength);
             // reflect ABS activation in UI for a short time
             Application.Current.Dispatcher.Invoke(() =>
@@ -1171,8 +1217,11 @@ namespace BeltTensionTest.WPF.ViewModels
 
         private void UpdateCarDriveState(bool inCar)
         {
-            if (inCar && !_wasInCar) Device.SendSlowMode();
-            else if (_wasInCar && !inCar) Device.SendSlowMode();
+            if (BeltFeatureEnabled)
+            {
+                if (inCar && !_wasInCar) Device.SendSlowMode();
+                else if (_wasInCar && !inCar) Device.SendSlowMode();
+            }
             _wasInCar = inCar;
         }
 
@@ -1239,6 +1288,9 @@ namespace BeltTensionTest.WPF.ViewModels
         // ?? Belt feedback loop ?????????????????????????????????????????????????
         private void UpdateBeltFeedback()
         {
+            // Belt Tensioner feature off: nothing goes to the nano for it.
+            if (!BeltFeatureEnabled) return;
+
             if (OverideMotorAnglesForTesting)
             {
                 if (SelectedMotorIndex == 0) //left motor test
@@ -1619,6 +1671,7 @@ namespace BeltTensionTest.WPF.ViewModels
         {
             try
             {
+                if (!WindFeatureEnabled) return;
                 if (_windTask != null && _windCts != null && !_windCts.IsCancellationRequested)
                     return; // already running
 

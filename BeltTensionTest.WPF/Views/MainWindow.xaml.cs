@@ -84,6 +84,15 @@ namespace BeltTensionTest.WPF.Views
 
             Loaded  += (_, _) => Shared.WpfMessageBridge.Attach(this);
             Loaded += MainWindow_Loaded;
+
+            // Feature tabs follow Preferences → Features: keep a visible tab selected.
+            VM.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName is nameof(MainViewModel.BeltFeatureEnabled) or nameof(MainViewModel.WindFeatureEnabled))
+                    // After the tab Visibility bindings have updated.
+                    Dispatcher.BeginInvoke(new Action(SelectVisibleFeatureTab), System.Windows.Threading.DispatcherPriority.Loaded);
+            };
+            Loaded += (_, _) => SelectVisibleFeatureTab();
             // Capture key presses when window has focus
             PreviewKeyDown += MainWindow_PreviewKeyDown;
             // Gamepad bindings are polled globally (independent of window focus)
@@ -148,7 +157,7 @@ namespace BeltTensionTest.WPF.Views
 
             VM?.LoadCarSettings(VM?.CarNameDisplay);
 
-            // Preferences → OpenXR → Run OpenXR overlay.
+            // Preferences → OpenXR → Enable OpenXR overlay.
             try { ApplyOverlayEnabledSetting(); } catch { }
         }
 
@@ -447,6 +456,11 @@ namespace BeltTensionTest.WPF.Views
             try { ApplyOverlayEnabledSetting(); } catch { }
         }
 
+        private void OpenCarProfiles_Click(object sender, RoutedEventArgs e)
+        {
+            new CarProfilesWindow(VM) { Owner = this }.ShowDialog();
+        }
+
         private void OpenMotorSettings_Click(object sender, RoutedEventArgs e)
         {
             if (_motorSettingsWindow == null || !_motorSettingsWindow.IsLoaded)
@@ -485,7 +499,7 @@ namespace BeltTensionTest.WPF.Views
         }
 
         /// <summary>
-        /// Preferences → OpenXR → Run OpenXR overlay starts/stops the overlay.
+        /// Preferences → OpenXR → Enable OpenXR overlay starts/stops the overlay.
         /// Its window is only for editing: showing or closing it (closing just
         /// hides it) leaves the overlay's running state alone.
         /// </summary>
@@ -823,6 +837,22 @@ namespace BeltTensionTest.WPF.Views
             }
 
             bnt_Connect.IsEnabled = false;
+        }
+
+        // A collapsed tab keeps showing its content while selected, so move the
+        // selection onto an enabled feature's tab whenever the features change.
+        private void SelectVisibleFeatureTab()
+        {
+            if (tabs_Main.SelectedItem is TabItem current && current.Visibility == Visibility.Visible) return;
+            foreach (var item in tabs_Main.Items)
+            {
+                if (item is TabItem ti && ti.Visibility == Visibility.Visible)
+                {
+                    tabs_Main.SelectedItem = ti;
+                    return;
+                }
+            }
+            tabs_Main.SelectedIndex = -1;
         }
 
         // Called when the selected tab changes; if the Wind tab is selected, request the VM to refresh the graph

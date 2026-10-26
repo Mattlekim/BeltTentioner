@@ -72,14 +72,16 @@
               Margin="0,6,0,0">
                 <MenuItem Header="Settings" Click="MenuItem_Click">
                     <MenuItem Header="Preferences..." Click="OpenPreferences_Click"/>
-                    <Separator/>
+                    <MenuItem Header="Car Profiles..." Click="OpenCarProfiles_Click"/>
+                    <MenuItem Header="OpenXR Overlay..." Click="OpenOverlayWindow_Click"/>
+                </MenuItem>
+
+                <MenuItem Header="Tools">
                     <MenuItem Header="Open Testing Window..." Click="OpenTestingWindow_Click"/>
                     <MenuItem Header="Show Debug Log..." Click="OpenDebugLog_Click"/>
-                    <MenuItem Header="Flash Nano..." Click="OpenFlashNano_Click"/>
-                    <MenuItem Header="Motor Settings..." Click="OpenMotorSettings_Click"/>
                     <Separator/>
+                    <MenuItem Header="Flash Nano..." Click="OpenFlashNano_Click"/>
                     <MenuItem Header="Install SimHub Plugin..." Click="InstallSimHubPlugin_Click"/>
-                    <MenuItem Header="OpenXR Overlay..." Click="OpenOverlayWindow_Click"/>
                 </MenuItem>
 
                 <!-- Help menu moved out from Settings -->
@@ -154,11 +156,18 @@
                 </Grid>
             </GroupBox>
 
-            <Border Margin="10,0,10,8" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6" Background="{StaticResource BgBrush}">
-                <TabControl Style="{StaticResource MyTabControl}" Width="370" BorderThickness="0" Background="{StaticResource BgBrush}"
+            <!-- Both features switched off in Preferences → Features -->
+            <TextBlock Margin="16,16,16,8" TextWrapping="Wrap" Foreground="#A0A0BE"
+                       Text="No features are enabled. Turn on Belt Tentioner and/or Wind in Settings → Preferences → Features."
+                       Visibility="{Binding NoFeatureEnabled, Converter={StaticResource BoolToVis}}"/>
+
+            <Border Margin="10,0,10,8" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6" Background="{StaticResource BgBrush}"
+                    Visibility="{Binding AnyFeatureEnabled, Converter={StaticResource BoolToVis}}">
+                <TabControl x:Name="tabs_Main" Style="{StaticResource MyTabControl}" Width="370" BorderThickness="0" Background="{StaticResource BgBrush}"
                             SelectionChanged="TabControl_SelectionChanged">
 
-                    <TabItem Header="Belt Tentioner">
+                    <TabItem Header="Belt Tentioner" x:Name="tab_Belt"
+                             Visibility="{Binding BeltFeatureEnabled, Converter={StaticResource BoolToVis}}">
                         <ScrollViewer VerticalScrollBarVisibility="Auto"
                                   Background="#12121E"
                                   PanningMode="VerticalFirst" Margin="2,0,1,0">
@@ -171,6 +180,12 @@
                                           Foreground="#D0D0F0"
                                           Margin="0,0,0,8"
                                           ToolTip="{x:Static properties:Resources.SendBeltMotorCommandsToolTip}"/>
+
+                                <Button Content="Motor Settings..."
+                                        Click="OpenMotorSettings_Click"
+                                        HorizontalAlignment="Left"
+                                        Width="130" Margin="0,0,0,8"
+                                        Style="{DynamicResource BlueButton}"/>
 
                                 <!-- Car Settings -->
                                 <GroupBox Header="Car Settings" IsEnabled="{Binding ControlsEnabled}" Margin="0,0,0,6">
@@ -382,7 +397,8 @@
                         </ScrollViewer>
                     </TabItem>
 
-                    <TabItem Header="Wind">
+                    <TabItem Header="Wind" x:Name="tab_Wind"
+                             Visibility="{Binding WindFeatureEnabled, Converter={StaticResource BoolToVis}}">
                         <ScrollViewer VerticalScrollBarVisibility="Auto"
                                   Background="#12121E"
                                   PanningMode="VerticalFirst" Margin="17,0,-8,0">

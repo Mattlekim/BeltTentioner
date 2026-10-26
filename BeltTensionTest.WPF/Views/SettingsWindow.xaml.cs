@@ -27,6 +27,8 @@ namespace BeltTensionTest.WPF.Views
             chk_AutoConnect.IsChecked = _vm.AppSettings?.AutoConnectOnStartup ?? false;
             chk_StartWithWindows.IsChecked = _vm.AppSettings?.StartWithWindows ?? false;
             chk_MinimizeToTaskbar.IsChecked = _vm.AppSettings?.MinimizeToTaskbarOnClose ?? false;
+            chk_FeatureBelt.IsChecked = _vm.BeltFeatureEnabled;
+            chk_FeatureWind.IsChecked = _vm.WindFeatureEnabled;
             _initializing = true;
             chk_YouTubeOverlay.IsChecked = _vm.AppSettings?.EnableYouTubeOverlay ?? false;
             _initializing = false;
@@ -258,6 +260,10 @@ namespace BeltTensionTest.WPF.Views
 
             // Apply auto-connect setting through the viewmodel so side-effects (save/connect) occur
             try { _vm.AutoConnect = autoConnect; } catch { _vm.AppSettings.AutoConnectOnStartup = autoConnect; }
+
+            // Through the viewmodel so hiding a feature also stops what it sends to the nano
+            _vm.BeltFeatureEnabled = chk_FeatureBelt.IsChecked == true;
+            _vm.WindFeatureEnabled = chk_FeatureWind.IsChecked == true;
 
             _vm.AppSettings.StartWithWindows = startWithWindows;
             _vm.AppSettings.MinimizeToTaskbarOnClose = minimizeToTaskbar;

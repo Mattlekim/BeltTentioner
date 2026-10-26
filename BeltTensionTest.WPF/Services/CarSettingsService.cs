@@ -118,6 +118,57 @@ namespace BeltTensionTest.WPF.Services
             SaveCurrentCarSettings(null);
         }
 
+        // ── Profile management (Settings → Car Profiles) ─────────────────────
+
+        // Same shape as car_settings.json so a full export is a valid profile file
+        // and either can be imported.
+        private class ProfileFile
+        {
+            public Dictionary<string, CarSettings>? Settings { get; set; }
+        }
+
+        /// <summary>Removes a profile and persists. False if it didn't exist.</summary>
+        public bool DeleteProfile(string name)
+        {
+            if (!Settings.Remove(name)) return false;
+            SaveCurrentCarSettings(null);
+            return true;
+        }
+
+        /// <summary>Writes the named profiles (copies) to a JSON file.</summary>
+        public void ExportProfiles(IEnumerable<string> names, string path)
+        {
+            var file = new ProfileFile { Settings = new Dictionary<string, CarSettings>() };
+            foreach (var name in names)
+                if (Settings.TryGetValue(name, out var s) && s != null)
+                    file.Settings[name] = s.DeepCopy();
+
+            File.WriteAllText(path, JsonSerializer.Serialize(file, new JsonSerializerOptions { WriteIndented = true }));
+        }
+
+        /// <summary>Reads the profiles in an exported file. Throws if it isn't a profile file.</summary>
+        public static Dictionary<string, CarSettings> ReadProfilesFile(string path)
+        {
+            var file = JsonSerializer.Deserialize<ProfileFile>(File.ReadAllText(path));
+            var profiles = file?.Settings?
+                .Where(p => !string.IsNullOrWhiteSpace(p.Key) && p.Value != null)
+                .ToDictionary(p => p.Key, p => p.Value);
+            if (profiles == null || profiles.Count == 0)
+                throw new InvalidDataException("The file doesn't contain any car profiles.");
+            return profiles;
+        }
+
+        /// <summary>
+        /// Adds or replaces a profile. makeCurrent also points CurrentSettings at it, so a
+        /// pending autosave of the active car can't write the old values back over it.
+        /// Call SaveCurrentCarSettings(null) after a batch.
+        /// </summary>
+        public void SetProfile(string name, CarSettings settings, bool makeCurrent)
+        {
+            Settings[name] = settings;
+            if (makeCurrent) CurrentSettings = settings;
+        }
+
         private void LoadCarSettingsIntoCurrent(string carName)
         {
             if (!Settings.TryGetValue(carName, out var settings))

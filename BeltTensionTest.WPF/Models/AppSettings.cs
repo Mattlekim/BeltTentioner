@@ -12,6 +12,10 @@ namespace BeltTensionTest.WPF.Models
         public bool AutoConnectOnStartup { get; set; } = false;
         public bool UseSimHub { get; set; } = false;
         public bool UseIracing { get; set; } = true;
+        // Feature switches (Preferences → Features). A disabled feature has no
+        // tab on the main window and nothing is sent to the nano for it.
+        public bool BeltTensionerFeatureEnabled { get; set; } = true;
+        public bool WindFeatureEnabled { get; set; } = true;
         public List<string> CollapsedGroups { get; set; } = new();
         // Global resting wind power (stored per-application rather than per-car)
         public int WindRestingPower { get; set; } = 0;

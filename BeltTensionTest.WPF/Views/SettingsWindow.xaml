@@ -54,6 +54,17 @@
                     </StackPanel>
                 </TabItem>
 
+                <TabItem Header="Features">
+                    <StackPanel Margin="6" Orientation="Vertical">
+                        <TextBlock Text="Features" FontWeight="SemiBold" Margin="0,4,0,4" Foreground="{StaticResource TextPrimaryBrush}"/>
+                        <Separator Margin="0,0,0,8" Background="#46466A"/>
+                        <CheckBox x:Name="chk_FeatureBelt" Content="Belt Tentioner" Foreground="#A0A0BE" Margin="0,4"
+                                  ToolTip="Shows the Belt Tentioner tab. When unchecked the tab is hidden and no belt commands are sent to the Nano."/>
+                        <CheckBox x:Name="chk_FeatureWind" Content="Wind" Foreground="#A0A0BE" Margin="0,4"
+                                  ToolTip="Shows the Wind tab. When unchecked the tab is hidden, the fan is switched off and no wind commands are sent to the Nano."/>
+                    </StackPanel>
+                </TabItem>
+
                 <TabItem Header="KeyBindings">
                     <ScrollViewer VerticalScrollBarVisibility="Auto"
                                   HorizontalScrollBarVisibility="Disabled">
@@ -163,7 +174,7 @@
 
                         <Separator Margin="0,8" Background="#46466A"/>
 
-                        <CheckBox x:Name="chk_EnableOverlay" Content="Run OpenXR overlay" Foreground="#A0A0BE" Margin="0,4"
+                        <CheckBox x:Name="chk_EnableOverlay" Content="Enable OpenXR overlay" Foreground="#A0A0BE" Margin="0,4"
                                   ToolTip="Runs the OpenXR overlay, from app start. The overlay window (Settings → OpenXR Overlay...) is only for editing the layout — opening or closing it does not start or stop the overlay."/>
                     </StackPanel>
                 </TabItem>

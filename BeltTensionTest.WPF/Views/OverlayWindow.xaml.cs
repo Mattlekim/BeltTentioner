@@ -80,7 +80,7 @@ namespace BeltTensionTest.WPF.Views
             UpdateRunningUi();
         }
 
-        /// <summary>True while the overlay is running (Preferences > OpenXR > Run OpenXR overlay).</summary>
+        /// <summary>True while the overlay is running (Preferences > OpenXR > Enable OpenXR overlay).</summary>
         public bool IsRunning => _host != null;
 
         /// <summary>
@@ -203,7 +203,7 @@ namespace BeltTensionTest.WPF.Views
                 : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xDC, 0x3C, 0x3C));
             EditButton.IsEnabled = PreviewButton.IsEnabled = RecenterButton.IsEnabled = running;
             if (!running)
-                StatusLabel.Text = "OpenXR overlay is off — turn on Settings → Preferences → OpenXR → Run OpenXR overlay.";
+                StatusLabel.Text = "OpenXR overlay is off — turn on Settings → Preferences → OpenXR → Enable OpenXR overlay.";
         }
 
         private bool _closed, _shuttingDown;
