@@ -1,14 +1,13 @@
 name: Build WPF App (versioned)
 
-# Builds and releases BeltTensionTest.WPF on every push to master.
+# Builds and publishes a GitHub release of BeltTensionTest.WPF, only when run
+# manually (Actions tab -> Run workflow, or ask Claude to cut a release).
 # Version = <version.txt major.minor>.<run number>, so every build gets a new,
-# higher number. That number is stamped into the exe and used as the GitHub
-# release tag (v<version>); the in-app updater installs from that release.
-# Bump version.txt to change major/minor. Can also be run manually.
+# higher number. That number is stamped into the exe and used as the release
+# tag (v<version>); the in-app updater installs from that release.
+# Bump version.txt to change major/minor.
 
 on:
-  push:
-    branches: [master, main]
   workflow_dispatch:
 
 jobs:
@@ -110,7 +109,6 @@ jobs:
           retention-days: 30
 
       - name: Create GitHub release
-        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.VERSION }}
