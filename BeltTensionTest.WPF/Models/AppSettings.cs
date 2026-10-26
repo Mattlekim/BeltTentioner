@@ -92,6 +92,9 @@ namespace BeltTensionTest.WPF.Models
         public string OverlayGazeSource { get; set; } = "Off";
         public double OverlayGazeDim { get; set; } = 0.45;
         public double OverlayGazeGrow { get; set; } = 1.25;
+        // Panels that ignore gaze focus (their eye button in edit mode is off);
+        // every other panel follows the settings above.
+        public List<string> OverlayGazeDisabledPanels { get; set; } = new();
         // Master switch for gaze focus (Preferences > OpenXR > Enable eye tracking).
         // Off ignores the Effect / Tracked with choices above without losing them.
         public bool EnableEyeTracking { get; set; } = true;
@@ -163,7 +166,7 @@ namespace BeltTensionTest.WPF.Models
         // the panel's Bind button in the overlay's edit mode.
         public Dictionary<string, string> OverlayPanelToggleBindings { get; set; } = new();
         // When each VR overlay panel is shown, keyed by panel name:
-        // "Always", "InCar" or "Replay" (Services.PanelShowMode). Chosen with
+        // "Always", "InCar", "Practice", "Qualifying", "Race" or "Replay" (Services.PanelShowMode). Chosen with
         // the panel's Show button in the overlay's edit mode; a panel with no
         // entry uses the mode it ships with.
         public Dictionary<string, string> OverlayPanelShowModes { get; set; } = new();

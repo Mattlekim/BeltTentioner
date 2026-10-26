@@ -84,6 +84,10 @@ namespace BeltTensionTest.WPF.Services
 
         private readonly Dictionary<OverlayRenderTarget, Entry> _entries = new();
 
+        // Panels switched off with their eye button in edit mode: they never take
+        // focus, are never dimmed or grown, and stay exactly as the user set them.
+        private readonly HashSet<string> _disabled = new();
+
         private OverlayRenderTarget? _focused;   // panel that currently holds focus
         private OverlayRenderTarget? _candidate; // panel the gaze is resting on
         private double _candidateSince;
@@ -150,6 +154,34 @@ namespace BeltTensionTest.WPF.Services
 
         /// <summary>What the overlay layer reports about the headset's eye tracker, for the settings readout.</summary>
         public MonoXrGazeState EyeState => _host.EyeGazeState;
+
+        /// <summary>Whether a panel reacts to being looked at (its eye button in edit mode).</summary>
+        public bool IsPanelEnabled(OverlayRenderTarget panel) => !_disabled.Contains(panel.Name);
+
+        /// <summary>Names of the panels that ignore gaze, for saving.</summary>
+        public IReadOnlyCollection<string> DisabledPanels => _disabled;
+
+        /// <summary>Replace the set of panels that ignore gaze (settings load).</summary>
+        public void SetDisabledPanels(IEnumerable<string>? names)
+        {
+            _disabled.Clear();
+            if (names == null) return;
+            foreach (var name in names) _disabled.Add(name);
+        }
+
+        /// <summary>Flip whether a panel reacts to gaze; a panel switched off goes straight back to the user's own values.</summary>
+        public void TogglePanel(OverlayRenderTarget panel)
+        {
+            if (!_disabled.Remove(panel.Name)) _disabled.Add(panel.Name);
+            if (ReferenceEquals(_focused, panel)) _focused = null;
+            if (ReferenceEquals(_candidate, panel)) _candidate = null;
+            if (_entries.TryGetValue(panel, out var entry))
+            {
+                entry.Focus = 0f;
+                panel.Opacity = entry.BaseOpacity;
+                panel.Scale = entry.BaseScale;
+            }
+        }
 
         /// <summary>The user's own opacity for a panel, ignoring any gaze dimming.</summary>
         public float BaseOpacityOf(OverlayRenderTarget panel) =>
@@ -219,6 +251,14 @@ namespace BeltTensionTest.WPF.Services
             foreach (var panel in _panels())
             {
                 var entry = EntryFor(panel);
+                if (_disabled.Contains(panel.Name))
+                {
+                    // Not part of gaze focus: hold the user's own values.
+                    entry.Focus = 0f;
+                    panel.Opacity = entry.BaseOpacity;
+                    panel.Scale = entry.BaseScale;
+                    continue;
+                }
                 float target = ReferenceEquals(panel, _focused) ? 1f : 0f;
                 if (Math.Abs(entry.Focus - target) > 0.001f)
                 {
@@ -287,6 +327,7 @@ namespace BeltTensionTest.WPF.Services
             foreach (var panel in _panels())
             {
                 if (!panel.Visible || !panel.IsLive) continue;
+                if (_disabled.Contains(panel.Name)) continue;
                 if (x < panel.X - slack || x >= panel.X + panel.DisplayWidth + slack) continue;
                 if (y < panel.Y - slack || y >= panel.Y + panel.DisplayHeight + slack) continue;
                 hit = panel; // later panels composite on top, so the last wins

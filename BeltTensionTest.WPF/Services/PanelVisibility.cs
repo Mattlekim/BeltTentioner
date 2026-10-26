@@ -9,18 +9,28 @@ namespace BeltTensionTest.WPF.Services
     {
         /// <summary>Whenever the overlay is up, iRacing running or not.</summary>
         Always,
-        /// <summary>Only while sitting in the car, not while watching a replay.</summary>
+        /// <summary>Only while sitting in the car (any session), not while watching a replay.</summary>
         InCar,
         /// <summary>Only while watching the replay.</summary>
         Replay,
+        /// <summary>Only in the car during a practice session (also warm-up and testing).</summary>
+        Practice,
+        /// <summary>Only in the car during qualifying, lone or open.</summary>
+        Qualifying,
+        /// <summary>Only in the car during the race.</summary>
+        Race,
     }
 
     /// <summary>What the sim is doing, as far as panel show modes are concerned.</summary>
     public enum SimState
     {
         NotRunning,
+        /// <summary>In the car, in a session none of the specific states below covers.</summary>
         InCar,
         Replay,
+        Practice,
+        Qualifying,
+        Race,
     }
 
     /// <summary>A panel that starts on something other than <see cref="PanelShowMode.Always"/>.</summary>
@@ -30,8 +40,8 @@ namespace BeltTensionTest.WPF.Services
     }
 
     /// <summary>
-    /// Per-panel "when is this shown" setting: in the car, in the replay, or
-    /// always. Ported from IrachingHud's ShowSetting, which each box set in
+    /// Per-panel "when is this shown" setting: in the car, in practice,
+    /// qualifying or the race, in the replay, or always. Ported from IrachingHud's ShowSetting, which each box set in
     /// code; here every panel carries its own, chosen with the Show button on
     /// its edit-mode bar and remembered by panel name in the app settings.
     ///
@@ -77,32 +87,71 @@ namespace BeltTensionTest.WPF.Services
         {
             PanelShowMode.InCar => "In car",
             PanelShowMode.Replay => "Replay",
+            PanelShowMode.Practice => "Practice",
+            PanelShowMode.Qualifying => "Qualifying",
+            PanelShowMode.Race => "Race",
             _ => "Always",
         };
+
+        /// <summary>
+        /// Whether a panel with this mode applies in this state. In car covers
+        /// every session while sitting in the car; Practice / Qualifying / Race
+        /// each cover only their own session (and, like In car, never a replay).
+        /// </summary>
+        public static bool AppliesIn(PanelShowMode mode, SimState state) => mode switch
+        {
+            PanelShowMode.InCar => state is SimState.InCar or SimState.Practice
+                                         or SimState.Qualifying or SimState.Race,
+            PanelShowMode.Replay => state == SimState.Replay,
+            PanelShowMode.Practice => state == SimState.Practice,
+            PanelShowMode.Qualifying => state == SimState.Qualifying,
+            PanelShowMode.Race => state == SimState.Race,
+            _ => true,
+        };
+
+        /// <summary>
+        /// iRacing's session type as a state: "Practice" (also Warmup, Offline
+        /// Testing), "Open Qualify" and "Lone Qualify" as Qualifying, "Race".
+        /// Anything unrecognised, or not yet known, is plain InCar.
+        /// </summary>
+        public static SimState SessionState(string sessionType)
+        {
+            if (sessionType.Contains("Qualify", StringComparison.OrdinalIgnoreCase)) return SimState.Qualifying;
+            if (sessionType.Contains("Race", StringComparison.OrdinalIgnoreCase)) return SimState.Race;
+            if (sessionType.Contains("Practice", StringComparison.OrdinalIgnoreCase) ||
+                sessionType.Contains("Warmup", StringComparison.OrdinalIgnoreCase) ||
+                sessionType.Contains("Test", StringComparison.OrdinalIgnoreCase)) return SimState.Practice;
+            return SimState.InCar;
+        }
 
         // ----- Edit mode: arranging the layout for one state --------------------
 
         /// <summary>Options for the "editing for" choice, in <see cref="EditViewIndex"/> order.</summary>
-        public static readonly string[] EditViewOptions = { "Current", "In car", "Replay" };
+        public static readonly string[] EditViewOptions =
+            { "Current", "In car", "Practice", "Qualifying", "Race", "Replay" };
 
         /// <summary>The state the sim is in right now.</summary>
         public static SimState CurrentSimState()
         {
             var svc = IracingService.Instance;
             if (!svc.IsConnected) return SimState.NotRunning;
-            return svc.InReplay ? SimState.Replay : SimState.InCar;
+            return svc.InReplay ? SimState.Replay : SessionState(svc.SessionType);
         }
 
         public static string Describe(SimState state) => state switch
         {
             SimState.InCar => "In car",
             SimState.Replay => "Replay",
+            SimState.Practice => "Practice",
+            SimState.Qualifying => "Qualifying",
+            SimState.Race => "Race",
             _ => "Not running",
         };
 
         /// <summary>
-        /// The state the layout is being arranged for in edit mode: 0 follows the
-        /// sim, 1 is the in-car layout, 2 the replay layout.
+        /// The state the layout is being arranged for in edit mode: an index into
+        /// <see cref="EditViewOptions"/> - 0 follows the sim, then in car, practice,
+        /// qualifying, race and replay.
         /// </summary>
         public int EditViewIndex { get; set; }
 
@@ -117,7 +166,10 @@ namespace BeltTensionTest.WPF.Services
         private SimState ChosenState() => EditViewIndex switch
         {
             1 => SimState.InCar,
-            2 => SimState.Replay,
+            2 => SimState.Practice,
+            3 => SimState.Qualifying,
+            4 => SimState.Race,
+            5 => SimState.Replay,
             _ => CurrentSimState(),
         };
 
@@ -133,17 +185,19 @@ namespace BeltTensionTest.WPF.Services
             if (state == SimState.NotRunning) return false;
 
             var mode = ModeOf(panel);
-            return mode != PanelShowMode.Always
-                && mode != (state == SimState.Replay ? PanelShowMode.Replay : PanelShowMode.InCar);
+            return !AppliesIn(mode, state);
         }
 
-        /// <summary>Step a panel to the next mode: Always -> In car -> Replay -> Always.</summary>
+        /// <summary>Step a panel to the next mode: Always -> In car -> Practice -> Qualifying -> Race -> Replay -> Always.</summary>
         public void Cycle(OverlayRenderTarget panel)
         {
             var next = ModeOf(panel) switch
             {
                 PanelShowMode.Always => PanelShowMode.InCar,
-                PanelShowMode.InCar => PanelShowMode.Replay,
+                PanelShowMode.InCar => PanelShowMode.Practice,
+                PanelShowMode.Practice => PanelShowMode.Qualifying,
+                PanelShowMode.Qualifying => PanelShowMode.Race,
+                PanelShowMode.Race => PanelShowMode.Replay,
                 _ => PanelShowMode.Always,
             };
             _modes[panel.Name] = next.ToString();
@@ -159,18 +213,11 @@ namespace BeltTensionTest.WPF.Services
         public void Apply()
         {
             var state = Emulate ? ChosenState() : CurrentSimState();
-            bool replay = state == SimState.Replay;
-            bool inCar = state == SimState.InCar;
 
             bool any = false;
             foreach (var panel in _panels())
             {
-                bool available = ModeOf(panel) switch
-                {
-                    PanelShowMode.InCar => inCar,
-                    PanelShowMode.Replay => replay,
-                    _ => true,
-                };
+                bool available = AppliesIn(ModeOf(panel), state);
                 panel.EditHidden = HideInEdit(panel);
                 if (panel.Available == available) continue;
                 panel.Available = available;

@@ -123,13 +123,16 @@
                             <Button Content="Reset" Height="22" Padding="10,0" Margin="8,0,0,0" Click="ResetMouseCalibration_Click"/>
                         </StackPanel>
 
-                        <!-- Panels can be set to show only in the car or only in the replay; arrange the layout for one state at a time -->
+                        <!-- Panels can be set to show only in the car, in practice / qualifying / the race, or only in the replay; arrange the layout for one state at a time -->
                         <TextBlock Grid.Row="7" Grid.Column="0" Text="Editing for" VerticalAlignment="Center" Margin="0,6,10,0"/>
                         <StackPanel Grid.Row="7" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,6,0,0">
                             <ComboBox x:Name="EditViewBox" Width="110" SelectedIndex="0" SelectionChanged="EditViewBox_SelectionChanged"
-                                      ToolTip="Current follows the sim. In car / Replay show that state's layout: panels that only appear in the other state are hidden, so the two layouts can be arranged separately. Use each panel's Show button to choose when it appears.">
+                                      ToolTip="Current follows the sim. The other choices show that state's layout (In car covers every session; Practice, Qualifying and Race are single sessions): panels that only appear in other states are hidden, so the two layouts can be arranged separately. Use each panel's Show button to choose when it appears.">
                                 <ComboBoxItem Content="Current"/>
                                 <ComboBoxItem Content="In car"/>
+                                <ComboBoxItem Content="Practice"/>
+                                <ComboBoxItem Content="Qualifying"/>
+                                <ComboBoxItem Content="Race"/>
                                 <ComboBoxItem Content="Replay"/>
                             </ComboBox>
                             <TextBlock Text="Sim now:" VerticalAlignment="Center" Margin="12,0,6,0"/>

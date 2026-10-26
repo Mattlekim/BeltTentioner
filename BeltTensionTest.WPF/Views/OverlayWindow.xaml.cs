@@ -386,7 +386,18 @@ namespace BeltTensionTest.WPF.Views
                 _gazeFocus.DimAmount = (float)s.OverlayGazeDim;
                 _gazeFocus.GrowFactor = (float)s.OverlayGazeGrow;
                 _gazeFocus.Enabled = s.EnableEyeTracking;
+                _gazeFocus.SetDisabledPanels(s.OverlayGazeDisabledPanels);
             }
+
+            // Edit-mode eye button on each panel: whether it reacts to gaze.
+            _host.GazeButtonState = panel => _gazeFocus?.IsPanelEnabled(panel) ?? true;
+            _host.GazeToggleRequested += panel =>
+            {
+                if (_gazeFocus == null) return;
+                _gazeFocus.TogglePanel(panel);
+                SaveLayout();
+                Log($"{panel.Name} {(_gazeFocus.IsPanelEnabled(panel) ? "now reacts to" : "now ignores")} gaze — saved.");
+            };
 
             // HUD settings (tag colours, standings size). Not edit-mode only:
             // these are changed while sitting in the pits. It starts collapsed
@@ -734,6 +745,7 @@ namespace BeltTensionTest.WPF.Views
                     s.OverlayGazeSource = _gazeFocus.Source.ToString();
                     s.OverlayGazeDim = _gazeFocus.DimAmount;
                     s.OverlayGazeGrow = _gazeFocus.GrowFactor;
+                    s.OverlayGazeDisabledPanels = new List<string>(_gazeFocus.DisabledPanels);
                 }
                 if (_warningPanel != null)
                 {
@@ -943,7 +955,7 @@ namespace BeltTensionTest.WPF.Views
                 };
                 if (_panelVisibility != null) { _panelVisibility.Emulate = true; _panelVisibility.Apply(); }
                 _preview.Show();
-                Log("Preview window opened — mirrors the overlay canvas on the desktop. Use Emulate to preview the In car or Replay state.");
+                Log("Preview window opened — mirrors the overlay canvas on the desktop. Use Emulate to preview the In car, Practice, Qualifying, Race or Replay state.");
             }
             else
             {
@@ -1045,7 +1057,7 @@ namespace BeltTensionTest.WPF.Views
         private bool _syncingEditUi;
 
         // Which state edit mode is arranging the layout for (index into
-        // PanelVisibility.EditViewOptions): 0 follows the sim, 1 in car, 2 replay.
+        // PanelVisibility.EditViewOptions): 0 follows the sim, then in car, practice, qualifying, race, replay.
         private int _editView;
 
         /// <summary>Choose the state to arrange the layout for (this window's box or the in-VR Display panel).</summary>

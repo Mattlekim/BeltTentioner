@@ -23,13 +23,16 @@
                 <Grid MouseDown="TitleBar_MouseDown">
                     <TextBlock VerticalAlignment="Center" Margin="12,0,40,0" FontWeight="SemiBold"
                                Foreground="{StaticResource TextPrimaryBrush}" Text="Overlay Preview" />
-                    <!-- Pretend the sim is in the car / watching a replay: only panels that can show in that state appear -->
+                    <!-- Pretend the sim is in the car, in a practice / qualifying / race session, or watching a replay: only panels that can show in that state appear -->
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,52,0">
                         <TextBlock Text="Emulate" VerticalAlignment="Center" Margin="0,0,8,0"/>
                         <ComboBox x:Name="EmulateBox" Width="100" Height="24" SelectedIndex="0" SelectionChanged="EmulateBox_SelectionChanged"
-                                  ToolTip="Current follows the sim. In car / Replay show the overlay as it would look in that state — panels set to show only in the other state are hidden.">
+                                  ToolTip="Current follows the sim. The other choices show the overlay as it would look in that state — panels set to show only in the other state are hidden.">
                             <ComboBoxItem Content="Current"/>
                             <ComboBoxItem Content="In car"/>
+                            <ComboBoxItem Content="Practice"/>
+                            <ComboBoxItem Content="Qualifying"/>
+                            <ComboBoxItem Content="Race"/>
                             <ComboBoxItem Content="Replay"/>
                         </ComboBox>
                     </StackPanel>
