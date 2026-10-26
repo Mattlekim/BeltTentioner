@@ -18,6 +18,17 @@ namespace BeltTensionTest.WPF.Views
         private readonly SettingsService _settingsSvc = new();
         private bool _initializing;
 
+        // Show the saved gaze source; an unknown value (or none) reads as Head,
+        // the choice that works on every headset.
+        private void SelectGazeSource(string? source)
+        {
+            foreach (ComboBoxItem item in cmb_GazeSource.Items)
+            {
+                if (item.Tag as string == source) { cmb_GazeSource.SelectedItem = item; return; }
+            }
+            cmb_GazeSource.SelectedIndex = 1;
+        }
+
         public SettingsWindow(MainViewModel vm)
         {
             InitializeComponent();
@@ -35,6 +46,7 @@ namespace BeltTensionTest.WPF.Views
             UpdateYouTubeAccountUi();
             chk_EnableOverlay.IsChecked = _vm.AppSettings?.EnableOpenXrOverlay ?? false;
             chk_EyeTracking.IsChecked = _vm.AppSettings?.EnableEyeTracking ?? true;
+            SelectGazeSource(_vm.AppSettings?.OverlayGazeSource);
             double behindShow = _vm.AppSettings?.OverlayCarBehindShowGap ?? 0;
             double behindClose = _vm.AppSettings?.OverlayCarBehindCloseGap ?? 0;
             sld_CarBehindShow.Value = behindShow > 0 ? behindShow : Services.Overlays.CarBehindOverlay.DefaultShowGap;
@@ -271,6 +283,8 @@ namespace BeltTensionTest.WPF.Views
             _vm.AppSettings.EnableYouTubeOverlay = chk_YouTubeOverlay.IsChecked == true;
             _vm.AppSettings.EnableOpenXrOverlay = chk_EnableOverlay.IsChecked == true;
             _vm.AppSettings.EnableEyeTracking = chk_EyeTracking.IsChecked == true;
+            if (cmb_GazeSource.SelectedItem is ComboBoxItem gazeItem && gazeItem.Tag is string gazeSource)
+                _vm.AppSettings.OverlayGazeSource = gazeSource;
             _vm.AppSettings.OverlayCarBehindShowGap = Math.Round(sld_CarBehindShow.Value, 2);
             _vm.AppSettings.OverlayCarBehindCloseGap = Math.Round(sld_CarBehindClose.Value, 2);
             _vm.AppSettings.OverlayCarBehindFlashClose = chk_CarBehindFlash.IsChecked == true;

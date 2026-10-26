@@ -4,6 +4,7 @@ using BeltTensionTest.WPF.Services.Data;
 using Microsoft.Xna.Framework.Graphics;
 using GameTime = Microsoft.Xna.Framework.GameTime;
 using MonoXR.Client;
+using MonoXR.Shared;
 using XnaColor = Microsoft.Xna.Framework.Color;
 using XnaRectangle = Microsoft.Xna.Framework.Rectangle;
 using XnaVector2 = Microsoft.Xna.Framework.Vector2;
@@ -67,7 +68,15 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         // Option order matches the GazeEffect / GazeSource enums.
         private static readonly string[] GazeEffects = { "Nothing", "Brighten", "Enlarge", "Both" };
-        private static readonly string[] GazeSources = { "Off", "Head", "Eye" };
+        private static readonly string[] GazeSources = { "Off", "Head", "Eye (exp.)" };
+
+        // Why "Eye" is running on head direction instead, by what the layer reports.
+        private static string EyeFallbackStatus(MonoXrGazeState state) => state switch
+        {
+            MonoXrGazeState.Unsupported => "No eye tracking on this headset/game - using head",
+            MonoXrGazeState.Idle or MonoXrGazeState.NoSignal => "Waiting for eye tracking - using head",
+            _ => "Eye tracking needs a game restart - using head",
+        };
 
         public override int CollapsedWidth => (int)_font.MeasureString(Name).X + 60;
         public override int CollapsedHeight => TitleBarHeight;
@@ -262,9 +271,9 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 !_gaze.Enabled ? "Eye tracking is off in Preferences"
                 : _gaze.Source == GazeSource.Off || _gaze.Effect == GazeEffect.None ? "Gaze off"
                 : !_gaze.HasSignal ? "No head pose - start the sim in VR"
-                : _gaze.Source == GazeSource.Eye ? "Eye gaze unavailable - using head"
+                : _gaze.Source == GazeSource.Eye && !_gaze.UsingEyes ? EyeFallbackStatus(_gaze.EyeState)
                 : string.IsNullOrEmpty(_gaze.FocusedName) ? "Looking away from the panels"
-                : "Looking at " + _gaze.FocusedName;
+                : "Looking at " + _gaze.FocusedName + (_gaze.UsingEyes ? " (eyes, experimental)" : "");
             if (gazeStatus != _gazeStatus)
             {
                 _gazeStatus = gazeStatus;

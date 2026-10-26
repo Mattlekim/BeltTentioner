@@ -101,7 +101,12 @@ namespace BeltTensionTest.WPF.Views
         public void RefreshFeatures()
         {
             if (_closed || _host == null) return;
-            if (_gazeFocus != null) _gazeFocus.Enabled = _vm.AppSettings?.EnableEyeTracking ?? true;
+            if (_gazeFocus != null)
+            {
+                _gazeFocus.Enabled = _vm.AppSettings?.EnableEyeTracking ?? true;
+                if (Enum.TryParse(_vm.AppSettings?.OverlayGazeSource, out Services.GazeSource gazeSource))
+                    _gazeFocus.Source = gazeSource;
+            }
             if ((_beltPanel != null) == _vm.BeltFeatureEnabled) return;
             Stop();
             Start();

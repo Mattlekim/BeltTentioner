@@ -174,8 +174,21 @@
 
                         <Separator Margin="0,8" Background="#46466A"/>
 
-                        <CheckBox x:Name="chk_EyeTracking" Content="Enable eye tracking" Foreground="#A0A0BE" Margin="0,4"
-                                  ToolTip="Gaze focus: the panel you look at stands out. Off ignores the Effect / Tracked with choices in the in-VR HUD Settings panel (they are kept). Eye falls back to head direction until the overlay layer supports eye gaze."/>
+                        <CheckBox x:Name="chk_EyeTracking" Content="Enable gaze focus" Foreground="#A0A0BE" Margin="0,4"
+                                  ToolTip="Gaze focus: the panel you look at stands out. Off ignores the Effect / Tracked with choices in the in-VR HUD Settings panel (they are kept)."/>
+                        <Grid Margin="0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="180"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Look direction from:" VerticalAlignment="Center" Foreground="#A0A0BE"
+                                       ToolTip="Eye tracking is EXPERIMENTAL: it follows your eyes and needs a headset with eye tracking (the game must be running in VR with the overlay layer). Head tracking uses where the headset points and works on every headset. Eye tracking falls back to head tracking while no eye gaze is coming in."/>
+                            <ComboBox x:Name="cmb_GazeSource" Grid.Column="1" HorizontalAlignment="Left" Width="180">
+                                <ComboBoxItem Content="Off" Tag="Off"/>
+                                <ComboBoxItem Content="Head tracking" Tag="Head"/>
+                                <ComboBoxItem Content="Eye tracking (experimental)" Tag="Eye"/>
+                            </ComboBox>
+                        </Grid>
 
                         <CheckBox x:Name="chk_EnableOverlay" Content="Enable OpenXR overlay" Foreground="#A0A0BE" Margin="0,4"
                                   ToolTip="Runs the OpenXR overlay, from app start. The overlay window (Settings → OpenXR Overlay...) is only for editing the layout — opening or closing it does not start or stop the overlay."/>

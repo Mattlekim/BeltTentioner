@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using MonoXR.Client;
+using MonoXR.Shared;
 
 namespace BeltTensionTest.WPF.Services
 {
@@ -13,9 +14,9 @@ namespace BeltTensionTest.WPF.Services
         /// <summary>The headset's own line of sight — works on every headset.</summary>
         Head,
         /// <summary>
-        /// True eye gaze from the runtime. Needs an eye-tracked headset AND the
-        /// MonoXR OpenXR layer to publish gaze; falls back to
-        /// <see cref="Head"/> until it does.
+        /// True eye gaze (XR_EXT_eye_gaze_interaction), read by the MonoXR
+        /// OpenXR layer. Needs an eye-tracked headset; while no gaze is coming
+        /// in it falls back to <see cref="Head"/> so the panels still react.
         /// </summary>
         Eye,
     }
@@ -58,6 +59,12 @@ namespace BeltTensionTest.WPF.Services
 
         /// <summary>Time a panel keeps focus after the gaze leaves it.</summary>
         public const double HoldMs = 450;
+
+        // Eye trackers are good for a degree or two, which is a few dozen
+        // canvas pixels at the default distance: an eye gaze that lands just
+        // outside a panel still counts as looking at it. Head direction is
+        // exact, so it gets no margin.
+        private const float EyeSlackPx = 32f;
 
         // Focus amount moves this much per second, so a full transition takes
         // about a third of a second either way.
@@ -134,6 +141,16 @@ namespace BeltTensionTest.WPF.Services
         /// </summary>
         public bool HasSignal { get; private set; }
 
+        /// <summary>
+        /// True when the last tick was driven by real eye gaze. False for head
+        /// tracking, including <see cref="GazeSource.Eye"/> that has fallen
+        /// back to the head because no gaze is coming in.
+        /// </summary>
+        public bool UsingEyes { get; private set; }
+
+        /// <summary>What the overlay layer reports about the headset's eye tracker, for the settings readout.</summary>
+        public MonoXrGazeState EyeState => _host.EyeGazeState;
+
         /// <summary>The user's own opacity for a panel, ignoring any gaze dimming.</summary>
         public float BaseOpacityOf(OverlayRenderTarget panel) =>
             _entries.TryGetValue(panel, out var e) ? e.BaseOpacity : panel.Opacity;
@@ -188,9 +205,14 @@ namespace BeltTensionTest.WPF.Services
             if (editMode || !IsActive)
             {
                 HasSignal = false;
+                UsingEyes = false;
+                _host.EyeGazeRequested = false;
                 if (_focused != null || _candidate != null || AnyFocus()) Reset();
                 return;
             }
+
+            // The layer only polls the eye tracker while asked to.
+            _host.EyeGazeRequested = Source == GazeSource.Eye;
 
             UpdateFocusTarget(now);
 
@@ -224,8 +246,10 @@ namespace BeltTensionTest.WPF.Services
         // taking it and the hold before letting it go.
         private void UpdateFocusTarget(double now)
         {
-            HasSignal = _host.TryGetGazeCanvasPoint(out float gx, out float gy);
-            var looking = HasSignal ? PanelAt(gx, gy) : null;
+            float gx = 0f, gy = 0f;
+            UsingEyes = Source == GazeSource.Eye && _host.TryGetEyeGazeCanvasPoint(out gx, out gy);
+            HasSignal = UsingEyes || _host.TryGetGazeCanvasPoint(out gx, out gy);
+            var looking = HasSignal ? PanelAt(gx, gy, UsingEyes ? EyeSlackPx : 0f) : null;
 
             if (!ReferenceEquals(looking, _candidate))
             {
@@ -257,14 +281,14 @@ namespace BeltTensionTest.WPF.Services
         /// and HUD settings panels are used, not glanced at) still qualify:
         /// leaving them out would make them dim permanently.
         /// </summary>
-        private OverlayRenderTarget? PanelAt(float x, float y)
+        private OverlayRenderTarget? PanelAt(float x, float y, float slack)
         {
             OverlayRenderTarget? hit = null;
             foreach (var panel in _panels())
             {
                 if (!panel.Visible || !panel.IsLive) continue;
-                if (x < panel.X || x >= panel.X + panel.DisplayWidth) continue;
-                if (y < panel.Y || y >= panel.Y + panel.DisplayHeight) continue;
+                if (x < panel.X - slack || x >= panel.X + panel.DisplayWidth + slack) continue;
+                if (y < panel.Y - slack || y >= panel.Y + panel.DisplayHeight + slack) continue;
                 hit = panel; // later panels composite on top, so the last wins
             }
             return hit;
