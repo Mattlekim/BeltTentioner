@@ -43,6 +43,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         private readonly MonoXRMenuControl _menu;
         private readonly List<(BeltSettingRow Row, MonoXRSliderControl Slider)> _bindings = new();
+        private readonly OverlayChoiceRow _editView;
+        private readonly Func<int> _getEditView;
         private readonly MonoXRLabel _resolution;
         private readonly Func<string> _resolutionText;
         private readonly int _collapsedWidth;
@@ -55,10 +57,14 @@ namespace BeltTensionTest.WPF.Services.Overlays
             TitleBarHeight + 14 + rowCount * (RowHeight + RowSpacing) + ResolutionRowHeight + 16;
 
         /// <param name="rows">Width / height / distance / DPI, in display order.</param>
-        /// <param name="resolutionText">Current canvas resolution, polled every frame for the readout.</param>
+        /// <param name="resolutionText">Current canvas resolution and sim state, polled every frame for the readout.</param>
+        /// <param name="editViewOptions">Choices for which state (current / in car / replay) the layout is arranged for.</param>
+        /// <param name="getEditView">Selected choice, polled every frame so the desktop window's box stays in step.</param>
+        /// <param name="setEditView">Called when the choice is changed here.</param>
         public DisplaySettingsOverlay(GraphicsDevice device, int x, int y,
-                                      IReadOnlyList<BeltSettingRow> rows, Func<string> resolutionText)
-            : base(device, PanelWidth, HeightFor(rows.Count), x, y)
+                                      IReadOnlyList<BeltSettingRow> rows, Func<string> resolutionText,
+                                      string[] editViewOptions, Func<int> getEditView, Action<int> setEditView)
+            : base(device, PanelWidth, HeightFor(rows.Count + 1), x, y)
         {
             Name = "Display";
             EditModeOnly = true;
@@ -88,8 +94,15 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 _bindings.Add((row, slider));
             }
 
+            // Which state the layout is being arranged for; panels that only show
+            // in the other state are left out (see PanelVisibility.HideInEdit).
+            _getEditView = getEditView;
+            _editView = new OverlayChoiceRow("Editing for", editViewOptions, getEditView());
+            _editView.SelectedIndexChanged += i => { setEditView(i); Invalidate(); };
+            _menu.Add(_editView);
+
             // Not selectable (MonoXRLabel is disabled), so navigation skips it.
-            _resolution = new MonoXRLabel(resolutionText()) { PreferredHeight = ResolutionRowHeight };
+            _resolution =new MonoXRLabel(resolutionText()) { PreferredHeight = ResolutionRowHeight };
             _menu.Add(_resolution);
 
             OverlayNavigation.Navigated += OnNavigated;
@@ -130,6 +143,13 @@ namespace BeltTensionTest.WPF.Services.Overlays
             // the controls.
             foreach (var (row, slider) in _bindings)
                 slider.Value = row.Get();
+
+            int editView = _getEditView();
+            if (editView != _editView.SelectedIndex)
+            {
+                _editView.SelectedIndex = editView; // changed in the desktop window
+                Invalidate();
+            }
 
             string resolution = _resolutionText();
             if (resolution != _resolution.Text)

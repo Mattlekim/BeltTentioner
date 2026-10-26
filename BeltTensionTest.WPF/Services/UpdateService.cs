@@ -132,7 +132,8 @@ namespace BeltTensionTest.WPF.Services
             // Fail now (not mid-install) if the download is corrupt.
             using (var zip = ZipFile.OpenRead(zipPath))
             {
-                if (!zip.Entries.Any(e => e.Name.Equals("BeltTensionTest.WPF.exe", StringComparison.OrdinalIgnoreCase)))
+                if (!zip.Entries.Any(e => e.Name.Equals("BST.exe", StringComparison.OrdinalIgnoreCase)
+                                       || e.Name.Equals("BeltTensionTest.WPF.exe", StringComparison.OrdinalIgnoreCase)))
                     throw new InvalidDataException("Downloaded update does not contain the application.");
             }
             return zipPath;
@@ -183,6 +184,8 @@ for ($i = 0; $i -lt 10 -and -not $ok; $i++) {
 }
 Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item $Zip -Force -ErrorAction SilentlyContinue
+# The app used to be BeltTensionTest.WPF.exe; an update that renamed it leaves the old name behind.
+if (-not (Test-Path $Exe) -or (Test-Path (Join-Path $InstallDir 'BST.exe'))) { $Exe = Join-Path $InstallDir 'BST.exe' }
 Start-Process -FilePath $Exe -WorkingDirectory $InstallDir
 ";
 

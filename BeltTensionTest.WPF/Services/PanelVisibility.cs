@@ -15,6 +15,14 @@ namespace BeltTensionTest.WPF.Services
         Replay,
     }
 
+    /// <summary>What the sim is doing, as far as panel show modes are concerned.</summary>
+    public enum SimState
+    {
+        NotRunning,
+        InCar,
+        Replay,
+    }
+
     /// <summary>A panel that starts on something other than <see cref="PanelShowMode.Always"/>.</summary>
     public interface IPanelShowDefault
     {
@@ -72,6 +80,63 @@ namespace BeltTensionTest.WPF.Services
             _ => "Always",
         };
 
+        // ----- Edit mode: arranging the layout for one state --------------------
+
+        /// <summary>Options for the "editing for" choice, in <see cref="EditViewIndex"/> order.</summary>
+        public static readonly string[] EditViewOptions = { "Current", "In car", "Replay" };
+
+        /// <summary>The state the sim is in right now.</summary>
+        public static SimState CurrentSimState()
+        {
+            var svc = IracingService.Instance;
+            if (!svc.IsConnected) return SimState.NotRunning;
+            return svc.InReplay ? SimState.Replay : SimState.InCar;
+        }
+
+        public static string Describe(SimState state) => state switch
+        {
+            SimState.InCar => "In car",
+            SimState.Replay => "Replay",
+            _ => "Not running",
+        };
+
+        /// <summary>
+        /// The state the layout is being arranged for in edit mode: 0 follows the
+        /// sim, 1 is the in-car layout, 2 the replay layout.
+        /// </summary>
+        public int EditViewIndex { get; set; }
+
+        /// <summary>
+        /// True while the desktop preview is open: the chosen <see cref="EditViewIndex"/>
+        /// then stands in for the sim's real state in <see cref="Apply"/>, so only the
+        /// panels that can show in that state are shown (In car / Replay), without
+        /// needing the sim in it. Current (0) always follows the sim.
+        /// </summary>
+        public bool Emulate { get; set; }
+
+        private SimState ChosenState() => EditViewIndex switch
+        {
+            1 => SimState.InCar,
+            2 => SimState.Replay,
+            _ => CurrentSimState(),
+        };
+
+        /// <summary>
+        /// Edit mode shows every panel so it can be found, which would pile the
+        /// in-car and replay panels on top of each other. This marks the ones
+        /// that do not apply to the state being edited; <see cref="Apply"/> sets
+        /// them <see cref="OverlayRenderTarget.EditHidden"/> so they are left out.
+        /// </summary>
+        public bool HideInEdit(OverlayRenderTarget panel)
+        {
+            var state = ChosenState();
+            if (state == SimState.NotRunning) return false;
+
+            var mode = ModeOf(panel);
+            return mode != PanelShowMode.Always
+                && mode != (state == SimState.Replay ? PanelShowMode.Replay : PanelShowMode.InCar);
+        }
+
         /// <summary>Step a panel to the next mode: Always -> In car -> Replay -> Always.</summary>
         public void Cycle(OverlayRenderTarget panel)
         {
@@ -93,9 +158,9 @@ namespace BeltTensionTest.WPF.Services
         /// </summary>
         public void Apply()
         {
-            var svc = IracingService.Instance;
-            bool replay = svc.IsConnected && svc.InReplay;
-            bool inCar = svc.IsConnected && !replay;
+            var state = Emulate ? ChosenState() : CurrentSimState();
+            bool replay = state == SimState.Replay;
+            bool inCar = state == SimState.InCar;
 
             bool any = false;
             foreach (var panel in _panels())
@@ -106,6 +171,7 @@ namespace BeltTensionTest.WPF.Services
                     PanelShowMode.Replay => replay,
                     _ => true,
                 };
+                panel.EditHidden = HideInEdit(panel);
                 if (panel.Available == available) continue;
                 panel.Available = available;
                 any = true;

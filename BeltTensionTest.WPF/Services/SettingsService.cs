@@ -6,7 +6,7 @@ using System.Text.Json;
 namespace BeltTensionTest.WPF.Services
 {
     /// <summary>
-    /// Loads / saves AppSettings from autoconnect.json next to the executable.
+    /// Loads / saves AppSettings from autoconnect.json in Documents\BBT.
     /// </summary>
     public class SettingsService
     {
@@ -15,10 +15,17 @@ namespace BeltTensionTest.WPF.Services
 
         public SettingsService()
         {
-            // Persist settings in the user's AppData folder to avoid permission issues when writing
-            var appdata = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            var dir = Path.Combine(appdata, "BeltTensioner");
-            _filePath = Path.Combine(dir, FileName);
+            _filePath = Path.Combine(AppPaths.UserDataDir, FileName);
+
+            // Settings used to live in %APPDATA%\BeltTensioner: bring them across once.
+            // The old copy is left where it is.
+            try
+            {
+                var legacy = Path.Combine(AppPaths.LegacyAppDataDir, FileName);
+                if (!File.Exists(_filePath) && File.Exists(legacy))
+                    File.Copy(legacy, _filePath);
+            }
+            catch { }
         }
 
         public AppSettings Load()

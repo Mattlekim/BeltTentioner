@@ -24,7 +24,7 @@ if (-not $SkipPublish) {
     if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed ($LASTEXITCODE)" }
 }
 
-foreach ($f in 'BeltTensionTest.WPF.exe', 'XR_APILAYER_NOVELTY_monoxr.dll', 'MonoXR.json') {
+foreach ($f in 'BST.exe', 'XR_APILAYER_NOVELTY_monoxr.dll', 'MonoXR.json') {
     if (-not (Test-Path (Join-Path $out $f))) { throw "Missing $f in publish output at $out" }
 }
 

@@ -501,7 +501,7 @@ namespace BeltTensionTest.WPF.Views
             catch { }
         }
 
-        private void SetStartupRegistration(bool enable)
+        internal static void SetStartupRegistration(bool enable)
         {
             const string runKey = "Software\\Microsoft\\Windows\\CurrentVersion\\Run";
             const string appName = "BeltTensioner";

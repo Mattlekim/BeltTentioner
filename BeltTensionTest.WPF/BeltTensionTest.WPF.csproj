@@ -11,7 +11,7 @@
     <UseWPF>true</UseWPF>
     <ImplicitUsings>disable</ImplicitUsings>
     <UseWindowsForms>true</UseWindowsForms>
-    <AssemblyName>BeltTensionTest.WPF</AssemblyName>
+    <AssemblyName>BST</AssemblyName>
     <RootNamespace>BeltTensionTest.WPF</RootNamespace>
     <ApplicationIcon>Assets\Icon.ico</ApplicationIcon>
     <!-- Major.Minor comes from ..\version.txt; CI appends the build number

@@ -16,7 +16,7 @@
 #endif
 
 #define AppName "Belt Tensioner"
-#define AppExeName "BeltTensionTest.WPF.exe"
+#define AppExeName "BST.exe"
 
 [Setup]
 ; Never change this AppId — it is how upgrades find the existing install.
@@ -47,6 +47,10 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+
+[InstallDelete]
+; The exe used to be called BeltTensionTest.WPF.exe; do not leave it behind on upgrade.
+Type: files; Name: "{app}\BeltTensionTest.WPF.exe"
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs

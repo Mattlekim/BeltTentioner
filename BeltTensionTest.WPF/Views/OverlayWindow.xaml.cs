@@ -94,6 +94,18 @@ namespace BeltTensionTest.WPF.Views
             else if (!run && _host != null) Stop();
         }
 
+        /// <summary>
+        /// Rebuild the running overlay if Preferences → Features changed which panels
+        /// should exist (the belt panel is only created while that feature is on).
+        /// </summary>
+        public void RefreshFeatures()
+        {
+            if (_closed || _host == null) return;
+            if ((_beltPanel != null) == _vm.BeltFeatureEnabled) return;
+            Stop();
+            Start();
+        }
+
         private void Start()
         {
             _lastAttached = false;
@@ -140,6 +152,7 @@ namespace BeltTensionTest.WPF.Views
                 _panelVisibility.Changed += SaveLayout;
                 _host.ShowButtonLabel = _panelVisibility.LabelFor;
                 _host.ShowModeCycleRequested += _panelVisibility.Cycle;
+                _panelVisibility.EditViewIndex = _editView;
                 _panelVisibility.Apply();
                 // Gaze focus runs off the head pose the MonoXR layer
                 // publishes; edit mode suspends it so panels hold still while
@@ -299,8 +312,10 @@ namespace BeltTensionTest.WPF.Views
                 y = Math.Min(s.OverlayPanelY, Math.Max(0, _host.CanvasHeight - (int)(panelHeight * beltScale)));
             }
 
-            _beltPanel = _host.AddRenderTarget(new BeltSettingsOverlay(
-                _host.GraphicsDevice, panelWidth, panelHeight, x, y, groups));
+            // Not created at all when the Belt Tentioner feature is off in Preferences → Features.
+            if (_vm.BeltFeatureEnabled)
+                _beltPanel = _host.AddRenderTarget(new BeltSettingsOverlay(
+                    _host.GraphicsDevice, panelWidth, panelHeight, x, y, groups));
 
             // Race and Qualifying relative boxes (ported from IrachingHud's
             // RelativeBox): each only shows during its own session types, so
@@ -481,7 +496,8 @@ namespace BeltTensionTest.WPF.Views
                 new BeltSettingRow("DPI (px/m)",   () => (float)_dpi,        v => ApplyDisplaySetting(DisplaySetting.Dpi, v),      128f, 2048f, 16f,   "0"),
             };
             var display = new DisplaySettingsOverlay(_host.GraphicsDevice, 0, 0, displayRows,
-                () => $"Resolution  {host.CanvasWidth} x {host.CanvasHeight} px");
+                () => $"Resolution  {host.CanvasWidth} x {host.CanvasHeight} px     Sim: {Services.PanelVisibility.Describe(Services.PanelVisibility.CurrentSimState())}",
+                Services.PanelVisibility.EditViewOptions, () => _editView, SetEditView);
 
             // Defaults to the right-hand edge, vertically centered (the corner
             // panels are all taken); then the saved position, clamped.
@@ -736,8 +752,8 @@ namespace BeltTensionTest.WPF.Views
                 {
                     s.OverlayCarBehindPanelX = _carBehindPanel.X;
                     s.OverlayCarBehindPanelY = _carBehindPanel.Y;
-                    s.OverlayCarBehindPanelScale = _carBehindPanel.Scale;
-                    s.OverlayCarBehindPanelOpacity = _carBehindPanel.Opacity;
+                    s.OverlayCarBehindPanelScale = SavedScaleOf(_carBehindPanel);
+                    s.OverlayCarBehindPanelOpacity = SavedOpacityOf(_carBehindPanel);
                 }
                 if (_youtubePanel != null)
                 {
@@ -827,6 +843,7 @@ namespace BeltTensionTest.WPF.Views
             // Panels that only apply in the car or in the replay follow the
             // sim's state, which can change between any two ticks.
             _panelVisibility?.Apply();
+            UpdateSimStateLabel();
 
             // Fade / grow whatever the headset is pointed at. Runs before
             // RenderFrame so this tick's frame already shows the change.
@@ -883,13 +900,18 @@ namespace BeltTensionTest.WPF.Views
             {
                 if (_preview != null) return;
                 _preview = new OverlayPreviewWindow { Owner = this };
+                _preview.SetEmulateIndex(_editView);
+                _preview.EmulateChanged += SetEditView;
                 _preview.Closed += (_, _) =>
                 {
                     _preview = null;
                     PreviewButton.IsChecked = false;
+                    // Back to the sim's real state.
+                    if (_panelVisibility != null) { _panelVisibility.Emulate = false; _panelVisibility.Apply(); }
                 };
+                if (_panelVisibility != null) { _panelVisibility.Emulate = true; _panelVisibility.Apply(); }
                 _preview.Show();
-                Log("Preview window opened — mirrors the overlay canvas on the desktop.");
+                Log("Preview window opened — mirrors the overlay canvas on the desktop. Use Emulate to preview the In car or Replay state.");
             }
             else
             {
@@ -990,6 +1012,41 @@ namespace BeltTensionTest.WPF.Views
 
         private bool _syncingEditUi;
 
+        // Which state edit mode is arranging the layout for (index into
+        // PanelVisibility.EditViewOptions): 0 follows the sim, 1 in car, 2 replay.
+        private int _editView;
+
+        /// <summary>Choose the state to arrange the layout for (this window's box or the in-VR Display panel).</summary>
+        private void SetEditView(int index)
+        {
+            index = Math.Clamp(index, 0, Services.PanelVisibility.EditViewOptions.Length - 1);
+            if (_panelVisibility != null) _panelVisibility.EditViewIndex = index;
+            if (index == _editView) return;
+
+            _editView = index;
+            _syncingEditUi = true;
+            EditViewBox.SelectedIndex = index;
+            _syncingEditUi = false;
+            _preview?.SetEmulateIndex(index);
+            _panelVisibility?.Apply(); // the preview emulates this state
+            _host?.InvalidateCanvas();
+            Log($"Editing / emulating: {Services.PanelVisibility.EditViewOptions[index]} — panels that only show in the other state are hidden, in edit mode too.");
+        }
+
+        private void EditViewBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            if (_syncingEditUi || EditViewBox == null || EditViewBox.SelectedIndex < 0) return;
+            SetEditView(EditViewBox.SelectedIndex);
+        }
+
+        // Live sim state next to the "editing for" choice, so it is clear which
+        // layout the panels currently follow.
+        private void UpdateSimStateLabel()
+        {
+            if (EditPanel.Visibility != Visibility.Visible) return;
+            SimStateValue.Text = Services.PanelVisibility.Describe(Services.PanelVisibility.CurrentSimState());
+        }
+
         private void EditButton_Changed(object sender, RoutedEventArgs e)
         {
             if (_host == null) return;
@@ -1006,6 +1063,7 @@ namespace BeltTensionTest.WPF.Views
         {
             if (_host == null) return;
             _syncingEditUi = true;
+            EditViewBox.SelectedIndex = _editView;
             SizeXSlider.Value = _host.DisplaySize.X;
             SizeYSlider.Value = _host.DisplaySize.Y;
             DistanceSlider.Value = _host.Distance;

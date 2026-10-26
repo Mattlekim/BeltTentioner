@@ -94,7 +94,7 @@ jobs:
             $_.Name -in 'dbgshim.dll','mscorrc.debug.dll','ucrtbase.dll','sos.dll' -or
             $_.Name -like 'mscordaccore_*.dll' -or $_.Name -like 'sos_*.dll'
           } | Remove-Item -Force -Verbose
-          foreach ($f in 'BeltTensionTest.WPF.exe','XR_APILAYER_NOVELTY_monoxr.dll','MonoXR.json') {
+          foreach ($f in 'BST.exe','XR_APILAYER_NOVELTY_monoxr.dll','MonoXR.json') {
             if (-not (Test-Path ./publish/$f)) { throw "Missing $f after pruning" }
           }
 

@@ -29,6 +29,10 @@ namespace BeltTensionTest.WPF.Views
             InitializeComponent();
             DataContext = new MainViewModel();
 
+            // Keep the Start-with-Windows entry pointing at this exe (the app was
+            // renamed, so an older entry would point at a file that is gone).
+            try { if (VM.AppSettings?.StartWithWindows == true) SettingsWindow.SetStartupRegistration(true); } catch { }
+
             // Initialize global hotkey manager and register any persisted global bindings
             try
             {
@@ -506,7 +510,12 @@ namespace BeltTensionTest.WPF.Views
         private void ApplyOverlayEnabledSetting()
         {
             bool enabled = VM?.AppSettings?.EnableOpenXrOverlay == true;
-            if (enabled) EnsureOverlayWindow().SetRunning(true);
+            if (enabled)
+            {
+                var window = EnsureOverlayWindow();
+                window.SetRunning(true);
+                window.RefreshFeatures();
+            }
             else _overlayWindow?.SetRunning(false);
         }
 

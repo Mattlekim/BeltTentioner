@@ -58,7 +58,7 @@ namespace BeltTensionTest.WPF.Views
 
         private void Profiles_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e) => UpdateButtons();
 
-        private bool IsActive(string name) => string.Equals(name, _vm.ActiveCarName, StringComparison.OrdinalIgnoreCase);
+        private bool IsActiveProfile(string name) => string.Equals(name, _vm.ActiveCarName, StringComparison.OrdinalIgnoreCase);
 
         // ----- Delete ---------------------------------------------------------
 
@@ -68,7 +68,7 @@ namespace BeltTensionTest.WPF.Views
             if (names.Count == 0) return;
 
             // The loaded profile keeps being saved back, so deleting it would just bring it back.
-            var active = names.Where(IsActive).ToList();
+            var active = names.Where(IsActiveProfile).ToList();
             if (active.Count > 0)
             {
                 ThemedMessageBox.Show(this,
@@ -93,12 +93,12 @@ namespace BeltTensionTest.WPF.Views
         {
             var names = SelectedNames;
             if (names.Count == 0) return;
-            string suggested = names.Count == 1 ? SafeFileName(names[0]) : "BBT car profiles";
+            string suggested = names.Count == 1 ? SafeFileName(names[0]) : "BST car profiles";
             Export(names, suggested);
         }
 
         private void ExportAll_Click(object sender, RoutedEventArgs e) =>
-            Export(_svc.GetAvailableCarNames().ToList(), "BBT car profiles");
+            Export(_svc.GetAvailableCarNames().ToList(), "BST car profiles");
 
         private void Export(IReadOnlyList<string> names, string suggestedFileName)
         {
@@ -174,7 +174,7 @@ namespace BeltTensionTest.WPF.Views
                 string key = KeyFor(name);
                 if (_svc.Settings.ContainsKey(key) && !replace.Contains(key)) { skipped++; continue; }
 
-                bool isActive = IsActive(key);
+                bool isActive = IsActiveProfile(key);
                 _svc.SetProfile(key, settings, makeCurrent: isActive);
                 activeChanged |= isActive;
                 imported++;

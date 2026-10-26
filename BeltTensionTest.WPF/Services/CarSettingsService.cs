@@ -25,14 +25,7 @@ namespace BeltTensionTest.WPF.Services
         public CarSettingsService()
         {
             // Store car settings in the user's Documents\BBT folder
-            var docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-            var dir = Path.Combine(docs, "BBT");
-            try
-            {
-                if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
-            }
-            catch { }
-            _filePath = Path.Combine(dir, "car_settings.json");
+            _filePath = Path.Combine(AppPaths.UserDataDir, "car_settings.json");
         }
 
         public void SaveCurrentCarSettings(string? name)
