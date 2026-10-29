@@ -95,6 +95,19 @@ namespace BeltTensionTest.WPF.Models
         // Panels that follow gaze focus (their eye button in edit mode is on);
         // every other panel ignores the settings above.
         public List<string> OverlayGazeEnabledPanels { get; set; } = new();
+        // EXPERIMENTAL head-tracking filter (Preferences > Head Tracking): smooths the
+        // head pose the VR game receives, holds it still for tiny movements, and/or
+        // keeps only the rotation with the head pinned at a point (OpenXR LOCAL
+        // space, meters). The overlays are unaffected.
+        public bool HeadSmoothEnabled { get; set; } = false;
+        public double HeadSmoothAmount { get; set; } = 0.3;       // 0..1
+        public bool HeadMinMoveEnabled { get; set; } = false;
+        public double HeadMinMovePositionMm { get; set; } = 3;
+        public double HeadMinMoveRotationDeg { get; set; } = 0.2;
+        public bool HeadLockEnabled { get; set; } = false;
+        public double HeadLockX { get; set; } = 0;
+        public double HeadLockY { get; set; } = 0;
+        public double HeadLockZ { get; set; } = 0;
         // Master switch for gaze focus (Preferences > OpenXR > Enable eye tracking).
         // Off ignores the Effect / Tracked with choices above without losing them.
         public bool EnableEyeTracking { get; set; } = true;
@@ -184,6 +197,11 @@ namespace BeltTensionTest.WPF.Models
         public bool OverlayCurved { get; set; } = false;
         // How strongly it bends, 0.1..1.5 (1 = every point equally far from the viewer).
         public double OverlayCurveAmount { get; set; } = 1;
+        // Triple = three flat screens like a triple monitor setup: the centre one takes
+        // OverlayTripleCenter % of the width, the outer two turn in by OverlayTripleAngle degrees.
+        public bool OverlayTriple { get; set; } = false;
+        public double OverlayTripleCenter { get; set; } = 50;
+        public double OverlayTripleAngle { get; set; } = 30;
         public double OverlayOffsetX { get; set; } = 0;
         public double OverlayOffsetY { get; set; } = 0;
         // View origin captured by the overlay's Recenter button/binding: the

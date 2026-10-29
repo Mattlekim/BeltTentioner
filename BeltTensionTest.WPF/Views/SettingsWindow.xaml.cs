@@ -53,6 +53,23 @@ namespace BeltTensionTest.WPF.Views
             sld_CarBehindClose.Value = behindClose > 0 ? behindClose : Services.Overlays.CarBehindOverlay.DefaultCloseGap;
             chk_CarBehindFlash.IsChecked = _vm.AppSettings?.OverlayCarBehindFlashClose ?? false;
 
+            var a = _vm.AppSettings;
+            chk_HeadSmooth.IsChecked = a?.HeadSmoothEnabled ?? false;
+            sld_HeadSmooth.Value = (a?.HeadSmoothAmount ?? 0.3) * 100;
+            chk_HeadMinMove.IsChecked = a?.HeadMinMoveEnabled ?? false;
+            sld_HeadMinPos.Value = a?.HeadMinMovePositionMm ?? 3;
+            sld_HeadMinRot.Value = a?.HeadMinMoveRotationDeg ?? 0.2;
+            chk_HeadLock.IsChecked = a?.HeadLockEnabled ?? false;
+            sld_HeadLockX.Value = a?.HeadLockX ?? 0;
+            sld_HeadLockY.Value = a?.HeadLockY ?? 0;
+            sld_HeadLockZ.Value = a?.HeadLockZ ?? 0;
+            _headUiReady = true;
+
+            // The head-tracking options act while the window is open; whichever way
+            // it closes, the saved values are what the layer ends up with (OK saved
+            // them, Cancel puts the old ones back).
+            Closed += (_, _) => OverlayWindow.ReapplyHeadTracking();
+
             // Initialize telemetry source radio buttons from the current view model state.
             // The VM already enforces that iRacing and SimHub cannot both be enabled.
             _initializing = true;
@@ -254,6 +271,44 @@ namespace BeltTensionTest.WPF.Views
             UpdateYouTubeAccountUi();
         }
 
+        // Set once the controls hold the saved values, so loading them does not count as a change.
+        private bool _headUiReady;
+
+        private void HeadTracking_Changed(object sender, RoutedEventArgs e) => PushHeadTracking();
+
+        private void HeadTracking_SliderChanged(object sender, RoutedPropertyChangedEventArgs<double> e) => PushHeadTracking();
+
+        /// <summary>Send the head-tracking controls to the running overlay now, without saving.</summary>
+        private void PushHeadTracking()
+        {
+            if (!_headUiReady) return;
+            OverlayWindow.PreviewHeadTracking(new HeadTrackingSettings
+            {
+                Smooth = chk_HeadSmooth.IsChecked == true,
+                Smoothing = (float)(sld_HeadSmooth.Value / 100),
+                MinMove = chk_HeadMinMove.IsChecked == true,
+                MinMovePositionMm = (float)sld_HeadMinPos.Value,
+                MinMoveRotationDeg = (float)sld_HeadMinRot.Value,
+                LockHeadPosition = chk_HeadLock.IsChecked == true,
+                LockPosition = new System.Numerics.Vector3(
+                    (float)sld_HeadLockX.Value, (float)sld_HeadLockY.Value, (float)sld_HeadLockZ.Value),
+            });
+        }
+
+        private void HeadLockCurrent_Click(object sender, RoutedEventArgs e)
+        {
+            if (!OverlayWindow.TryGetHeadPosition(out var p))
+            {
+                MessageBox.Show(this,
+                    "No head position yet. Start the VR game (with the overlay enabled and the updated layer loaded) and try again with the headset on.",
+                    "Head tracking", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            sld_HeadLockX.Value = Math.Clamp(p.X, sld_HeadLockX.Minimum, sld_HeadLockX.Maximum);
+            sld_HeadLockY.Value = Math.Clamp(p.Y, sld_HeadLockY.Minimum, sld_HeadLockY.Maximum);
+            sld_HeadLockZ.Value = Math.Clamp(p.Z, sld_HeadLockZ.Minimum, sld_HeadLockZ.Maximum);
+        }
+
         private void Ok_Click(object sender, RoutedEventArgs e)
         {
             if (_vm.AppSettings == null) return;
@@ -285,6 +340,15 @@ namespace BeltTensionTest.WPF.Views
             _vm.AppSettings.EnableEyeTracking = chk_EyeTracking.IsChecked == true;
             if (cmb_GazeSource.SelectedItem is ComboBoxItem gazeItem && gazeItem.Tag is string gazeSource)
                 _vm.AppSettings.OverlayGazeSource = gazeSource;
+            _vm.AppSettings.HeadSmoothEnabled = chk_HeadSmooth.IsChecked == true;
+            _vm.AppSettings.HeadSmoothAmount = sld_HeadSmooth.Value / 100;
+            _vm.AppSettings.HeadMinMoveEnabled = chk_HeadMinMove.IsChecked == true;
+            _vm.AppSettings.HeadMinMovePositionMm = sld_HeadMinPos.Value;
+            _vm.AppSettings.HeadMinMoveRotationDeg = sld_HeadMinRot.Value;
+            _vm.AppSettings.HeadLockEnabled = chk_HeadLock.IsChecked == true;
+            _vm.AppSettings.HeadLockX = sld_HeadLockX.Value;
+            _vm.AppSettings.HeadLockY = sld_HeadLockY.Value;
+            _vm.AppSettings.HeadLockZ = sld_HeadLockZ.Value;
             _vm.AppSettings.OverlayCarBehindShowGap = Math.Round(sld_CarBehindShow.Value, 2);
             _vm.AppSettings.OverlayCarBehindCloseGap = Math.Round(sld_CarBehindClose.Value, 2);
             _vm.AppSettings.OverlayCarBehindFlashClose = chk_CarBehindFlash.IsChecked == true;

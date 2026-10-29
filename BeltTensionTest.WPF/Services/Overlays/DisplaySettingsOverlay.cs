@@ -45,7 +45,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private readonly List<(BeltSettingRow Row, MonoXRSliderControl Slider)> _bindings = new();
         private readonly OverlayChoiceRow _editView;
         private readonly OverlayChoiceRow _shape;
-        private readonly Func<bool> _getCurved;
+        private readonly Func<int> _getShape;
         private readonly Func<int> _getEditView;
         private readonly MonoXRLabel _resolution;
         private readonly Func<string> _resolutionText;
@@ -63,12 +63,12 @@ namespace BeltTensionTest.WPF.Services.Overlays
         /// <param name="editViewOptions">Choices for which state (current / in car / replay) the layout is arranged for.</param>
         /// <param name="getEditView">Selected choice, polled every frame so the desktop window's box stays in step.</param>
         /// <param name="setEditView">Called when the choice is changed here.</param>
-        /// <param name="getCurved">Whether the overlay is curved, polled every frame like <paramref name="getEditView"/>.</param>
-        /// <param name="setCurved">Called when the shape is changed here.</param>
+        /// <param name="getShape">The overlay's shape (0 flat, 1 curved, 2 triple), polled every frame like <paramref name="getEditView"/>.</param>
+        /// <param name="setShape">Called when the shape is changed here.</param>
         public DisplaySettingsOverlay(GraphicsDevice device, int x, int y,
                                       IReadOnlyList<BeltSettingRow> rows, Func<string> resolutionText,
                                       string[] editViewOptions, Func<int> getEditView, Action<int> setEditView,
-                                      Func<bool> getCurved, Action<bool> setCurved)
+                                      Func<int> getShape, Action<int> setShape)
             : base(device, PanelWidth, HeightFor(rows.Count + 2), x, y)
         {
             Name = "Display";
@@ -99,10 +99,10 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 _bindings.Add((row, slider));
             }
 
-            // Flat quad, or wrapped around the viewer on a cylinder.
-            _getCurved = getCurved;
-            _shape = new OverlayChoiceRow("Shape", new[] { "Flat", "Curved" }, getCurved() ? 1 : 0);
-            _shape.SelectedIndexChanged += i => { setCurved(i == 1); Invalidate(); };
+            // Flat quad, wrapped around the viewer on a cylinder, or three screens.
+            _getShape = getShape;
+            _shape = new OverlayChoiceRow("Shape", new[] { "Flat", "Curved", "Triple" }, getShape());
+            _shape.SelectedIndexChanged += i => { setShape(i); Invalidate(); };
             _menu.Add(_shape);
 
             // Which state the layout is being arranged for; panels that only show
@@ -155,7 +155,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             foreach (var (row, slider) in _bindings)
                 slider.Value = row.Get();
 
-            int shape = _getCurved() ? 1 : 0;
+            int shape = _getShape();
             if (shape != _shape.SelectedIndex)
             {
                 _shape.SelectedIndex = shape; // changed in the desktop window

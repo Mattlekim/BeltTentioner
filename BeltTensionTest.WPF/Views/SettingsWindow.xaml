@@ -194,6 +194,101 @@
                                   ToolTip="Runs the OpenXR overlay, from app start. The overlay window (Settings → OpenXR Overlay...) is only for editing the layout — opening or closing it does not start or stop the overlay."/>
                     </StackPanel>
                 </TabItem>
+
+                <TabItem Header="Head Tracking">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="6" Orientation="Vertical">
+                        <TextBlock Text="EXPERIMENTAL" FontWeight="SemiBold" Foreground="#E0A040" Margin="0,4,0,2"/>
+                        <TextBlock TextWrapping="Wrap" Foreground="#A0A0BE" Margin="0,0,0,6"
+                                   Text="Changes the head position and rotation the VR game receives from the headset, not what you see on the overlays. Needs 'Enable OpenXR overlay' on and the game restarted once to load the updated layer. Turn everything off if the view feels wrong."/>
+
+                        <TextBlock Text="Smoothing" FontWeight="SemiBold" Margin="0,8,0,4" Foreground="{StaticResource TextPrimaryBrush}"/>
+                        <Separator Margin="0,0,0,8" Background="#46466A"/>
+                        <CheckBox x:Name="chk_HeadSmooth" Checked="HeadTracking_Changed" Unchecked="HeadTracking_Changed" Content="Smooth head tracking" Foreground="#A0A0BE" Margin="0,4"
+                                  ToolTip="Takes jitter out of the head tracking by easing toward the real position. More smoothing means more lag."/>
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="50"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Amount (%):" VerticalAlignment="Center" Foreground="#A0A0BE"/>
+                            <Slider x:Name="sld_HeadSmooth" ValueChanged="HeadTracking_SliderChanged" Grid.Column="1" Minimum="0" Maximum="100" SmallChange="5" LargeChange="10"
+                                    TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center" Margin="6,4"
+                                    IsEnabled="{Binding IsChecked, ElementName=chk_HeadSmooth}"/>
+                            <TextBlock Grid.Column="2" Text="{Binding Value, ElementName=sld_HeadSmooth, StringFormat=0}"
+                                       VerticalAlignment="Center" Foreground="#A0A0BE"/>
+                        </Grid>
+
+                        <TextBlock Text="Minimum movement" FontWeight="SemiBold" Margin="0,12,0,4" Foreground="{StaticResource TextPrimaryBrush}"/>
+                        <Separator Margin="0,0,0,8" Background="#46466A"/>
+                        <CheckBox x:Name="chk_HeadMinMove" Checked="HeadTracking_Changed" Unchecked="HeadTracking_Changed" Content="Ignore small movements" Foreground="#A0A0BE" Margin="0,4"
+                                  ToolTip="The view stays still until your head has moved further than these amounts, then follows it."/>
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="50"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="Position (mm):" VerticalAlignment="Center" Foreground="#A0A0BE"/>
+                            <Slider x:Name="sld_HeadMinPos" ValueChanged="HeadTracking_SliderChanged" Grid.Row="0" Grid.Column="1" Minimum="0" Maximum="20" SmallChange="0.5" LargeChange="2"
+                                    TickFrequency="0.5" IsSnapToTickEnabled="True" VerticalAlignment="Center" Margin="6,4"
+                                    IsEnabled="{Binding IsChecked, ElementName=chk_HeadMinMove}"/>
+                            <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding Value, ElementName=sld_HeadMinPos, StringFormat=0.0}"
+                                       VerticalAlignment="Center" Foreground="#A0A0BE"/>
+                            <TextBlock Grid.Row="1" Text="Rotation (deg):" VerticalAlignment="Center" Foreground="#A0A0BE"/>
+                            <Slider x:Name="sld_HeadMinRot" ValueChanged="HeadTracking_SliderChanged" Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="2" SmallChange="0.05" LargeChange="0.25"
+                                    TickFrequency="0.05" IsSnapToTickEnabled="True" VerticalAlignment="Center" Margin="6,4"
+                                    IsEnabled="{Binding IsChecked, ElementName=chk_HeadMinMove}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding Value, ElementName=sld_HeadMinRot, StringFormat=0.00}"
+                                       VerticalAlignment="Center" Foreground="#A0A0BE"/>
+                        </Grid>
+
+                        <TextBlock Text="Fixed position" FontWeight="SemiBold" Margin="0,12,0,4" Foreground="{StaticResource TextPrimaryBrush}"/>
+                        <Separator Margin="0,0,0,8" Background="#46466A"/>
+                        <CheckBox x:Name="chk_HeadLock" Checked="HeadTracking_Changed" Unchecked="HeadTracking_Changed" Content="Lock position, rotation only" Foreground="#A0A0BE" Margin="0,4"
+                                  ToolTip="Ignores where your head is in the room and uses only which way it is turned. The game sees your head pinned at the point below."/>
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="50"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="Left / right (m):" VerticalAlignment="Center" Foreground="#A0A0BE"/>
+                            <Slider x:Name="sld_HeadLockX" ValueChanged="HeadTracking_SliderChanged" Grid.Row="0" Grid.Column="1" Minimum="-2" Maximum="2" SmallChange="0.01" LargeChange="0.1"
+                                    TickFrequency="0.01" IsSnapToTickEnabled="True" VerticalAlignment="Center" Margin="6,4"
+                                    IsEnabled="{Binding IsChecked, ElementName=chk_HeadLock}"/>
+                            <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding Value, ElementName=sld_HeadLockX, StringFormat=0.00}"
+                                       VerticalAlignment="Center" Foreground="#A0A0BE"/>
+                            <TextBlock Grid.Row="1" Text="Up / down (m):" VerticalAlignment="Center" Foreground="#A0A0BE"/>
+                            <Slider x:Name="sld_HeadLockY" ValueChanged="HeadTracking_SliderChanged" Grid.Row="1" Grid.Column="1" Minimum="-2" Maximum="2" SmallChange="0.01" LargeChange="0.1"
+                                    TickFrequency="0.01" IsSnapToTickEnabled="True" VerticalAlignment="Center" Margin="6,4"
+                                    IsEnabled="{Binding IsChecked, ElementName=chk_HeadLock}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding Value, ElementName=sld_HeadLockY, StringFormat=0.00}"
+                                       VerticalAlignment="Center" Foreground="#A0A0BE"/>
+                            <TextBlock Grid.Row="2" Text="Forward / back (m):" VerticalAlignment="Center" Foreground="#A0A0BE"
+                                       ToolTip="Positive is backwards: forward is the negative direction."/>
+                            <Slider x:Name="sld_HeadLockZ" ValueChanged="HeadTracking_SliderChanged" Grid.Row="2" Grid.Column="1" Minimum="-2" Maximum="2" SmallChange="0.01" LargeChange="0.1"
+                                    TickFrequency="0.01" IsSnapToTickEnabled="True" VerticalAlignment="Center" Margin="6,4"
+                                    IsEnabled="{Binding IsChecked, ElementName=chk_HeadLock}"/>
+                            <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding Value, ElementName=sld_HeadLockZ, StringFormat=0.00}"
+                                       VerticalAlignment="Center" Foreground="#A0A0BE"/>
+                        </Grid>
+                        <Button x:Name="btn_HeadLockCurrent" Content="Use current head position" HorizontalAlignment="Left"
+                                Height="22" Padding="12,0" Margin="0,6,0,0" Click="HeadLockCurrent_Click"
+                                ToolTip="With the game running in VR, sit where you want the view to be and press this: the point is set to where your head is now."/>
+                    </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
             </TabControl>
         </DockPanel>
     </DockPanel>

@@ -150,17 +150,13 @@ namespace BeltTensionTest.WPF.Services
         /// <summary>True only while a replay is actually rolling (IsReplayPlaying).</summary>
         public bool IsReplayPlaying => isReplay;
 
-        // How close to the end of the buffer still counts as live: scrubbing
-        // back further than this is what tells a paused replay apart from
-        // sitting in the car (IsReplayPlaying is false for both).
-        private const int LiveEdgeFrames = 30;
-
         /// <summary>
-        /// True while the sim is showing the replay rather than the live edge
-        /// — playing, or paused somewhere behind the end of the buffer.
+        /// True while the sim is showing a replay, straight from the sim's own
+        /// IsReplayPlaying flag. (The replay frame numbers are no use for this:
+        /// live, the sim leaves ReplayFrameNum at 0 while ReplayFrameNumEnd
+        /// keeps counting up with the session.)
         /// </summary>
-        public bool InReplay =>
-            isReplay || (ReplayFrameNumEnd > 0 && ReplayFrameNum < ReplayFrameNumEnd - LiveEdgeFrames);
+        public bool InReplay => isReplay;
 
         /// <summary>
         /// Jump the replay to an absolute frame (counted from the start of the

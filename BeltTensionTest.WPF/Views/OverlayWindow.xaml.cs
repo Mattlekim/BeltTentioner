@@ -107,6 +107,7 @@ namespace BeltTensionTest.WPF.Views
                 if (Enum.TryParse(_vm.AppSettings?.OverlayGazeSource, out Services.GazeSource gazeSource))
                     _gazeFocus.Source = gazeSource;
             }
+            ApplyHeadTracking();
             if ((_beltPanel != null) == _vm.BeltFeatureEnabled) return;
             Stop();
             Start();
@@ -123,6 +124,8 @@ namespace BeltTensionTest.WPF.Views
                 Log("Host ready: MonoGame device up, overlay published (World, 3m ahead, 2.5m).");
 
                 ApplySavedLayout();
+                ApplyHeadTracking();
+                s_active = this;
 
                 // Friend / rival tags and their colours, before the panels
                 // that read them are built. DriverTags keeps the settings
@@ -196,6 +199,7 @@ namespace BeltTensionTest.WPF.Views
         private void Stop()
         {
             RecenterRequested -= Recenter;
+            if (ReferenceEquals(s_active, this)) s_active = null;
             _timer.Stop();
             _resolutionTimer.Stop();
             EditButton.IsChecked = false;
@@ -514,6 +518,8 @@ namespace BeltTensionTest.WPF.Views
                 new BeltSettingRow("Height (m)",   () => host.DisplaySize.Y, v => ApplyDisplaySetting(DisplaySetting.Height, v),   MinDisplayMeters,  8f,   0.05f, "0.00"),
                 new BeltSettingRow("Distance (m)", () => host.Distance,      v => ApplyDisplaySetting(DisplaySetting.Distance, v), 0.25f, 10f,   0.05f, "0.00"),
                 new BeltSettingRow("Curve (%)",    () => host.CurveAmount * 100f, v => ApplyDisplaySetting(DisplaySetting.Curve, v),  10f, 150f,  5f,   "0"),
+                new BeltSettingRow("Center (%)",   () => host.TripleCenterPercent, v => ApplyDisplaySetting(DisplaySetting.TripleCenter, v), 20f, 90f, 1f, "0"),
+                new BeltSettingRow("Side angle",   () => host.TripleSideAngle,     v => ApplyDisplaySetting(DisplaySetting.TripleAngle, v),  0f,  90f, 1f, "0"),
                 new BeltSettingRow("X offset (m)", () => host.OffsetX,       v => ApplyDisplaySetting(DisplaySetting.OffsetX, v),  -5f,   5f,   0.05f, "0.00"),
                 new BeltSettingRow("Y offset (m)", () => host.OffsetY,       v => ApplyDisplaySetting(DisplaySetting.OffsetY, v),  -5f,   5f,   0.05f, "0.00"),
                 new BeltSettingRow("DPI (px/m)",   () => (float)_dpi,        v => ApplyDisplaySetting(DisplaySetting.Dpi, v),      128f, 2048f, 16f,   "0"),
@@ -521,7 +527,7 @@ namespace BeltTensionTest.WPF.Views
             var display = new DisplaySettingsOverlay(_host.GraphicsDevice, 0, 0, displayRows,
                 () => $"Resolution  {host.CanvasWidth} x {host.CanvasHeight} px     Sim: {Services.PanelVisibility.Describe(Services.PanelVisibility.CurrentSimState())} ({Services.PanelVisibility.Diagnostics()})",
                 Services.PanelVisibility.EditViewOptions, () => _editView, SetEditView,
-                () => host.Curved, SetCurved);
+                () => CurrentShape, SetShape);
 
             // Defaults to the right-hand edge, vertically centered (the corner
             // panels are all taken); then the saved position, clamped.
@@ -608,6 +614,9 @@ namespace BeltTensionTest.WPF.Views
                     _host.Distance = (float)s.OverlayDistance;
                 _host.CurveAmount = (float)s.OverlayCurveAmount;
                 _host.Curved = s.OverlayCurved;
+                _host.TripleCenterPercent = (float)s.OverlayTripleCenter;
+                _host.TripleSideAngle = (float)s.OverlayTripleAngle;
+                _host.Triple = s.OverlayTriple;
                 _host.OffsetX = (float)s.OverlayOffsetX;
                 _host.OffsetY = (float)s.OverlayOffsetY;
                 if (s.OverlayDpi > 0)
@@ -815,8 +824,11 @@ namespace BeltTensionTest.WPF.Views
                 s.OverlaySizeX = _host.DisplaySize.X;
                 s.OverlaySizeY = _host.DisplaySize.Y;
                 s.OverlayDistance = _host.Distance;
-                s.OverlayCurved = _host.Curved;
+                s.OverlayCurved = _host.CurvedRequested; // keep the choice even while the runtime cannot show it
                 s.OverlayCurveAmount = _host.CurveAmount;
+                s.OverlayTriple = _host.Triple;
+                s.OverlayTripleCenter = _host.TripleCenterPercent;
+                s.OverlayTripleAngle = _host.TripleSideAngle;
                 s.OverlayOffsetX = _host.OffsetX;
                 s.OverlayOffsetY = _host.OffsetY;
                 s.OverlayDpi = _dpi;
@@ -905,6 +917,7 @@ namespace BeltTensionTest.WPF.Views
             // Fade / grow whatever the headset is pointed at. Runs before
             // RenderFrame so this tick's frame already shows the change.
             _gazeFocus?.Update(_host.EditMode);
+            UpdateCurvedSupport();
 
             try
             {
@@ -985,6 +998,42 @@ namespace BeltTensionTest.WPF.Views
         }
 
         private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
+
+        private static OverlayWindow? s_active;
+
+        /// <summary>The headset position (OpenXR LOCAL space, meters) the layer last reported; false when no game is running with the layer.</summary>
+        public static bool TryGetHeadPosition(out System.Numerics.Vector3 position)
+        {
+            position = default;
+            var host = s_active?._host;
+            return host != null && host.TryGetHeadPose(out position, out _);
+        }
+
+        /// <summary>Hand the saved head-tracking filter settings (Preferences > Head Tracking) to the layer.</summary>
+        /// <summary>Apply head-tracking settings to the open overlay right away, without saving them (Preferences does this as its controls change).</summary>
+        public static void PreviewHeadTracking(HeadTrackingSettings settings)
+        {
+            if (s_active?._host is { } host) host.HeadTracking = settings;
+        }
+
+        /// <summary>Go back to the saved head-tracking settings (Preferences closed).</summary>
+        public static void ReapplyHeadTracking() => s_active?.ApplyHeadTracking();
+
+        private void ApplyHeadTracking()
+        {
+            var s = _vm.AppSettings;
+            if (_host == null || s == null) return;
+            _host.HeadTracking = new HeadTrackingSettings
+            {
+                Smooth = s.HeadSmoothEnabled,
+                Smoothing = (float)s.HeadSmoothAmount,
+                MinMove = s.HeadMinMoveEnabled,
+                MinMovePositionMm = (float)s.HeadMinMovePositionMm,
+                MinMoveRotationDeg = (float)s.HeadMinMoveRotationDeg,
+                LockHeadPosition = s.HeadLockEnabled,
+                LockPosition = new System.Numerics.Vector3((float)s.HeadLockX, (float)s.HeadLockY, (float)s.HeadLockZ),
+            };
+        }
 
         // True once the user has recentered in this session; only then does
         // SaveLayout write the origin (a never-recentered layout stays unset).
@@ -1090,21 +1139,53 @@ namespace BeltTensionTest.WPF.Views
             Log($"Editing / emulating: {Services.PanelVisibility.EditViewOptions[index]} — panels that only show in the other state are hidden, in edit mode too.");
         }
 
+        // Whether the runtime has cylinder layers is only known once a game is
+        // attached; until the layer says no, Curved stays selectable.
+        private bool? _curvedSupportShown = true;
+        private object? _shapeBoxTip;
+
+        private void UpdateCurvedSupport()
+        {
+            if (_host == null) return;
+            bool? supported = _host.CurvedSupported;
+            if (supported == _curvedSupportShown) return;
+            _curvedSupportShown = supported;
+            bool allow = supported != false;
+            _shapeBoxTip ??= ShapeBox.ToolTip;
+            ((System.Windows.Controls.ComboBoxItem)ShapeBox.Items[1]).IsEnabled = allow;
+            CurveSlider.IsEnabled = allow;
+            ShapeBox.ToolTip = allow ? _shapeBoxTip
+                : "Curved needs cylinder layers, and the headset's OpenXR runtime (SteamVR has none) doesn't have them.";
+            if (!allow) Log("Curved overlay is off: the headset's OpenXR runtime has no cylinder layers.");
+            SyncEditPanel();
+        }
+
         private void ShapeBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
             if (_host == null || _syncingEditUi || ShapeBox.SelectedIndex < 0) return;
-            SetCurved(ShapeBox.SelectedIndex == 1);
+            SetShape(ShapeBox.SelectedIndex);
         }
 
-        /// <summary>Flat or curved overlay, from this window's box or the in-VR Display panel.</summary>
-        private void SetCurved(bool curved)
+        /// <summary>0 flat, 1 curved, 2 triple: what the overlay currently is.</summary>
+        private int CurrentShape => _host == null ? 0 : _host.Triple ? 2 : _host.Curved ? 1 : 0;
+
+        /// <summary>Flat, curved or triple overlay, from this window's box or the in-VR Display panel.</summary>
+        private void SetShape(int shape)
         {
-            if (_host == null || _host.Curved == curved) return;
-            _host.Curved = curved;
+            if (_host == null || CurrentShape == shape) return;
+            if (shape == 1 && _host.CurvedSupported == false)
+            {
+                Log("Curved overlay is not available: the headset's OpenXR runtime has no cylinder layers.");
+                SyncEditPanel();
+                return;
+            }
+            _host.Triple = shape == 2;
+            _host.Curved = shape == 1;
             SyncEditPanel();
             SaveLayout();
-            Log(curved ? "Overlay curved around you (flat if the headset runtime has no cylinder layers)."
-                       : "Overlay flat.");
+            Log(shape == 2 ? "Overlay split into three screens."
+              : shape == 1 ? "Overlay curved around you."
+              : "Overlay flat.");
         }
 
         private void EditViewBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
@@ -1154,8 +1235,11 @@ namespace BeltTensionTest.WPF.Views
             SizeXSlider.Value = _host.DisplaySize.X;
             SizeYSlider.Value = _host.DisplaySize.Y;
             DistanceSlider.Value = _host.Distance;
-            ShapeBox.SelectedIndex = _host.Curved ? 1 : 0;
+            ShapeBox.SelectedIndex = CurrentShape;
             CurveSlider.Value = _host.CurveAmount * 100;
+            TripleCenterSlider.Value = _host.TripleCenterPercent;
+            TripleAngleSlider.Value = _host.TripleSideAngle;
+            TripleCenterSlider.IsEnabled = TripleAngleSlider.IsEnabled = _host.Triple;
             OffsetXSlider.Value = _host.OffsetX;
             OffsetYSlider.Value = _host.OffsetY;
             DpiSlider.Value = _dpi;
@@ -1173,13 +1257,15 @@ namespace BeltTensionTest.WPF.Views
             DistanceValue.Text = _host.Distance.ToString("0.00");
             OffsetXValue.Text = _host.OffsetX.ToString("0.00");
             CurveValue.Text = (_host.CurveAmount * 100).ToString("0") + "%";
+            TripleCenterValue.Text = _host.TripleCenterPercent.ToString("0") + "%";
+            TripleAngleValue.Text = _host.TripleSideAngle.ToString("0") + "°";
             OffsetYValue.Text = _host.OffsetY.ToString("0.00");
             DpiValue.Text = _dpi.ToString("0");
             ResolutionValue.Text = $"{_host.CanvasWidth} × {_host.CanvasHeight} px";
         }
 
         /// <summary>One of the overlay display values adjustable in edit mode.</summary>
-        private enum DisplaySetting { Width, Height, Distance, Dpi, OffsetX, OffsetY, Curve }
+        private enum DisplaySetting { Width, Height, Distance, Dpi, OffsetX, OffsetY, Curve, TripleCenter, TripleAngle }
 
         private void DisplaySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
@@ -1189,6 +1275,8 @@ namespace BeltTensionTest.WPF.Views
                 : sender == SizeYSlider ? DisplaySetting.Height
                 : sender == DpiSlider ? DisplaySetting.Dpi
                 : sender == CurveSlider ? DisplaySetting.Curve
+                : sender == TripleCenterSlider ? DisplaySetting.TripleCenter
+                : sender == TripleAngleSlider ? DisplaySetting.TripleAngle
                 : sender == OffsetXSlider ? DisplaySetting.OffsetX
                 : sender == OffsetYSlider ? DisplaySetting.OffsetY
                 : DisplaySetting.Distance,
@@ -1221,6 +1309,14 @@ namespace BeltTensionTest.WPF.Views
                     break;
                 case DisplaySetting.Curve:
                     _host.CurveAmount = (float)value / 100f; // the slider and in-VR row are in percent
+                    resolutionMayChange = false;
+                    break;
+                case DisplaySetting.TripleCenter:
+                    _host.TripleCenterPercent = (float)value;
+                    resolutionMayChange = false;
+                    break;
+                case DisplaySetting.TripleAngle:
+                    _host.TripleSideAngle = (float)value;
                     resolutionMayChange = false;
                     break;
                 case DisplaySetting.OffsetX:

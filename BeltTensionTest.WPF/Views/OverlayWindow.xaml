@@ -81,6 +81,7 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Width (m)" VerticalAlignment="Center" Margin="0,0,10,4"/>
@@ -161,9 +162,10 @@
                         <StackPanel Grid.Row="10" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,6,0,0">
                             <ComboBox x:Name="ShapeBox" Width="110" SelectedIndex="0"
                                       SelectionChanged="ShapeBox_SelectionChanged"
-                                      ToolTip="Flat is a plain screen. Curved wraps the overlay around you on a cylinder (Width is the arc length), and X offset then slides it around you. Needs a headset runtime with cylinder layers; otherwise it stays flat.">
+                                      ToolTip="Flat is a plain screen. Curved wraps the overlay around you on a cylinder (Width is the arc length), and X offset then slides it around you; it needs a headset runtime with cylinder layers. Triple splits it into three screens like a triple monitor setup (Width is all three laid flat side by side).">
                                 <ComboBoxItem Content="Flat"/>
                                 <ComboBoxItem Content="Curved"/>
+                                <ComboBoxItem Content="Triple"/>
                             </ComboBox>
                             <TextBlock Text="Curve" VerticalAlignment="Center" Margin="12,0,6,0"/>
                             <Slider x:Name="CurveSlider" Width="110" Minimum="10" Maximum="150"
@@ -171,6 +173,23 @@
                                     ValueChanged="DisplaySlider_ValueChanged"
                                     ToolTip="How strongly a curved overlay bends. 100% wraps it evenly around you; less is gentler, more is tighter."/>
                             <TextBlock x:Name="CurveValue" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                        </StackPanel>
+
+                        <!-- Triple screens: how wide the middle one is, and how far the outer two turn in -->
+                        <TextBlock Grid.Row="11" Grid.Column="0" Text="Triple" VerticalAlignment="Center" Margin="0,6,10,0"/>
+                        <StackPanel Grid.Row="11" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,6,0,0">
+                            <TextBlock Text="Center" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <Slider x:Name="TripleCenterSlider" Width="100" Minimum="20" Maximum="90"
+                                    TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center"
+                                    ValueChanged="DisplaySlider_ValueChanged"
+                                    ToolTip="How much of the width the centre screen takes. The two outer screens share the rest equally."/>
+                            <TextBlock x:Name="TripleCenterValue" Width="38" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                            <TextBlock Text="Sides turn" VerticalAlignment="Center" Margin="10,0,6,0"/>
+                            <Slider x:Name="TripleAngleSlider" Width="100" Minimum="0" Maximum="90"
+                                    TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center"
+                                    ValueChanged="DisplaySlider_ValueChanged"
+                                    ToolTip="How far the outer screens turn in toward you, in degrees. 0 keeps all three in one flat line."/>
+                            <TextBlock x:Name="TripleAngleValue" VerticalAlignment="Center" Margin="6,0,0,0"/>
                         </StackPanel>
                     </Grid>
                 </Border>
