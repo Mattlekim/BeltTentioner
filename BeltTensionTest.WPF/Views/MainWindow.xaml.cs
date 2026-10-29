@@ -1,4 +1,4 @@
-using BeltTensionTest.WPF.ViewModels;
+﻿using BeltTensionTest.WPF.ViewModels;
 using System.Windows;
 using System.Windows.Interop;
 using BeltTensionTest.WPF.Services;
@@ -8,6 +8,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Windows.Controls;
+using BeltTensionTest.WPF.Shared;
 
 namespace BeltTensionTest.WPF.Views
 {
@@ -482,6 +483,51 @@ namespace BeltTensionTest.WPF.Views
         private void OpenOverlayWindow_Click(object sender, RoutedEventArgs e)
         {
             OpenOverlayWindow();
+        }
+
+        private const string OverlayLayoutFilter = "BST overlay layout (*.json)|*.json|All files (*.*)|*.*";
+
+        private void ExportOverlayLayout_Click(object sender, RoutedEventArgs e)
+        {
+            var dlg = new Microsoft.Win32.SaveFileDialog
+            {
+                Title = "Export overlay layout",
+                Filter = OverlayLayoutFilter,
+                FileName = "BST overlay layout.json",
+                DefaultExt = ".json",
+                OverwritePrompt = true
+            };
+            if (dlg.ShowDialog(this) != true) return;
+            try
+            {
+                OverlayLayoutService.Export(VM.AppSettings, dlg.FileName);
+                ThemedMessageBox.Show(this, "Overlay layout exported to:\n" + dlg.FileName, "Overlay Layout",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                ThemedMessageBox.Show(this, "Could not export:\n" + ex.Message, "Overlay Layout",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        private void ImportOverlayLayout_Click(object sender, RoutedEventArgs e)
+        {
+            var dlg = new Microsoft.Win32.OpenFileDialog { Title = "Import overlay layout", Filter = OverlayLayoutFilter, CheckFileExists = true };
+            if (dlg.ShowDialog(this) != true) return;
+            try
+            {
+                int n = OverlayLayoutService.Import(VM.AppSettings, dlg.FileName);
+                _localSettings.Save(VM.AppSettings);
+                ThemedMessageBox.Show(this,
+                    $"Imported {n} overlay settings and saved them.\n\nClose and reopen the OpenXR Overlay window (or restart the overlay) to apply them.",
+                    "Overlay Layout", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                ThemedMessageBox.Show(this, "Could not import that file as an overlay layout:\n" + ex.Message, "Overlay Layout",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }
 
         private void OpenOverlayWindow()

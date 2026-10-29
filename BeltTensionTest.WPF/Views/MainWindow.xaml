@@ -74,6 +74,8 @@
                     <MenuItem Header="Preferences..." Click="OpenPreferences_Click"/>
                     <MenuItem Header="Car Profiles..." Click="OpenCarProfiles_Click"/>
                     <MenuItem Header="OpenXR Overlay..." Click="OpenOverlayWindow_Click"/>
+                    <MenuItem Header="Export Overlay Layout..." Click="ExportOverlayLayout_Click"/>
+                    <MenuItem Header="Import Overlay Layout..." Click="ImportOverlayLayout_Click"/>
                 </MenuItem>
 
                 <MenuItem Header="Tools">
