@@ -119,7 +119,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         protected static readonly XnaColor PanelBg = new XnaColor(0x12, 0x12, 0x1E, 235);
         protected static readonly XnaColor TitleBg = new XnaColor(0x1C, 0x1C, 0x2E, 245);
         protected static readonly XnaColor TitleText = new XnaColor(0xD0, 0xD0, 0xF0);
-        protected static readonly XnaColor Accent = new XnaColor(0x64, 0x96, 0xFF);
+        protected static XnaColor Accent => ColorBlind.Map(CbRole.Info, new XnaColor(0x64, 0x96, 0xFF));
         protected static readonly XnaColor Border = new XnaColor(0x46, 0x46, 0x6A);
         protected static readonly XnaColor RowText = new XnaColor(0xE6, 0xE6, 0xF5);
         protected static readonly XnaColor RowTextDim = new XnaColor(0xA0, 0xA0, 0xBE);
@@ -129,9 +129,9 @@ namespace BeltTensionTest.WPF.Services.Overlays
         // lap ahead/behind get red/blue; everyone else cycles subtle shade
         // variants (keyed by position, so a driver keeps their shade as the
         // window scrolls) to make adjacent rows easy to tell apart.
-        private static readonly XnaColor PlayerBg = new XnaColor(0x1E, 0x5C, 0x38, 235);   // green
-        private static readonly XnaColor LapAheadBg = new XnaColor(0x6E, 0x1A, 0x1A, 235); // red
-        private static readonly XnaColor LapBehindBg = new XnaColor(0x1A, 0x30, 0x6E, 235);// blue
+        private static XnaColor PlayerBg => ColorBlind.Map(CbRole.Good, new XnaColor(0x1E, 0x5C, 0x38, 235), 0.4f);   // green
+        private static XnaColor LapAheadBg => ColorBlind.Map(CbRole.Bad, new XnaColor(0x6E, 0x1A, 0x1A, 235), 0.45f); // red
+        private static XnaColor LapBehindBg => ColorBlind.Map(CbRole.Info, new XnaColor(0x1A, 0x30, 0x6E, 235), 0.45f);// blue
         private static readonly XnaColor[] RowShades =
         {
             new XnaColor(0x1A, 0x1A, 0x28, 235),
@@ -141,11 +141,11 @@ namespace BeltTensionTest.WPF.Services.Overlays
         };
 
         // Sector / lap-time colors, mirroring the RelativeBox rules.
-        protected static readonly XnaColor SecPurple = new XnaColor(0x8A, 0x2B, 0xE2); // session best
-        protected static readonly XnaColor SecGreen = new XnaColor(0x50, 0xC8, 0x78);  // personal best
-        protected static readonly XnaColor SecYellow = new XnaColor(0xFF, 0xD5, 0x2E); // slower
-        protected static readonly XnaColor SecRed = new XnaColor(0xE0, 0x50, 0x50);    // invalid / no time
-        protected static readonly XnaColor SlowAmber = new XnaColor(0xFF, 0x9E, 0x2E);
+        protected static XnaColor SecPurple => ColorBlind.Map(CbRole.Best, new XnaColor(0x8A, 0x2B, 0xE2)); // session best
+        protected static XnaColor SecGreen => ColorBlind.Map(CbRole.Good, new XnaColor(0x50, 0xC8, 0x78));  // personal best
+        protected static XnaColor SecYellow => ColorBlind.Map(CbRole.Warn, new XnaColor(0xFF, 0xD5, 0x2E)); // slower
+        protected static XnaColor SecRed => ColorBlind.Map(CbRole.Bad, new XnaColor(0xE0, 0x50, 0x50));    // invalid / no time
+        protected static XnaColor SlowAmber => ColorBlind.Map(CbRole.Amber, new XnaColor(0xFF, 0x9E, 0x2E));
 
         /// <summary>One displayed car. Strings are pre-formatted; empty = blank cell.</summary>
         protected struct Row
@@ -1003,9 +1003,9 @@ namespace BeltTensionTest.WPF.Services.Overlays
             }
 
             XnaColor bg, badge;
-            if (row.IsPlayer) { bg = PlayerBg; badge = new XnaColor(0x2E, 0x8C, 0x57); }
-            else if (row.LapDelta >= 1) { bg = LapAheadBg; badge = new XnaColor(0xA8, 0x30, 0x30); }
-            else if (row.LapDelta <= -1) { bg = LapBehindBg; badge = new XnaColor(0x30, 0x50, 0xA8); }
+            if (row.IsPlayer) { bg = PlayerBg; badge = ColorBlind.Map(CbRole.Good, new XnaColor(0x2E, 0x8C, 0x57), 0.6f); }
+            else if (row.LapDelta >= 1) { bg = LapAheadBg; badge = ColorBlind.Map(CbRole.Bad, new XnaColor(0xA8, 0x30, 0x30), 0.65f); }
+            else if (row.LapDelta <= -1) { bg = LapBehindBg; badge = ColorBlind.Map(CbRole.Info, new XnaColor(0x30, 0x50, 0xA8), 0.65f); }
             else { bg = RowShades[Math.Abs(row.Pos) % RowShades.Length]; badge = new XnaColor(0x32, 0x32, 0x48); }
 
             // A tagged driver's color replaces the plain row shade, mixed in
@@ -1157,7 +1157,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
                         {
                             string text = g == 0 ? "=" : g > 0 ? $"+{g}" : g.ToString();
                             _sb.DrawString(FontBody, text, new XnaVector2(cl, textY),
-                                g >= 0 ? SecGreen : new XnaColor(0xFF, 0x60, 0x40));
+                                g >= 0 ? SecGreen : ColorBlind.Map(CbRole.Bad, new XnaColor(0xFF, 0x60, 0x40)));
                         }
                         break;
                     case Col.Stint:

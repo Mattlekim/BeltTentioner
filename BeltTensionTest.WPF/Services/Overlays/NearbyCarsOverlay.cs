@@ -27,8 +27,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private const int BlockGap = 10;   // between the two slots on one side
         private const int TrackLen = 240;  // edit-mode width slider track length
 
-        private static readonly XnaColor AlertRed = new XnaColor(0xE0, 0x30, 0x30, 245);
-        private static readonly XnaColor AlertRedDark = new XnaColor(0x80, 0x18, 0x18);
+        private static XnaColor AlertRed => ColorBlind.Map(CbRole.Bad, new XnaColor(0xE0, 0x30, 0x30, 245));
+        private static XnaColor AlertRedDark => ColorBlind.Map(CbRole.Bad, new XnaColor(0x80, 0x18, 0x18), 0.55f);
         private static readonly XnaColor GhostGray = new XnaColor(0x40, 0x40, 0x55, 200);
         private static readonly XnaColor TitleText = new XnaColor(0xD0, 0xD0, 0xF0);
 
@@ -149,7 +149,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
             MonoXRDraw.RoundedRect(_sb, track, 4, new XnaColor(0x30, 0x30, 0x44, 235));
             var filled = new XnaRectangle(track.X, track.Y, Math.Max(8, (int)(track.Width * frac)), track.Height);
-            MonoXRDraw.RoundedRect(_sb, filled, 4, new XnaColor(0x64, 0x96, 0xFF));
+            MonoXRDraw.RoundedRect(_sb, filled, 4, ColorBlind.Map(CbRole.Info, new XnaColor(0x64, 0x96, 0xFF)));
 
             int knobX = track.X + (int)(track.Width * frac);
             MonoXRDraw.RoundedRect(_sb, new XnaRectangle(knobX - 8, track.Y - 8, 16, track.Height + 16), 6, XnaColor.White);

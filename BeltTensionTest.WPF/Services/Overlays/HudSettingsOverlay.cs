@@ -39,7 +39,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private static readonly XnaColor PanelBg = new XnaColor(0x12, 0x12, 0x1E, 235);
         private static readonly XnaColor TitleBg = new XnaColor(0x1C, 0x1C, 0x2E, 245);
         private static readonly XnaColor TitleText = new XnaColor(0xD0, 0xD0, 0xF0);
-        private static readonly XnaColor Accent = new XnaColor(0x64, 0x96, 0xFF);
+        private static XnaColor Accent => ColorBlind.Map(CbRole.Info, new XnaColor(0x64, 0x96, 0xFF));
         private static readonly XnaColor Border = new XnaColor(0x46, 0x46, 0x6A);
         private static readonly XnaColor RowTextDim = new XnaColor(0xA0, 0xA0, 0xBE);
 

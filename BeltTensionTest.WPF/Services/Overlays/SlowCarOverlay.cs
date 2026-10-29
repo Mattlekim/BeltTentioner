@@ -34,8 +34,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         // Collapsed pill stays amber so it isn't mistaken for the
         // yellow-flag pill at a glance.
-        private static readonly XnaColor CardAmber = new XnaColor(0xFF, 0x9E, 0x2E, 245);
-        private static readonly XnaColor CardAmberDark = new XnaColor(0xB5, 0x66, 0x00);
+        private static XnaColor CardAmber => ColorBlind.Map(CbRole.Amber, new XnaColor(0xFF, 0x9E, 0x2E, 245));
+        private static XnaColor CardAmberDark => ColorBlind.Map(CbRole.Amber, new XnaColor(0xB5, 0x66, 0x00), 0.7f);
         private static readonly XnaColor TextDark = new XnaColor(0x1F, 0x10, 0x00);
 
         private readonly SpriteBatch _sb;
@@ -121,7 +121,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             // only the gap readout centered in black, flashing while live.
             var box = new XnaRectangle(0, 0, Width, Height);
             _sb.Draw(_pixel, box, XnaColor.Black);
-            _sb.Draw(_pixel, box, XnaColor.Yellow * 0.4f);
+            _sb.Draw(_pixel, box, ColorBlind.Map(CbRole.Warn, XnaColor.Yellow) * 0.4f);
 
             if (placeholder)
                 _sb.DrawString(_fontLabel, "Slow Car Warning", XnaVector2.Zero, XnaColor.Black);

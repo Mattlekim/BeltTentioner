@@ -71,15 +71,15 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private static readonly XnaColor PanelBg = new XnaColor(0x12, 0x12, 0x1E, 235);
         private static readonly XnaColor TitleBg = new XnaColor(0x1C, 0x1C, 0x2E, 245);
         private static readonly XnaColor TitleText = new XnaColor(0xD0, 0xD0, 0xF0);
-        private static readonly XnaColor Accent = new XnaColor(0x64, 0x96, 0xFF);
+        private static XnaColor Accent => ColorBlind.Map(CbRole.Info, new XnaColor(0x64, 0x96, 0xFF));
         private static readonly XnaColor Border = new XnaColor(0x46, 0x46, 0x6A);
         private static readonly XnaColor RowText = new XnaColor(0xE6, 0xE6, 0xF5);
         private static readonly XnaColor RowTextDim = new XnaColor(0xA0, 0xA0, 0xBE);
         private static readonly XnaColor RowBg = new XnaColor(0x1A, 0x1A, 0x28, 235);
         private static readonly XnaColor MenuBg = new XnaColor(0x22, 0x22, 0x34, 250);
-        private static readonly XnaColor TypeOffTrack = new XnaColor(0xFF, 0xD5, 0x2E);
-        private static readonly XnaColor TypeSolo = new XnaColor(0xFF, 0x9E, 0x2E);
-        private static readonly XnaColor TypeContact = new XnaColor(0xE0, 0x50, 0x50);
+        private static XnaColor TypeOffTrack => ColorBlind.Map(CbRole.Warn, new XnaColor(0xFF, 0xD5, 0x2E));
+        private static XnaColor TypeSolo => ColorBlind.Map(CbRole.Amber, new XnaColor(0xFF, 0x9E, 0x2E));
+        private static XnaColor TypeContact => ColorBlind.Map(CbRole.Bad, new XnaColor(0xE0, 0x50, 0x50));
 
         private readonly SpriteBatch _sb;
         private readonly Texture2D _white;

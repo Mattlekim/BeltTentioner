@@ -145,6 +145,9 @@ namespace BeltTensionTest.WPF.Services.Data
                 _lastTime = time;
                 if (dt <= 0 || dt > 2) return; // paused / first tick / huge jump
 
+                // On the grid and on the pace lap nothing counts as a hazard (cars
+                // creep and bunch up) and nobody is on an out lap.
+                bool gridOrPace = svc.OnGridOrPaceLap;
                 _yellowActive = _slowActive = _behindActive = false;
                 _yellowGap = _slowGap = float.PositiveInfinity;
                 _behindGap = float.NegativeInfinity;
@@ -175,10 +178,10 @@ namespace BeltTensionTest.WPF.Services.Data
                     }
                     w.LastDist = dist;
 
-                    UpdatePitState(w, car);
+                    UpdatePitState(w, car, gridOrPace);
 
                     // Yellow: sustained low speed on track.
-                    if (!car.IsOnTrack || car.OnPitRoad)
+                    if (gridOrPace || !car.IsOnTrack || car.OnPitRoad)
                     {
                         w.Yellow = false;
                         w.BelowTime = 0;
@@ -244,7 +247,7 @@ namespace BeltTensionTest.WPF.Services.Data
                         w.SampleGap = gap;
                     }
 
-                    if (!car.IsOnTrack || car.OnPitRoad || w.Yellow)
+                    if (gridOrPace || !car.IsOnTrack || car.OnPitRoad || w.Yellow)
                     {
                         w.Slow = false;
                         w.Rate = 0;
@@ -269,7 +272,7 @@ namespace BeltTensionTest.WPF.Services.Data
             }
         }
 
-        private static void UpdatePitState(Watch w, Car car)
+        private static void UpdatePitState(Watch w, Car car, bool gridOrPace)
         {
             if (car.IsInGarage)
             {
@@ -285,6 +288,11 @@ namespace BeltTensionTest.WPF.Services.Data
                     w.Pit = PitState.PitOut; // moving again after a stop → leaving
                 else
                     w.Pit = PitState.PitIn;  // arrived moving from the track
+            }
+            else if (gridOrPace)
+            {
+                // Placed on the grid (from the garage or pit road) is not an out lap.
+                w.Pit = PitState.None;
             }
             else
             {

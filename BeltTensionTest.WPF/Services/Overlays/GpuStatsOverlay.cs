@@ -26,12 +26,12 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private static readonly XnaColor TitleBg = new XnaColor(0x1C, 0x1C, 0x2E, 245);
         private static readonly XnaColor TitleText = new XnaColor(0xD0, 0xD0, 0xF0);
         private static readonly XnaColor BodyText = new XnaColor(0xA0, 0xA0, 0xBE);
-        private static readonly XnaColor Accent = new XnaColor(0x64, 0x96, 0xFF);
+        private static XnaColor Accent => ColorBlind.Map(CbRole.Info, new XnaColor(0x64, 0x96, 0xFF));
         private static readonly XnaColor Border = new XnaColor(0x46, 0x46, 0x6A);
         private static readonly XnaColor TrackEmpty = new XnaColor(0x37, 0x37, 0x4E);
-        private static readonly XnaColor Good = new XnaColor(0x4C, 0xC3, 0x6A);
-        private static readonly XnaColor Warn = new XnaColor(0xFF, 0xB0, 0x2E);
-        private static readonly XnaColor Hot = new XnaColor(0xFF, 0x4D, 0x4D);
+        private static XnaColor Good => ColorBlind.Map(CbRole.Good, new XnaColor(0x4C, 0xC3, 0x6A));
+        private static XnaColor Warn => ColorBlind.Map(CbRole.Amber, new XnaColor(0xFF, 0xB0, 0x2E));
+        private static XnaColor Hot => ColorBlind.Map(CbRole.Bad, new XnaColor(0xFF, 0x4D, 0x4D));
 
         private readonly SpriteBatch _sb;
         private readonly Texture2D _white;

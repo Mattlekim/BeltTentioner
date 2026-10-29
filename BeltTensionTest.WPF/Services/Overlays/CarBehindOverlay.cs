@@ -147,8 +147,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
             // lap-relation colour, readout centered.
             var tint = _lap switch
             {
-                Data.BehindLap.LappedBy => XnaColor.Blue,
-                Data.BehindLap.LapsUp => XnaColor.Red,
+                Data.BehindLap.LappedBy => ColorBlind.Map(CbRole.Info, XnaColor.Blue, 0.6f),
+                Data.BehindLap.LapsUp => ColorBlind.Map(CbRole.Bad, XnaColor.Red, 0.6f),
                 _ => XnaColor.Black,
             };
             _sb.Draw(_pixel, box, tint * 0.5f);
@@ -159,7 +159,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 var size = _fontBig.MeasureString(readout);
                 _sb.DrawString(_fontBig, readout,
                     new XnaVector2((Width - size.X) / 2f, (Height - size.Y) / 2f),
-                    _close ? XnaColor.Red : XnaColor.White);
+                    _close ? ColorBlind.Map(CbRole.Bad, XnaColor.Red) : XnaColor.White);
             }
 
             _sb.End();

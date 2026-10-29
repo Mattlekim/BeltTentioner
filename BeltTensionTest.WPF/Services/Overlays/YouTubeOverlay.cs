@@ -69,13 +69,13 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         // Author colors per user type, same order as the original's array
         // (User, Admin, Moderator, ChannelMember, SuperChat).
-        private static readonly XnaColor[] AuthorColors =
+        private static XnaColor[] AuthorColors => new[]
         {
             XnaColor.White,
-            new XnaColor(0xFF, 0x45, 0x00), // owner — orange red
-            new XnaColor(0x64, 0x96, 0xFF), // moderator — blue
-            new XnaColor(0x50, 0xC8, 0x78), // member — green
-            new XnaColor(0xFF, 0xD5, 0x2E), // super chat — gold
+            ColorBlind.Map(CbRole.Bad, new XnaColor(0xFF, 0x45, 0x00)),   // owner — orange red
+            ColorBlind.Map(CbRole.Info, new XnaColor(0x64, 0x96, 0xFF)),  // moderator — blue
+            ColorBlind.Map(CbRole.Good, new XnaColor(0x50, 0xC8, 0x78)),  // member — green
+            ColorBlind.Map(CbRole.Warn, new XnaColor(0xFF, 0xD5, 0x2E)),  // super chat — gold
         };
 
         private readonly SpriteBatch _sb;

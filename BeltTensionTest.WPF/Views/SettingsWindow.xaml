@@ -190,6 +190,21 @@
                             </ComboBox>
                         </Grid>
 
+                        <Grid Margin="0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="180"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Colour blind mode:" VerticalAlignment="Center" Foreground="#A0A0BE"
+                                       ToolTip="Changes the overlay's status colours (green / red / yellow / orange / blue) to a set that is easier to tell apart. Deuteranopia is for red-green colour blindness, Tritanomaly for blue-yellow. Shows at once."/>
+                            <ComboBox x:Name="cmb_ColorBlind" Grid.Column="1" HorizontalAlignment="Left" Width="180"
+                                      SelectionChanged="ColorBlind_Changed">
+                                <ComboBoxItem Content="Off" Tag="Off"/>
+                                <ComboBoxItem Content="Deuteranopia (red-green)" Tag="Deuteranopia"/>
+                                <ComboBoxItem Content="Tritanomaly (blue-yellow)" Tag="Tritanomaly"/>
+                            </ComboBox>
+                        </Grid>
+
                         <CheckBox x:Name="chk_EnableOverlay" Content="Enable OpenXR overlay" Foreground="#A0A0BE" Margin="0,4"
                                   ToolTip="Runs the OpenXR overlay, from app start. The overlay window (Settings → OpenXR Overlay...) is only for editing the layout — opening or closing it does not start or stop the overlay."/>
                     </StackPanel>

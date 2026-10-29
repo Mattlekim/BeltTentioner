@@ -195,6 +195,8 @@ namespace BeltTensionTest.WPF.Models
         // Curved = the overlay wraps around the viewer on a cylinder (needs a runtime with
         // cylinder layers; flat otherwise). X offset then slides it around the viewer.
         public bool OverlayCurved { get; set; } = false;
+        // Colour-blind mode for the overlay colours: "Off", "Deuteranopia" or "Tritanomaly".
+        public string ColorBlindMode { get; set; } = "Off";
         // How strongly it bends, 0.1..1.5 (1 = every point equally far from the viewer).
         public double OverlayCurveAmount { get; set; } = 1;
         // Triple = three flat screens like a triple monitor setup: the centre one takes
@@ -202,6 +204,11 @@ namespace BeltTensionTest.WPF.Models
         public bool OverlayTriple { get; set; } = false;
         public double OverlayTripleCenter { get; set; } = 50;
         public double OverlayTripleAngle { get; set; } = 30;
+        // Triple + top: a fourth screen above the centre one, same width, OverlayTopHeight meters
+        // tall and tipped forward by OverlayTopAngle degrees.
+        public bool OverlayTripleTop { get; set; } = false;
+        public double OverlayTopHeight { get; set; } = 1;
+        public double OverlayTopAngle { get; set; } = 30;
         public double OverlayOffsetX { get; set; } = 0;
         public double OverlayOffsetY { get; set; } = 0;
         // View origin captured by the overlay's Recenter button/binding: the

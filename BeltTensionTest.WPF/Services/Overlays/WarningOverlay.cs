@@ -28,8 +28,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private const int BoxHeight = 80;
         private const int HeaderHeight = 44;
 
-        private static readonly XnaColor CardYellow = new XnaColor(0xFF, 0xD5, 0x2E, 245);
-        private static readonly XnaColor CardYellowDark = new XnaColor(0xC8, 0x9E, 0x00);
+        private static XnaColor CardYellow => ColorBlind.Map(CbRole.Warn, new XnaColor(0xFF, 0xD5, 0x2E, 245));
+        private static XnaColor CardYellowDark => ColorBlind.Map(CbRole.Warn, new XnaColor(0xC8, 0x9E, 0x00), 0.78f);
         private static readonly XnaColor TextDark = new XnaColor(0x1A, 0x14, 0x00);
 
         private readonly SpriteBatch _sb;
@@ -112,7 +112,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
             // Matches YellowFlagBox: a plain solid-yellow bar with only the
             // time-to-hazard readout centered in black, flashing while live.
-            _sb.Draw(_pixel, new XnaRectangle(0, 0, Width, Height), XnaColor.Yellow);
+            _sb.Draw(_pixel, new XnaRectangle(0, 0, Width, Height), ColorBlind.Map(CbRole.Warn, XnaColor.Yellow));
 
             if (placeholder)
                 _sb.DrawString(_fontLabel, "Yellow Warning", XnaVector2.Zero, XnaColor.Black);

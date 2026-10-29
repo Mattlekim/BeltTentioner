@@ -113,6 +113,12 @@ namespace BeltTensionTest.WPF.Services
         public const int SessionStateCheckered = 5;
         public const int SessionStateCoolDown = 6;
 
+        /// <summary>
+        /// True before the green flag: getting into the car, on the grid, or on
+        /// the pace / parade laps (SessionState below Racing, once known).
+        /// </summary>
+        public bool OnGridOrPaceLap => SessionState >= SessionStateGetInCar && SessionState < SessionStateRacing;
+
         /// <summary>True when the event uses a standing start (WeekendOptions.StandingStart).</summary>
         public bool StandingStart { get; private set; }
 

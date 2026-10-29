@@ -29,6 +29,26 @@ namespace BeltTensionTest.WPF.Views
             cmb_GazeSource.SelectedIndex = 1;
         }
 
+        private void SelectColorBlind(string? mode)
+        {
+            foreach (ComboBoxItem item in cmb_ColorBlind.Items)
+            {
+                if (item.Tag as string == mode) { cmb_ColorBlind.SelectedItem = item; return; }
+            }
+            cmb_ColorBlind.SelectedIndex = 0;
+        }
+
+        // Set once the controls hold the saved value, so loading it is not a change.
+        private bool _colorUiReady;
+
+        // Shows at once on the running overlay; OK saves it, closing any other way puts the saved one back.
+        private void ColorBlind_Changed(object sender, SelectionChangedEventArgs e)
+        {
+            if (!_colorUiReady) return;
+            if (cmb_ColorBlind.SelectedItem is ComboBoxItem item && item.Tag is string mode)
+                OverlayWindow.PreviewColorBlind(mode);
+        }
+
         public SettingsWindow(MainViewModel vm)
         {
             InitializeComponent();
@@ -47,6 +67,7 @@ namespace BeltTensionTest.WPF.Views
             chk_EnableOverlay.IsChecked = _vm.AppSettings?.EnableOpenXrOverlay ?? false;
             chk_EyeTracking.IsChecked = _vm.AppSettings?.EnableEyeTracking ?? true;
             SelectGazeSource(_vm.AppSettings?.OverlayGazeSource);
+            SelectColorBlind(_vm.AppSettings?.ColorBlindMode);
             double behindShow = _vm.AppSettings?.OverlayCarBehindShowGap ?? 0;
             double behindClose = _vm.AppSettings?.OverlayCarBehindCloseGap ?? 0;
             sld_CarBehindShow.Value = behindShow > 0 ? behindShow : Services.Overlays.CarBehindOverlay.DefaultShowGap;
@@ -64,11 +85,12 @@ namespace BeltTensionTest.WPF.Views
             sld_HeadLockY.Value = a?.HeadLockY ?? 0;
             sld_HeadLockZ.Value = a?.HeadLockZ ?? 0;
             _headUiReady = true;
+            _colorUiReady = true;
 
             // The head-tracking options act while the window is open; whichever way
             // it closes, the saved values are what the layer ends up with (OK saved
             // them, Cancel puts the old ones back).
-            Closed += (_, _) => OverlayWindow.ReapplyHeadTracking();
+            Closed += (_, _) => { OverlayWindow.ReapplyHeadTracking(); OverlayWindow.ReapplyColorBlind(); };
 
             // Initialize telemetry source radio buttons from the current view model state.
             // The VM already enforces that iRacing and SimHub cannot both be enabled.
@@ -340,6 +362,8 @@ namespace BeltTensionTest.WPF.Views
             _vm.AppSettings.EnableEyeTracking = chk_EyeTracking.IsChecked == true;
             if (cmb_GazeSource.SelectedItem is ComboBoxItem gazeItem && gazeItem.Tag is string gazeSource)
                 _vm.AppSettings.OverlayGazeSource = gazeSource;
+            if (cmb_ColorBlind.SelectedItem is ComboBoxItem cbItem && cbItem.Tag is string cbMode)
+                _vm.AppSettings.ColorBlindMode = cbMode;
             _vm.AppSettings.HeadSmoothEnabled = chk_HeadSmooth.IsChecked == true;
             _vm.AppSettings.HeadSmoothAmount = sld_HeadSmooth.Value / 100;
             _vm.AppSettings.HeadMinMoveEnabled = chk_HeadMinMove.IsChecked == true;
