@@ -4,21 +4,25 @@ using MonoXR.Client;
 
 namespace BeltTensionTest.WPF.Services
 {
-    /// <summary>When a VR overlay panel applies (IrachingHud's ShowSetting).</summary>
+    /// <summary>
+    /// When a VR overlay panel applies (IrachingHud's ShowSetting): any
+    /// combination of iRacing session types. No flag set means always, whenever
+    /// the overlay is up, iRacing running or not.
+    /// </summary>
+    [Flags]
     public enum PanelShowMode
     {
-        /// <summary>Whenever the overlay is up, iRacing running or not.</summary>
-        Always,
-        /// <summary>Only while sitting in the car (any session), not while watching a replay.</summary>
-        InCar,
-        /// <summary>Only while watching the replay.</summary>
-        Replay,
-        /// <summary>Only in the car during a practice session (also warm-up and testing).</summary>
-        Practice,
-        /// <summary>Only in the car during qualifying, lone or open.</summary>
-        Qualifying,
-        /// <summary>Only in the car during the race.</summary>
-        Race,
+        Always = 0,
+        /// <summary>In the car during a practice session (also warm-up and testing).</summary>
+        Practice = 1,
+        /// <summary>In the car during qualifying, lone or open.</summary>
+        Qualifying = 2,
+        /// <summary>In the car during the race.</summary>
+        Race = 4,
+        /// <summary>While watching the replay.</summary>
+        Replay = 8,
+        /// <summary>Every in-car session; what the old single "In car" choice meant.</summary>
+        InCar = Practice | Qualifying | Race,
     }
 
     /// <summary>What the sim is doing, as far as panel show modes are concerned.</summary>
@@ -40,9 +44,9 @@ namespace BeltTensionTest.WPF.Services
     }
 
     /// <summary>
-    /// Per-panel "when is this shown" setting: in the car, in practice,
-    /// qualifying or the race, in the replay, or always. Ported from IrachingHud's ShowSetting, which each box set in
-    /// code; here every panel carries its own, chosen with the Show button on
+    /// Per-panel "when is this shown" setting: any mix of practice,
+    /// qualifying, the race and the replay, or always. Ported from IrachingHud's ShowSetting, which each box set in
+    /// code; here every panel carries its own, chosen with the Show chips on
     /// its edit-mode bar and remembered by panel name in the app settings.
     ///
     /// <see cref="Apply"/> runs on the overlay's own timer and translates the
@@ -72,42 +76,46 @@ namespace BeltTensionTest.WPF.Services
         {
             if (_modes.TryGetValue(panel.Name, out string? saved) &&
                 Enum.TryParse(saved, out PanelShowMode mode))
-                return mode;
+                return mode & (PanelShowMode.InCar | PanelShowMode.Replay);
             return panel is IPanelShowDefault d ? d.DefaultShowMode : PanelShowMode.Always;
         }
 
-        /// <summary>Edit-mode Show button text and highlight for a panel.</summary>
-        public (string Label, bool Active) LabelFor(OverlayRenderTarget panel)
+        /// <summary>Edit-mode chips: "All" (nothing picked) then one per session type, in <see cref="Flags"/> order.</summary>
+        public IReadOnlyList<(string Label, bool On)> ChipsFor(OverlayRenderTarget panel)
         {
             var mode = ModeOf(panel);
-            return ("Show: " + Describe(mode), mode != PanelShowMode.Always);
+            var chips = new List<(string, bool)> { ("All", mode == PanelShowMode.Always) };
+            foreach (var (label, flag) in Flags)
+                chips.Add((label, (mode & flag) != 0));
+            return chips;
         }
 
-        public static string Describe(PanelShowMode mode) => mode switch
+        private static readonly (string Label, PanelShowMode Flag)[] Flags =
         {
-            PanelShowMode.InCar => "In car",
-            PanelShowMode.Replay => "Replay",
-            PanelShowMode.Practice => "Practice",
-            PanelShowMode.Qualifying => "Qualifying",
-            PanelShowMode.Race => "Race",
-            _ => "Always",
+            ("Practice", PanelShowMode.Practice),
+            ("Qualify", PanelShowMode.Qualifying),
+            ("Race", PanelShowMode.Race),
+            ("Replay", PanelShowMode.Replay),
         };
 
         /// <summary>
-        /// Whether a panel with this mode applies in this state. In car covers
-        /// every session while sitting in the car; Practice / Qualifying / Race
-        /// each cover only their own session (and, like In car, never a replay).
+        /// Whether a panel with this mode applies in this state. Each flag covers
+        /// only its own session (and, like the old In car choice, never a replay).
+        /// An in-car session of an unrecognised type counts for any in-car flag.
         /// </summary>
-        public static bool AppliesIn(PanelShowMode mode, SimState state) => mode switch
+        public static bool AppliesIn(PanelShowMode mode, SimState state)
         {
-            PanelShowMode.InCar => state is SimState.InCar or SimState.Practice
-                                         or SimState.Qualifying or SimState.Race,
-            PanelShowMode.Replay => state == SimState.Replay,
-            PanelShowMode.Practice => state == SimState.Practice,
-            PanelShowMode.Qualifying => state == SimState.Qualifying,
-            PanelShowMode.Race => state == SimState.Race,
-            _ => true,
-        };
+            if (mode == PanelShowMode.Always) return true;
+            return state switch
+            {
+                SimState.Practice => (mode & PanelShowMode.Practice) != 0,
+                SimState.Qualifying => (mode & PanelShowMode.Qualifying) != 0,
+                SimState.Race => (mode & PanelShowMode.Race) != 0,
+                SimState.Replay => (mode & PanelShowMode.Replay) != 0,
+                SimState.InCar => (mode & PanelShowMode.InCar) != 0,
+                _ => false,
+            };
+        }
 
         /// <summary>
         /// iRacing's session type as a state: "Practice" (also Warmup, Offline
@@ -136,6 +144,18 @@ namespace BeltTensionTest.WPF.Services
             var svc = IracingService.Instance;
             if (!svc.IsConnected) return SimState.NotRunning;
             return svc.InReplay ? SimState.Replay : SessionState(svc.SessionType);
+        }
+
+        /// <summary>
+        /// The raw readings <see cref="CurrentSimState"/> is derived from, for
+        /// finding out why the sim is seen in the wrong state.
+        /// </summary>
+        public static string Diagnostics()
+        {
+            var svc = IracingService.Instance;
+            if (!svc.IsConnected) return "not connected";
+            return $"session type \"{svc.SessionType}\", IsReplayPlaying {svc.IsReplayPlaying}, " +
+                   $"replay frame {svc.ReplayFrameNum} / end {svc.ReplayFrameNumEnd}, session state {svc.SessionState}";
         }
 
         public static string Describe(SimState state) => state switch
@@ -188,18 +208,12 @@ namespace BeltTensionTest.WPF.Services
             return !AppliesIn(mode, state);
         }
 
-        /// <summary>Step a panel to the next mode: Always -> In car -> Practice -> Qualifying -> Race -> Replay -> Always.</summary>
-        public void Cycle(OverlayRenderTarget panel)
+        /// <summary>Click on chip <paramref name="index"/> of <see cref="ChipsFor"/>: "All" clears the set, a session type toggles in or out of it.</summary>
+        public void Toggle(OverlayRenderTarget panel, int index)
         {
-            var next = ModeOf(panel) switch
-            {
-                PanelShowMode.Always => PanelShowMode.InCar,
-                PanelShowMode.InCar => PanelShowMode.Practice,
-                PanelShowMode.Practice => PanelShowMode.Qualifying,
-                PanelShowMode.Qualifying => PanelShowMode.Race,
-                PanelShowMode.Race => PanelShowMode.Replay,
-                _ => PanelShowMode.Always,
-            };
+            PanelShowMode next;
+            if (index <= 0 || index > Flags.Length) next = PanelShowMode.Always;
+            else next = ModeOf(panel) ^ Flags[index - 1].Flag;
             _modes[panel.Name] = next.ToString();
             Apply();
             _invalidateCanvas();

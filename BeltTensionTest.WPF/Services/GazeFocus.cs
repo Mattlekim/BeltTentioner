@@ -25,7 +25,7 @@ namespace BeltTensionTest.WPF.Services
     public enum GazeEffect
     {
         None,
-        /// <summary>Other panels dim; the one you look at comes back to full.</summary>
+        /// <summary>Other panels fade to <see cref="GazeFocus.FadedOpacity"/>; the one you look at comes back to its own opacity.</summary>
         Brighten,
         /// <summary>The panel you look at scales up.</summary>
         Enlarge,
@@ -84,9 +84,10 @@ namespace BeltTensionTest.WPF.Services
 
         private readonly Dictionary<OverlayRenderTarget, Entry> _entries = new();
 
-        // Panels switched off with their eye button in edit mode: they never take
-        // focus, are never dimmed or grown, and stay exactly as the user set them.
-        private readonly HashSet<string> _disabled = new();
+        // Panels switched on with their eye button in edit mode. Every other
+        // panel never takes focus, is never faded or grown, and stays exactly
+        // as the user set it.
+        private readonly HashSet<string> _enabled = new();
 
         private OverlayRenderTarget? _focused;   // panel that currently holds focus
         private OverlayRenderTarget? _candidate; // panel the gaze is resting on
@@ -116,13 +117,17 @@ namespace BeltTensionTest.WPF.Services
         public bool Enabled { get; set; } = true;
         public GazeEffect Effect { get; set; } = GazeEffect.Brighten;
 
-        /// <summary>How far unfocused panels dim, 0 (not at all) to 0.7.</summary>
-        public float DimAmount
+        /// <summary>
+        /// Opacity an unfocused panel fades to, 0.05 to 1: barely visible by
+        /// default. A panel the user already set fainter than this stays as it is.
+        /// Looking at a panel brings it back to its own opacity.
+        /// </summary>
+        public float FadedOpacity
         {
-            get => _dim;
-            set => _dim = Math.Clamp(value, 0f, 0.7f);
+            get => _faded;
+            set => _faded = Math.Clamp(value, 0.05f, 1f);
         }
-        private float _dim = 0.45f;
+        private float _faded = 0.2f;
 
         /// <summary>How much the focused panel grows, 1.0 (not at all) to 1.6.</summary>
         public float GrowFactor
@@ -155,24 +160,24 @@ namespace BeltTensionTest.WPF.Services
         /// <summary>What the overlay layer reports about the headset's eye tracker, for the settings readout.</summary>
         public MonoXrGazeState EyeState => _host.EyeGazeState;
 
-        /// <summary>Whether a panel reacts to being looked at (its eye button in edit mode).</summary>
-        public bool IsPanelEnabled(OverlayRenderTarget panel) => !_disabled.Contains(panel.Name);
+        /// <summary>Whether a panel reacts to being looked at (its eye button in edit mode); off until switched on.</summary>
+        public bool IsPanelEnabled(OverlayRenderTarget panel) => _enabled.Contains(panel.Name);
 
-        /// <summary>Names of the panels that ignore gaze, for saving.</summary>
-        public IReadOnlyCollection<string> DisabledPanels => _disabled;
+        /// <summary>Names of the panels that react to gaze, for saving.</summary>
+        public IReadOnlyCollection<string> EnabledPanels => _enabled;
 
-        /// <summary>Replace the set of panels that ignore gaze (settings load).</summary>
-        public void SetDisabledPanels(IEnumerable<string>? names)
+        /// <summary>Replace the set of panels that react to gaze (settings load).</summary>
+        public void SetEnabledPanels(IEnumerable<string>? names)
         {
-            _disabled.Clear();
+            _enabled.Clear();
             if (names == null) return;
-            foreach (var name in names) _disabled.Add(name);
+            foreach (var name in names) _enabled.Add(name);
         }
 
         /// <summary>Flip whether a panel reacts to gaze; a panel switched off goes straight back to the user's own values.</summary>
         public void TogglePanel(OverlayRenderTarget panel)
         {
-            if (!_disabled.Remove(panel.Name)) _disabled.Add(panel.Name);
+            if (!_enabled.Remove(panel.Name)) _enabled.Add(panel.Name);
             if (ReferenceEquals(_focused, panel)) _focused = null;
             if (ReferenceEquals(_candidate, panel)) _candidate = null;
             if (_entries.TryGetValue(panel, out var entry))
@@ -200,9 +205,11 @@ namespace BeltTensionTest.WPF.Services
             var entry = EntryFor(panel);
             // Undo whatever share of the effect is applied right now, so a
             // panel edited mid-fade does not bake the fade into its baseline.
-            float opacityFactor = _applied ? OpacityFactor(entry.Focus) : 1f;
             float scaleFactor = _applied ? ScaleFactor(entry.Focus) : 1f;
-            entry.BaseOpacity = Math.Clamp(panel.Opacity / opacityFactor, OverlayRenderTarget.MinOpacity, 1f);
+            float opacity = panel.Opacity;
+            if (_applied && FadesOthers && entry.Focus > 0.001f)
+                opacity = Math.Max(opacity, _faded + (opacity - _faded) / entry.Focus);
+            entry.BaseOpacity = Math.Clamp(opacity, OverlayRenderTarget.MinOpacity, 1f);
             entry.BaseScale = Math.Clamp(panel.Scale / scaleFactor,
                                          OverlayRenderTarget.MinScale, OverlayRenderTarget.MaxScale);
         }
@@ -251,7 +258,7 @@ namespace BeltTensionTest.WPF.Services
             foreach (var panel in _panels())
             {
                 var entry = EntryFor(panel);
-                if (_disabled.Contains(panel.Name))
+                if (!_enabled.Contains(panel.Name))
                 {
                     // Not part of gaze focus: hold the user's own values.
                     entry.Focus = 0f;
@@ -274,7 +281,7 @@ namespace BeltTensionTest.WPF.Services
 
                 // Writing the same value back is free (the setters early-out),
                 // so an idle panel never marks itself dirty.
-                panel.Opacity = Math.Clamp(entry.BaseOpacity * OpacityFactor(entry.Focus),
+                panel.Opacity = Math.Clamp(OpacityAt(entry),
                                            OverlayRenderTarget.MinOpacity, 1f);
                 panel.Scale = Math.Clamp(entry.BaseScale * ScaleFactor(entry.Focus),
                                          OverlayRenderTarget.MinScale, OverlayRenderTarget.MaxScale);
@@ -327,7 +334,7 @@ namespace BeltTensionTest.WPF.Services
             foreach (var panel in _panels())
             {
                 if (!panel.Visible || !panel.IsLive) continue;
-                if (_disabled.Contains(panel.Name)) continue;
+                if (!_enabled.Contains(panel.Name)) continue;
                 if (x < panel.X - slack || x >= panel.X + panel.DisplayWidth + slack) continue;
                 if (y < panel.Y - slack || y >= panel.Y + panel.DisplayHeight + slack) continue;
                 hit = panel; // later panels composite on top, so the last wins
@@ -335,8 +342,15 @@ namespace BeltTensionTest.WPF.Services
             return hit;
         }
 
-        private float OpacityFactor(float focus) =>
-            Effect is GazeEffect.Brighten or GazeEffect.Both ? 1f - _dim * (1f - focus) : 1f;
+        private bool FadesOthers => Effect is GazeEffect.Brighten or GazeEffect.Both;
+
+        // Between the faded opacity (not looked at) and the panel's own (focused).
+        private float OpacityAt(Entry entry)
+        {
+            if (!FadesOthers) return entry.BaseOpacity;
+            float faded = MathF.Min(entry.BaseOpacity, _faded);
+            return faded + (entry.BaseOpacity - faded) * entry.Focus;
+        }
 
         private float ScaleFactor(float focus) =>
             Effect is GazeEffect.Enlarge or GazeEffect.Both ? 1f + (_grow - 1f) * focus : 1f;

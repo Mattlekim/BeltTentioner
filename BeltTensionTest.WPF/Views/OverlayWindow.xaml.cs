@@ -152,14 +152,14 @@ namespace BeltTensionTest.WPF.Views
                 _host.BindButtonLabel = _toggleBindings.LabelFor;
                 _host.BindRequested += _toggleBindings.BeginCapture;
 
-                // When each panel applies (always / in car / replay), chosen
-                // with its edit-mode Show button.
+                // When each panel applies (any mix of practice / qualifying /
+                // race / replay, or always), chosen with its edit-mode Show chips.
                 _panelVisibility = new Services.PanelVisibility(
                     _vm.AppSettings?.OverlayPanelShowModes ?? new Dictionary<string, string>(),
                     AllPanels, () => _host?.InvalidateCanvas());
                 _panelVisibility.Changed += SaveLayout;
-                _host.ShowButtonLabel = _panelVisibility.LabelFor;
-                _host.ShowModeCycleRequested += _panelVisibility.Cycle;
+                _host.ShowChips = _panelVisibility.ChipsFor;
+                _host.ShowChipClicked += _panelVisibility.Toggle;
                 _panelVisibility.EditViewIndex = _editView;
                 _panelVisibility.Apply();
                 // Gaze focus runs off the head pose the MonoXR layer
@@ -383,10 +383,10 @@ namespace BeltTensionTest.WPF.Views
                     _gazeFocus.Effect = gazeEffect;
                 if (Enum.TryParse(s.OverlayGazeSource, out Services.GazeSource gazeSource))
                     _gazeFocus.Source = gazeSource;
-                _gazeFocus.DimAmount = (float)s.OverlayGazeDim;
+                _gazeFocus.FadedOpacity = (float)s.OverlayGazeFadedOpacity;
                 _gazeFocus.GrowFactor = (float)s.OverlayGazeGrow;
                 _gazeFocus.Enabled = s.EnableEyeTracking;
-                _gazeFocus.SetDisabledPanels(s.OverlayGazeDisabledPanels);
+                _gazeFocus.SetEnabledPanels(s.OverlayGazeEnabledPanels);
             }
 
             // Edit-mode eye button on each panel: whether it reacts to gaze.
@@ -513,11 +513,15 @@ namespace BeltTensionTest.WPF.Views
                 new BeltSettingRow("Width (m)",    () => host.DisplaySize.X, v => ApplyDisplaySetting(DisplaySetting.Width, v),    MinDisplayMeters,  8f,   0.05f, "0.00"),
                 new BeltSettingRow("Height (m)",   () => host.DisplaySize.Y, v => ApplyDisplaySetting(DisplaySetting.Height, v),   MinDisplayMeters,  8f,   0.05f, "0.00"),
                 new BeltSettingRow("Distance (m)", () => host.Distance,      v => ApplyDisplaySetting(DisplaySetting.Distance, v), 0.25f, 10f,   0.05f, "0.00"),
+                new BeltSettingRow("Curve (%)",    () => host.CurveAmount * 100f, v => ApplyDisplaySetting(DisplaySetting.Curve, v),  10f, 150f,  5f,   "0"),
+                new BeltSettingRow("X offset (m)", () => host.OffsetX,       v => ApplyDisplaySetting(DisplaySetting.OffsetX, v),  -5f,   5f,   0.05f, "0.00"),
+                new BeltSettingRow("Y offset (m)", () => host.OffsetY,       v => ApplyDisplaySetting(DisplaySetting.OffsetY, v),  -5f,   5f,   0.05f, "0.00"),
                 new BeltSettingRow("DPI (px/m)",   () => (float)_dpi,        v => ApplyDisplaySetting(DisplaySetting.Dpi, v),      128f, 2048f, 16f,   "0"),
             };
             var display = new DisplaySettingsOverlay(_host.GraphicsDevice, 0, 0, displayRows,
-                () => $"Resolution  {host.CanvasWidth} x {host.CanvasHeight} px     Sim: {Services.PanelVisibility.Describe(Services.PanelVisibility.CurrentSimState())}",
-                Services.PanelVisibility.EditViewOptions, () => _editView, SetEditView);
+                () => $"Resolution  {host.CanvasWidth} x {host.CanvasHeight} px     Sim: {Services.PanelVisibility.Describe(Services.PanelVisibility.CurrentSimState())} ({Services.PanelVisibility.Diagnostics()})",
+                Services.PanelVisibility.EditViewOptions, () => _editView, SetEditView,
+                () => host.Curved, SetCurved);
 
             // Defaults to the right-hand edge, vertically centered (the corner
             // panels are all taken); then the saved position, clamped.
@@ -602,6 +606,10 @@ namespace BeltTensionTest.WPF.Views
                     _host.DisplaySize = new System.Numerics.Vector2((float)s.OverlaySizeX, (float)s.OverlaySizeY);
                 if (s.OverlayDistance > 0)
                     _host.Distance = (float)s.OverlayDistance;
+                _host.CurveAmount = (float)s.OverlayCurveAmount;
+                _host.Curved = s.OverlayCurved;
+                _host.OffsetX = (float)s.OverlayOffsetX;
+                _host.OffsetY = (float)s.OverlayOffsetY;
                 if (s.OverlayDpi > 0)
                     _dpi = s.OverlayDpi;
                 if (s.OverlayCursorCalSet)
@@ -743,9 +751,9 @@ namespace BeltTensionTest.WPF.Views
                 {
                     s.OverlayGazeEffect = _gazeFocus.Effect.ToString();
                     s.OverlayGazeSource = _gazeFocus.Source.ToString();
-                    s.OverlayGazeDim = _gazeFocus.DimAmount;
+                    s.OverlayGazeFadedOpacity = _gazeFocus.FadedOpacity;
                     s.OverlayGazeGrow = _gazeFocus.GrowFactor;
-                    s.OverlayGazeDisabledPanels = new List<string>(_gazeFocus.DisabledPanels);
+                    s.OverlayGazeEnabledPanels = new List<string>(_gazeFocus.EnabledPanels);
                 }
                 if (_warningPanel != null)
                 {
@@ -807,6 +815,10 @@ namespace BeltTensionTest.WPF.Views
                 s.OverlaySizeX = _host.DisplaySize.X;
                 s.OverlaySizeY = _host.DisplaySize.Y;
                 s.OverlayDistance = _host.Distance;
+                s.OverlayCurved = _host.Curved;
+                s.OverlayCurveAmount = _host.CurveAmount;
+                s.OverlayOffsetX = _host.OffsetX;
+                s.OverlayOffsetY = _host.OffsetY;
                 s.OverlayDpi = _dpi;
                 s.OverlayCursorCalSet = _host.CursorCalibrated;
                 if (_host.CursorCalibrated)
@@ -888,6 +900,7 @@ namespace BeltTensionTest.WPF.Views
             // sim's state, which can change between any two ticks.
             _panelVisibility?.Apply();
             UpdateSimStateLabel();
+            LogSimStateChange();
 
             // Fade / grow whatever the headset is pointed at. Runs before
             // RenderFrame so this tick's frame already shows the change.
@@ -1077,6 +1090,23 @@ namespace BeltTensionTest.WPF.Views
             Log($"Editing / emulating: {Services.PanelVisibility.EditViewOptions[index]} — panels that only show in the other state are hidden, in edit mode too.");
         }
 
+        private void ShapeBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            if (_host == null || _syncingEditUi || ShapeBox.SelectedIndex < 0) return;
+            SetCurved(ShapeBox.SelectedIndex == 1);
+        }
+
+        /// <summary>Flat or curved overlay, from this window's box or the in-VR Display panel.</summary>
+        private void SetCurved(bool curved)
+        {
+            if (_host == null || _host.Curved == curved) return;
+            _host.Curved = curved;
+            SyncEditPanel();
+            SaveLayout();
+            Log(curved ? "Overlay curved around you (flat if the headset runtime has no cylinder layers)."
+                       : "Overlay flat.");
+        }
+
         private void EditViewBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
             if (_syncingEditUi || EditViewBox == null || EditViewBox.SelectedIndex < 0) return;
@@ -1085,6 +1115,19 @@ namespace BeltTensionTest.WPF.Views
 
         // Live sim state next to the "editing for" choice, so it is clear which
         // layout the panels currently follow.
+        private string _lastSimStateLog = string.Empty;
+
+        // One log line whenever the detected state or its raw readings change,
+        // so a wrong detection can be read back from the log.
+        private void LogSimStateChange()
+        {
+            var svc = Services.IracingService.Instance;
+            string key = $"{Services.PanelVisibility.CurrentSimState()}|{svc.SessionType}|{svc.IsReplayPlaying}|{svc.InReplay}";
+            if (key == _lastSimStateLog) return;
+            _lastSimStateLog = key;
+            Log($"Sim state: {Services.PanelVisibility.Describe(Services.PanelVisibility.CurrentSimState())} ({Services.PanelVisibility.Diagnostics()})");
+        }
+
         private void UpdateSimStateLabel()
         {
             if (EditPanel.Visibility != Visibility.Visible) return;
@@ -1111,6 +1154,10 @@ namespace BeltTensionTest.WPF.Views
             SizeXSlider.Value = _host.DisplaySize.X;
             SizeYSlider.Value = _host.DisplaySize.Y;
             DistanceSlider.Value = _host.Distance;
+            ShapeBox.SelectedIndex = _host.Curved ? 1 : 0;
+            CurveSlider.Value = _host.CurveAmount * 100;
+            OffsetXSlider.Value = _host.OffsetX;
+            OffsetYSlider.Value = _host.OffsetY;
             DpiSlider.Value = _dpi;
             _syncingEditUi = false;
             UpdateEditValueLabels();
@@ -1124,12 +1171,15 @@ namespace BeltTensionTest.WPF.Views
             SizeXValue.Text = _host.DisplaySize.X.ToString("0.00");
             SizeYValue.Text = _host.DisplaySize.Y.ToString("0.00");
             DistanceValue.Text = _host.Distance.ToString("0.00");
+            OffsetXValue.Text = _host.OffsetX.ToString("0.00");
+            CurveValue.Text = (_host.CurveAmount * 100).ToString("0") + "%";
+            OffsetYValue.Text = _host.OffsetY.ToString("0.00");
             DpiValue.Text = _dpi.ToString("0");
             ResolutionValue.Text = $"{_host.CanvasWidth} × {_host.CanvasHeight} px";
         }
 
         /// <summary>One of the overlay display values adjustable in edit mode.</summary>
-        private enum DisplaySetting { Width, Height, Distance, Dpi }
+        private enum DisplaySetting { Width, Height, Distance, Dpi, OffsetX, OffsetY, Curve }
 
         private void DisplaySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
@@ -1138,6 +1188,9 @@ namespace BeltTensionTest.WPF.Views
                 sender == SizeXSlider ? DisplaySetting.Width
                 : sender == SizeYSlider ? DisplaySetting.Height
                 : sender == DpiSlider ? DisplaySetting.Dpi
+                : sender == CurveSlider ? DisplaySetting.Curve
+                : sender == OffsetXSlider ? DisplaySetting.OffsetX
+                : sender == OffsetYSlider ? DisplaySetting.OffsetY
                 : DisplaySetting.Distance,
                 e.NewValue);
         }
@@ -1165,6 +1218,18 @@ namespace BeltTensionTest.WPF.Views
                     break;
                 case DisplaySetting.Dpi:
                     _dpi = value;
+                    break;
+                case DisplaySetting.Curve:
+                    _host.CurveAmount = (float)value / 100f; // the slider and in-VR row are in percent
+                    resolutionMayChange = false;
+                    break;
+                case DisplaySetting.OffsetX:
+                    _host.OffsetX = (float)value;
+                    resolutionMayChange = false;
+                    break;
+                case DisplaySetting.OffsetY:
+                    _host.OffsetY = (float)value;
+                    resolutionMayChange = false;
                     break;
                 case DisplaySetting.Distance when DepthOnlyCheck.IsChecked == true && _host.Distance > 0:
                     // Depth only: scale the quad about the view origin, so it covers

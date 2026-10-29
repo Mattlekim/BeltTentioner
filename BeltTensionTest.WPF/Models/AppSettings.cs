@@ -85,16 +85,16 @@ namespace BeltTensionTest.WPF.Models
         // Rows the standings board grows to before it starts leaving cars out.
         public int OverlayStandingsRows { get; set; } = 26;
         // Gaze focus: what looking at a panel does to it (Services.GazeEffect),
-        // where the look direction comes from (Services.GazeSource), how far
-        // the other panels dim (0..0.7) and how much the looked-at one grows
+        // where the look direction comes from (Services.GazeSource), the opacity
+        // the other panels fade to (0.05..1) and how much the looked-at one grows
         // (1.0..1.6). Set from the in-VR HUD Settings panel.
         public string OverlayGazeEffect { get; set; } = "Brighten";
         public string OverlayGazeSource { get; set; } = "Off";
-        public double OverlayGazeDim { get; set; } = 0.45;
+        public double OverlayGazeFadedOpacity { get; set; } = 0.2;
         public double OverlayGazeGrow { get; set; } = 1.25;
-        // Panels that ignore gaze focus (their eye button in edit mode is off);
-        // every other panel follows the settings above.
-        public List<string> OverlayGazeDisabledPanels { get; set; } = new();
+        // Panels that follow gaze focus (their eye button in edit mode is on);
+        // every other panel ignores the settings above.
+        public List<string> OverlayGazeEnabledPanels { get; set; } = new();
         // Master switch for gaze focus (Preferences > OpenXR > Enable eye tracking).
         // Off ignores the Effect / Tracked with choices above without losing them.
         public bool EnableEyeTracking { get; set; } = true;
@@ -166,8 +166,9 @@ namespace BeltTensionTest.WPF.Models
         // the panel's Bind button in the overlay's edit mode.
         public Dictionary<string, string> OverlayPanelToggleBindings { get; set; } = new();
         // When each VR overlay panel is shown, keyed by panel name:
-        // "Always", "InCar", "Practice", "Qualifying", "Race" or "Replay" (Services.PanelShowMode). Chosen with
-        // the panel's Show button in the overlay's edit mode; a panel with no
+        // "Always", or any comma-separated mix of "Practice", "Qualifying", "Race" and "Replay"
+        // ("InCar" = all three in-car sessions) (Services.PanelShowMode). Chosen with
+        // the panel's Show chips in the overlay's edit mode; a panel with no
         // entry uses the mode it ships with.
         public Dictionary<string, string> OverlayPanelShowModes { get; set; } = new();
         // A panel's state as last set with its Hide / Collapse buttons in the
@@ -177,6 +178,14 @@ namespace BeltTensionTest.WPF.Models
         public double OverlaySizeX { get; set; } = 0;
         public double OverlaySizeY { get; set; } = 0;
         public double OverlayDistance { get; set; } = 0;
+        // Shift of the overlay from straight ahead, in meters: right / up (negative = left / down).
+        // Curved = the overlay wraps around the viewer on a cylinder (needs a runtime with
+        // cylinder layers; flat otherwise). X offset then slides it around the viewer.
+        public bool OverlayCurved { get; set; } = false;
+        // How strongly it bends, 0.1..1.5 (1 = every point equally far from the viewer).
+        public double OverlayCurveAmount { get; set; } = 1;
+        public double OverlayOffsetX { get; set; } = 0;
+        public double OverlayOffsetY { get; set; } = 0;
         // View origin captured by the overlay's Recenter button/binding: the
         // headset position (meters, OpenXR LOCAL space) and look direction
         // (yaw/pitch, radians) the overlay is centered on. Unset = the

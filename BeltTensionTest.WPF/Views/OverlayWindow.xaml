@@ -78,6 +78,9 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Width (m)" VerticalAlignment="Center" Margin="0,0,10,4"/>
@@ -98,34 +101,48 @@
                                 ValueChanged="DisplaySlider_ValueChanged"/>
                         <TextBlock Grid.Row="2" Grid.Column="2" x:Name="DistanceValue" VerticalAlignment="Center" Margin="0,0,0,4"/>
 
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="X offset (m)" VerticalAlignment="Center" Margin="0,0,10,4"/>
+                        <Slider Grid.Row="3" Grid.Column="1" x:Name="OffsetXSlider" Minimum="-5" Maximum="5"
+                                TickFrequency="0.05" IsSnapToTickEnabled="True" Margin="0,0,8,4"
+                                ValueChanged="DisplaySlider_ValueChanged"
+                                ToolTip="Move the overlay left (negative) or right (positive) of straight ahead"/>
+                        <TextBlock Grid.Row="3" Grid.Column="2" x:Name="OffsetXValue" VerticalAlignment="Center" Margin="0,0,0,4"/>
+
+                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Y offset (m)" VerticalAlignment="Center" Margin="0,0,10,4"/>
+                        <Slider Grid.Row="4" Grid.Column="1" x:Name="OffsetYSlider" Minimum="-5" Maximum="5"
+                                TickFrequency="0.05" IsSnapToTickEnabled="True" Margin="0,0,8,4"
+                                ValueChanged="DisplaySlider_ValueChanged"
+                                ToolTip="Move the overlay down (negative) or up (positive) from straight ahead"/>
+                        <TextBlock Grid.Row="4" Grid.Column="2" x:Name="OffsetYValue" VerticalAlignment="Center" Margin="0,0,0,4"/>
+
                         <!-- Canvas resolution = display size × DPI (pixels per meter) -->
-                        <TextBlock Grid.Row="3" Grid.Column="0" Text="DPI (px/m)" VerticalAlignment="Center" Margin="0,0,10,4"/>
-                        <Slider Grid.Row="3" Grid.Column="1" x:Name="DpiSlider" Minimum="128" Maximum="2048"
+                        <TextBlock Grid.Row="5" Grid.Column="0" Text="DPI (px/m)" VerticalAlignment="Center" Margin="0,0,10,4"/>
+                        <Slider Grid.Row="5" Grid.Column="1" x:Name="DpiSlider" Minimum="128" Maximum="2048"
                                 TickFrequency="16" IsSnapToTickEnabled="True" Margin="0,0,8,4"
                                 ValueChanged="DisplaySlider_ValueChanged"/>
-                        <TextBlock Grid.Row="3" Grid.Column="2" x:Name="DpiValue" VerticalAlignment="Center" Margin="0,0,0,4"/>
+                        <TextBlock Grid.Row="5" Grid.Column="2" x:Name="DpiValue" VerticalAlignment="Center" Margin="0,0,0,4"/>
 
-                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Resolution" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <TextBlock Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2" x:Name="ResolutionValue"
+                        <TextBlock Grid.Row="6" Grid.Column="0" Text="Resolution" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBlock Grid.Row="6" Grid.Column="1" Grid.ColumnSpan="2" x:Name="ResolutionValue"
                                    VerticalAlignment="Center"/>
 
                         <!-- Depth-only distance: match the game's UI depth so both eyes agree on the cursor -->
-                        <CheckBox Grid.Row="5" Grid.Column="1" Grid.ColumnSpan="2" x:Name="DepthOnlyCheck"
+                        <CheckBox Grid.Row="7" Grid.Column="1" Grid.ColumnSpan="2" x:Name="DepthOnlyCheck"
                                   Content="Distance changes depth only (keep apparent size)"
                                   Foreground="#A0A0BE" Margin="0,4,0,0"
                                   ToolTip="When ticked, the Distance slider moves the overlay nearer/farther but scales it so it looks exactly the same size, and keeps the resolution and panel layout. Use it to put the overlay at the same depth as the game's UI: slide until the red cursor no longer jumps sideways against the game's cursor when you close one eye, then the other."/>
 
                         <!-- Line the red edit cursor up with the game's own in-VR mouse cursor -->
-                        <TextBlock Grid.Row="6" Grid.Column="0" Text="Mouse" VerticalAlignment="Center" Margin="0,6,10,0"/>
-                        <StackPanel Grid.Row="6" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,6,0,0">
+                        <TextBlock Grid.Row="8" Grid.Column="0" Text="Mouse" VerticalAlignment="Center" Margin="0,6,10,0"/>
+                        <StackPanel Grid.Row="8" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,6,0,0">
                             <Button Content="Calibrate mouse" Height="22" Padding="10,0" Click="CalibrateMouse_Click"
                                     ToolTip="With the game running: put the GAME'S mouse cursor on the green cross shown in VR and left-click, twice. The red cursor then sits on the game's cursor."/>
                             <Button Content="Reset" Height="22" Padding="10,0" Margin="8,0,0,0" Click="ResetMouseCalibration_Click"/>
                         </StackPanel>
 
                         <!-- Panels can be set to show only in the car, in practice / qualifying / the race, or only in the replay; arrange the layout for one state at a time -->
-                        <TextBlock Grid.Row="7" Grid.Column="0" Text="Editing for" VerticalAlignment="Center" Margin="0,6,10,0"/>
-                        <StackPanel Grid.Row="7" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,6,0,0">
+                        <TextBlock Grid.Row="9" Grid.Column="0" Text="Editing for" VerticalAlignment="Center" Margin="0,6,10,0"/>
+                        <StackPanel Grid.Row="9" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,6,0,0">
                             <ComboBox x:Name="EditViewBox" Width="110" SelectedIndex="0" SelectionChanged="EditViewBox_SelectionChanged"
                                       ToolTip="Current follows the sim. The other choices show that state's layout (In car covers every session; Practice, Qualifying and Race are single sessions): panels that only appear in other states are hidden, so the two layouts can be arranged separately. Use each panel's Show button to choose when it appears.">
                                 <ComboBoxItem Content="Current"/>
@@ -138,6 +155,22 @@
                             <TextBlock Text="Sim now:" VerticalAlignment="Center" Margin="12,0,6,0"/>
                             <TextBlock x:Name="SimStateValue" VerticalAlignment="Center" FontWeight="SemiBold"
                                        Foreground="{StaticResource TextPrimaryBrush}" Text="—"/>
+                        </StackPanel>
+
+                        <TextBlock Grid.Row="10" Grid.Column="0" Text="Shape" VerticalAlignment="Center" Margin="0,6,10,0"/>
+                        <StackPanel Grid.Row="10" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,6,0,0">
+                            <ComboBox x:Name="ShapeBox" Width="110" SelectedIndex="0"
+                                      SelectionChanged="ShapeBox_SelectionChanged"
+                                      ToolTip="Flat is a plain screen. Curved wraps the overlay around you on a cylinder (Width is the arc length), and X offset then slides it around you. Needs a headset runtime with cylinder layers; otherwise it stays flat.">
+                                <ComboBoxItem Content="Flat"/>
+                                <ComboBoxItem Content="Curved"/>
+                            </ComboBox>
+                            <TextBlock Text="Curve" VerticalAlignment="Center" Margin="12,0,6,0"/>
+                            <Slider x:Name="CurveSlider" Width="110" Minimum="10" Maximum="150"
+                                    TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center"
+                                    ValueChanged="DisplaySlider_ValueChanged"
+                                    ToolTip="How strongly a curved overlay bends. 100% wraps it evenly around you; less is gentler, more is tighter."/>
+                            <TextBlock x:Name="CurveValue" VerticalAlignment="Center" Margin="6,0,0,0"/>
                         </StackPanel>
                     </Grid>
                 </Border>

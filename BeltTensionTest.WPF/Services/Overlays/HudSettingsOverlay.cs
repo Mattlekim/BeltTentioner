@@ -168,8 +168,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _gazeSource.SelectedIndexChanged += i => { gaze.Source = (GazeSource)i; saved(); Invalidate(); };
             _menu.Add(_gazeSource);
 
-            _gazeDim = new MonoXRSliderControl("Dim the others", 0f, 70f, gaze.DimAmount * 100f, 5f, "0");
-            _gazeDim.ValueChanged += v => { gaze.DimAmount = v / 100f; saved(); Invalidate(); };
+            _gazeDim = new MonoXRSliderControl("Faded opacity", 5f, 100f, gaze.FadedOpacity * 100f, 5f, "0");
+            _gazeDim.ValueChanged += v => { gaze.FadedOpacity = v / 100f; saved(); Invalidate(); };
             _menu.Add(_gazeDim);
 
             _gazeGrow = new MonoXRSliderControl("Enlarge by", 100f, 160f, gaze.GrowFactor * 100f, 5f, "0");
@@ -261,7 +261,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             // nothing is happening when that is the case.
             _gazeEffect.SelectedIndex = (int)_gaze.Effect;
             _gazeSource.SelectedIndex = (int)_gaze.Source;
-            _gazeDim.Value = _gaze.DimAmount * 100f;
+            _gazeDim.Value = _gaze.FadedOpacity * 100f;
             _gazeGrow.Value = _gaze.GrowFactor * 100f;
             _gazeEffect.IsEnabled = _gazeSource.IsEnabled = _gaze.Enabled;
             _gazeDim.IsEnabled = _gaze.Enabled && _gaze.Effect is GazeEffect.Brighten or GazeEffect.Both;
