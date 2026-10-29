@@ -197,6 +197,8 @@ namespace BeltTensionTest.WPF.Models
         public bool OverlayCurved { get; set; } = false;
         // Colour-blind mode for the overlay colours: "Off", "Deuteranopia" or "Tritanomaly".
         public string ColorBlindMode { get; set; } = "Off";
+        // Panels grouped in edit mode (right-click > Group): each entry is a list of panel names that move together.
+        public List<List<string>> OverlayPanelGroups { get; set; } = new();
         // How strongly it bends, 0.1..1.5 (1 = every point equally far from the viewer).
         public double OverlayCurveAmount { get; set; } = 1;
         // Triple = three flat screens like a triple monitor setup: the centre one takes

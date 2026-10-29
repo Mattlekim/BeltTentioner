@@ -141,6 +141,12 @@ namespace BeltTensionTest.WPF.Views
 
                 SetupRenderTargets();
                 ApplySavedPanelStates();
+
+                // Panels grouped in edit mode (right-click > Group) move together.
+                var byName = AllPanels().ToDictionary(p => p.Name);
+                _host.SetGroups((_vm.AppSettings?.OverlayPanelGroups ?? new List<List<string>>())
+                    .Select(names => names.Where(byName.ContainsKey).Select(n => byName[n]).ToList()));
+                _host.GroupsChanged += SaveLayout;
                 _host.StateChanged += OnPanelStateChanged;
                 _host.DragCompleted += OnDragCompleted;
                 _host.ScaleChanged += OnScaleChanged;
@@ -784,6 +790,7 @@ namespace BeltTensionTest.WPF.Views
                     s.OverlayGazeGrow = _gazeFocus.GrowFactor;
                     s.OverlayGazeEnabledPanels = new List<string>(_gazeFocus.EnabledPanels);
                 }
+                s.OverlayPanelGroups = _host.Groups.Select(g => g.Select(m => m.Name).ToList()).ToList();
                 if (_warningPanel != null)
                 {
                     s.OverlayWarningPanelX = _warningPanel.X;
