@@ -129,18 +129,36 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private (Col Col, int Left, int Width)[] ColumnCells()
         {
             var cols = VisibleColumns();
-            int flex = ColContentRight - ColContentLeft - ColGapX * (cols.Count - 1);
-            foreach (var c in cols) flex -= FixedWidth(c);
-
             var cells = new (Col, int, int)[cols.Count];
             int x = ColContentLeft;
             for (int i = 0; i < cols.Count; i++)
             {
-                int w = cols[i] == Col.Driver ? Math.Max(80, flex) : FixedWidth(cols[i]);
+                int w = cols[i] == Col.Driver ? DriverWidth : FixedWidth(cols[i]);
                 cells[i] = (cols[i], x, w);
                 x += w + ColGapX;
             }
             return cells;
+        }
+
+        // The name column is only as wide as a typical name in the chosen format; a longer name is cut
+        // off with "..", which keeps the numbers close to the position instead of far across the panel.
+        private int DriverWidth => _nameFormat switch
+        {
+            RelativeNameFormat.Initial => 215,
+            RelativeNameFormat.Surname => 190,
+            _ => 280,
+        };
+
+        // Narrowest the panel gets, so the title bar and info bar still fit with few columns showing.
+        private const int MinPanelWidth = 640;
+
+        /// <summary>Panel width that holds exactly the columns on screen.</summary>
+        private int WidthForColumns()
+        {
+            var cols = VisibleColumns();
+            int w = ColContentLeft + ColGapX * Math.Max(0, cols.Count - 1) + Pad + 10;
+            foreach (var c in cols) w += c == Col.Driver ? DriverWidth : FixedWidth(c);
+            return Math.Max(MinPanelWidth, w);
         }
 
         // App palette (Resources/Styles.xaml), matching BeltSettingsOverlay.
@@ -1062,6 +1080,13 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public override void Update(GameTime gameTime)
         {
+            int wanted = WidthForColumns();
+            if (wanted != Width)
+            {
+                Resize(wanted, Height);
+                _lastSnapshot = string.Empty;
+                Invalidate();
+            }
             if (_fontVersion != OverlayFonts.Version)
             {
                 BakeFonts();
@@ -1516,6 +1541,19 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _sb.End();
         }
 
+        /// <summary>
+        /// A coloured row in its dark or light shade, by the row's place on screen, so rows of the same
+        /// colour (a run of cars a lap down, say) still alternate and are easy to follow across the panel.
+        /// </summary>
+        private static XnaColor Alternate(XnaColor color, int index)
+        {
+            var shade = (index & 1) == 0
+                ? XnaColor.Lerp(color, XnaColor.Black, 0.5f)
+                : XnaColor.Lerp(color, XnaColor.White, 0.18f);
+            shade.A = color.A;
+            return shade;
+        }
+
         private void DrawRow(Row row, int y, (Col Col, int Left, int Width)[] cells, int rowRadius, int index)
         {
             if (row.Divider)
@@ -1530,9 +1568,9 @@ namespace BeltTensionTest.WPF.Services.Overlays
             }
 
             XnaColor bg, badge;
-            if (row.IsPlayer) { bg = PlayerBg; badge = ColorBlind.Map(CbRole.Good, new XnaColor(0x2E, 0x8C, 0x57), 0.6f); }
-            else if (row.LapDelta >= 1) { bg = LapAheadBg; badge = ColorBlind.Map(CbRole.Bad, new XnaColor(0xA8, 0x30, 0x30), 0.65f); }
-            else if (row.LapDelta <= -1) { bg = LapBehindBg; badge = ColorBlind.Map(CbRole.Info, new XnaColor(0x30, 0x50, 0xA8), 0.65f); }
+            if (row.IsPlayer) { bg = Alternate(PlayerBg, index); badge = ColorBlind.Map(CbRole.Good, new XnaColor(0x2E, 0x8C, 0x57), 0.6f); }
+            else if (row.LapDelta >= 1) { bg = Alternate(LapAheadBg, index); badge = ColorBlind.Map(CbRole.Bad, new XnaColor(0xA8, 0x30, 0x30), 0.65f); }
+            else if (row.LapDelta <= -1) { bg = Alternate(LapBehindBg, index); badge = ColorBlind.Map(CbRole.Info, new XnaColor(0x30, 0x50, 0xA8), 0.65f); }
             else
             {
                 bg = RowShades[index & 1];

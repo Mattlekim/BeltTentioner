@@ -6,7 +6,7 @@ namespace BeltTensionTest.WPF.Services.Data
     public enum CatchState : byte
     {
         NoCar,       // nobody to measure (alone, or you are in the pits)
-        Unknown,     // a car is there but one of you has not set enough clean laps yet
+        Unknown,     // a car is there but one of you has not set enough valid laps yet
         NotCatching, // the gap is steady or growing
         Catching,    // the gap is closing; LapsToCatch is the estimate
     }
@@ -36,8 +36,10 @@ namespace BeltTensionTest.WPF.Services.Data
     /// so laps = gap / (pace difference). A car is "not catching" when the pace difference is
     /// negligible or against you, or the estimate runs past <see cref="MaxLaps"/>.
     ///
-    /// Pace is the median of each car's last few clean laps; laps much slower than the car's best
-    /// (pit stops, yellows, spins) are ignored so one bad lap does not flip the answer.
+    /// Pace is the median of each car's last few laps. Laps with an off-track moment or contact
+    /// count, since they are part of how the car is really going; only laps that are not racing
+    /// laps are dropped: any time on pit road or in the garage, or under the grid / pace car. The
+    /// median keeps one bad lap from flipping the answer.
     ///
     /// Fed from CarsUpdated on the SDK telemetry thread; the accessors are safe from any thread.
     /// </summary>
@@ -53,7 +55,6 @@ namespace BeltTensionTest.WPF.Services.Data
 
         private const int PaceLaps = 5;           // laps in the pace median
         private const int MinPaceLaps = 2;        // laps a car needs before its pace is trusted
-        private const float CleanLapFactor = 1.08f; // a lap this much slower than the best is not "clean"
 
         private const int SurfaceNotInWorld = -1;
         private const int SurfaceOffTrack = 0;
@@ -64,12 +65,29 @@ namespace BeltTensionTest.WPF.Services.Data
             public readonly Queue<float> Laps = new();
             public float LastSeen;
 
-            public void Add(Car car)
+            // Whether the lap in progress / the lap just finished was not a racing lap: the car touched
+            // pit road or the garage, or ran under the grid / pace car. Off-track moments and contact
+            // do not count against a lap. A car first seen mid-lap has an unknown last lap, so that
+            // is left out too.
+            private int _lapCompleted = -1;
+            private bool _currentInvalid;
+            private bool _previousInvalid = true;
+
+            public void Add(Car car, bool gridOrPace)
             {
+                if (car.LapCompleted != _lapCompleted)
+                {
+                    if (_lapCompleted >= 0) _previousInvalid = _currentInvalid;
+                    _currentInvalid = false;
+                    _lapCompleted = car.LapCompleted;
+                }
+                if (gridOrPace || car.OnPitRoad || car.IsInGarage)
+                    _currentInvalid = true;
+
                 float lap = car.LastLapTime;
                 if (lap <= 0 || lap == LastSeen) return;
                 LastSeen = lap;
-                if (car.BestLapTime > 0 && lap > car.BestLapTime * CleanLapFactor) return;
+                if (_previousInvalid) return;
                 Laps.Enqueue(lap);
                 while (Laps.Count > PaceLaps) Laps.Dequeue();
             }
@@ -126,7 +144,7 @@ namespace BeltTensionTest.WPF.Services.Data
                 {
                     if (car.CarIdx < 0) continue;
                     if (!_pace.TryGetValue(car.CarIdx, out var p)) _pace[car.CarIdx] = p = new Pace();
-                    p.Add(car);
+                    p.Add(car, svc.OnGridOrPaceLap);
                 }
 
                 _ahead = _behind = CatchEstimate.None;

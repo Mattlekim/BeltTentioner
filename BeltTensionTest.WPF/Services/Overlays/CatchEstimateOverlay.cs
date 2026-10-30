@@ -103,7 +103,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
                     return new RowText
                     {
                         Readout = "Calculating",
-                        Detail = $"{CarLabel(e.CarIdx)}Needs a few clean laps",
+                        Detail = $"{CarLabel(e.CarIdx)}Needs a few valid laps",
                         Color = BodyText,
                     };
                 default:
