@@ -38,7 +38,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         public override int TitleBarSourceHeight => TitleBarHeight;
         protected const int HeaderRowHeight = 34; // column labels above the rows
         protected const int RowHeight = 44;
-        protected const int RowSpacing = 3;
+        protected const int RowSpacing = 1;
         /// <summary>Panel width the relative boxes use; a box can ask for another.</summary>
         public const int DefaultPanelWidth = 1200;
         protected const int Pad = 8;
@@ -283,6 +283,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _sb = new SpriteBatch(device);
             _white = new Texture2D(device, 1, 1);
             _white.SetData(new[] { XnaColor.White });
+            _fastestLapIcon = LoadFastestLapIcon(device);
             BakeFonts();
 
             // Sector timing runs at full telemetry rate (60 Hz) so boundary
@@ -1177,6 +1178,68 @@ namespace BeltTensionTest.WPF.Services.Overlays
             new XnaColor((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF, alpha);
 
         /// <summary>Dark or light text, whichever reads on the given background.</summary>
+        /// <summary>
+        /// iRacing's license class colors, from the class letter of "A 3.45" (the session
+        /// info's own color is the fallback for anything else, such as Pro).
+        /// </summary>
+        private static int LicenseColor(string license, int sessionColor)
+        {
+            switch (string.IsNullOrEmpty(license) ? '\0' : char.ToUpperInvariant(license[0]))
+            {
+                case 'R': return 0xFC0706; // Rookie: red
+                case 'D': return 0xFC8A27; // D: orange
+                case 'C': return 0xFEEC04; // C: yellow
+                case 'B': return 0x00C702; // B: green
+                case 'A': return 0x0153DB; // A: blue
+                default: return sessionColor >= 0 ? sessionColor : 0x505068;
+            }
+        }
+
+        /// <summary>
+        /// The info bar's fastest-lap readout: the fastest-lap icon on a purple square, then the
+        /// driver and time (<paramref name="text"/>), or NA while no fastest lap exists yet.
+        /// </summary>
+        protected void DrawFastestLapInfo(XnaRectangle area, string text)
+        {
+            float y = area.Y + (area.Height - FontBody.LineSpacing) / 2f;
+            var chip = new XnaRectangle(area.X, area.Y + 9, 36, area.Height - 18);
+            _sb.Draw(_white, chip, SecPurple);
+            if (_fastestLapIcon != null)
+            {
+                int s = Math.Min(chip.Height - 2, 24);
+                _sb.Draw(_fastestLapIcon, new XnaRectangle(chip.X + (chip.Width - s) / 2, chip.Y + (chip.Height - s) / 2, s, s), XnaColor.White);
+            }
+            else
+            {
+                var fl = FontHead.MeasureString("FL");
+                _sb.DrawString(FontHead, "FL", new XnaVector2(chip.X + (chip.Width - fl.X) / 2f, area.Y + (area.Height - FontHead.LineSpacing) / 2f), XnaColor.White);
+            }
+            bool none = string.IsNullOrEmpty(text);
+            _sb.DrawString(FontBody, none ? "NA" : text, new XnaVector2(chip.Right + 10, y), none ? RowTextDim : RowText);
+        }
+
+        // The fastest-lap icon (white on transparent, tinted by the draw); null when the file is missing.
+        private Texture2D? _fastestLapIcon;
+
+        private static Texture2D? LoadFastestLapIcon(GraphicsDevice device)
+        {
+            try
+            {
+                string path = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "fastest-lap.png");
+                if (!System.IO.File.Exists(path)) path = System.IO.Path.Combine(AppContext.BaseDirectory, "fastest-lap.png");
+                if (!System.IO.File.Exists(path)) return null;
+                using var stream = System.IO.File.OpenRead(path);
+                var tex = Texture2D.FromStream(device, stream);
+                // The sprite batch blends premultiplied: scale each pixel by its alpha.
+                var px = new XnaColor[tex.Width * tex.Height];
+                tex.GetData(px);
+                for (int i = 0; i < px.Length; i++) px[i] = XnaColor.FromNonPremultiplied(px[i].R, px[i].G, px[i].B, px[i].A);
+                tex.SetData(px);
+                return tex;
+            }
+            catch (Exception) { return null; }
+        }
+
         protected static XnaColor TextOn(int rgb)
         {
             double lum = 0.299 * ((rgb >> 16) & 0xFF) + 0.587 * ((rgb >> 8) & 0xFF) + 0.114 * (rgb & 0xFF);
@@ -1188,7 +1251,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         public override void Render(GameTime gameTime)
         {
             int Radius = OverlayStyle.CornerRadius;
-            const int RowRadius = 8;
+            const int RowRadius = 0; // square rows
 
             GraphicsDevice.Clear(XnaColor.Transparent);
 
@@ -1357,7 +1420,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
                         var badgeRect = new XnaRectangle(cl, y + 5, Math.Min(42, cw), RowHeight - 10);
                         XnaColor fill = row.ClassColor >= 0 ? FromRgb(row.ClassColor) : badge;
                         XnaColor fg = row.ClassColor >= 0 ? TextOn(row.ClassColor) : RowText;
-                        MonoXRDraw.RoundedRect(_sb, badgeRect, 6, fill);
+                        _sb.Draw(_white, badgeRect, fill);
                         if (row.Pos > 0)
                         {
                             string pos = row.Pos.ToString();
@@ -1371,8 +1434,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
                     {
                         if (string.IsNullOrEmpty(row.License)) break;
                         var r = new XnaRectangle(cl, y + 7, cw, RowHeight - 14);
-                        int lic = row.LicColor >= 0 ? row.LicColor : 0x505068;
-                        MonoXRDraw.RoundedRect(_sb, r, 5, FromRgb(lic));
+                        int lic = LicenseColor(row.License, row.LicColor);
+                        _sb.Draw(_white, r, FromRgb(lic));
                         var size = FontHead.MeasureString(row.License);
                         _sb.DrawString(FontHead, row.License,
                             new XnaVector2(r.X + (r.Width - size.X) / 2f, smallY), TextOn(lic));
@@ -1526,9 +1589,17 @@ namespace BeltTensionTest.WPF.Services.Overlays
             else if (row.BestIsFastest)
             {
                 var r = new XnaRectangle(cl, y + 9, 36, RowHeight - 18);
-                MonoXRDraw.RoundedRect(_sb, r, 5, SecPurple);
-                var size = FontHead.MeasureString("FL");
-                _sb.DrawString(FontHead, "FL", new XnaVector2(r.X + (r.Width - size.X) / 2f, smallY), XnaColor.White);
+                _sb.Draw(_white, r, SecPurple);
+                if (_fastestLapIcon != null)
+                {
+                    int s = Math.Min(r.Height - 2, 24);
+                    _sb.Draw(_fastestLapIcon, new XnaRectangle(r.X + (r.Width - s) / 2, r.Y + (r.Height - s) / 2, s, s), XnaColor.White);
+                }
+                else
+                {
+                    var size = FontHead.MeasureString("FL");
+                    _sb.DrawString(FontHead, "FL", new XnaVector2(r.X + (r.Width - size.X) / 2f, smallY), XnaColor.White);
+                }
             }
         }
 
@@ -1559,6 +1630,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             FontBody.Texture.Dispose();
             Font.Texture.Dispose();
             _white.Dispose();
+            _fastestLapIcon?.Dispose();
             _sb.Dispose();
             base.Dispose();
         }

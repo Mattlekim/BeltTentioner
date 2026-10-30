@@ -450,20 +450,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         protected override void DrawInfoBar(XnaRectangle area)
         {
             float y = area.Y + (area.Height - FontBody.LineSpacing) / 2f;
-            if (!string.IsNullOrEmpty(_fastestText))
-            {
-                var chip = new XnaRectangle(area.X, area.Y + 9, 36, area.Height - 18);
-                MonoXRDraw.RoundedRect(Batch, chip, 5, SecPurple);
-                var fl = FontHead.MeasureString("FL");
-                Batch.DrawString(FontHead, "FL",
-                    new XnaVector2(chip.X + (chip.Width - fl.X) / 2f, area.Y + (area.Height - FontHead.LineSpacing) / 2f),
-                    XnaColor.White);
-                Batch.DrawString(FontBody, _fastestText, new XnaVector2(chip.Right + 10, y), RowText);
-            }
-            else
-            {
-                Batch.DrawString(FontBody, "No lap times yet", new XnaVector2(area.X, y), RowTextDim);
-            }
+            DrawFastestLapInfo(area, _fastestText);
 
             var size = FontBody.MeasureString(_fieldText);
             Batch.DrawString(FontBody, _fieldText,
