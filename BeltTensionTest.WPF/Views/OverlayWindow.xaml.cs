@@ -1357,6 +1357,10 @@ namespace BeltTensionTest.WPF.Views
             TopHeightSlider.Value = _host.TripleTopHeight;
             TopAngleSlider.Value = _host.TripleTopAngle;
             TopHeightSlider.IsEnabled = TopAngleSlider.IsEnabled = _host.Triple && _host.TripleTop;
+            // Only the settings of the selected shape are shown.
+            CurveLabel.Visibility = CurvePanel.Visibility = _host.Curved && !_host.Triple ? Visibility.Visible : Visibility.Collapsed;
+            TripleLabel.Visibility = TriplePanel.Visibility = _host.Triple ? Visibility.Visible : Visibility.Collapsed;
+            TopLabel.Visibility = TopPanel.Visibility = _host.Triple && _host.TripleTop ? Visibility.Visible : Visibility.Collapsed;
             OffsetXSlider.Value = _host.OffsetX;
             OffsetYSlider.Value = _host.OffsetY;
             DpiSlider.Value = _dpi;

@@ -83,6 +83,7 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Width (m)" VerticalAlignment="Center" Margin="0,0,10,4"/>
@@ -169,7 +170,11 @@
                                 <ComboBoxItem Content="Triple"/>
                                 <ComboBoxItem Content="Triple + top"/>
                             </ComboBox>
-                            <TextBlock Text="Curve" VerticalAlignment="Center" Margin="12,0,6,0"/>
+                        </StackPanel>
+
+                        <!-- Curved: how strongly it bends. Only shown for the Curved shape. -->
+                        <TextBlock Grid.Row="11" Grid.Column="0" x:Name="CurveLabel" Text="Curve" VerticalAlignment="Center" Margin="0,6,10,0"/>
+                        <StackPanel Grid.Row="11" Grid.Column="1" Grid.ColumnSpan="2" x:Name="CurvePanel" Orientation="Horizontal" Margin="0,6,0,0">
                             <Slider x:Name="CurveSlider" Width="110" Minimum="10" Maximum="150"
                                     TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center"
                                     ValueChanged="DisplaySlider_ValueChanged"
@@ -178,8 +183,8 @@
                         </StackPanel>
 
                         <!-- Triple screens: how wide the middle one is, and how far the outer two turn in -->
-                        <TextBlock Grid.Row="11" Grid.Column="0" Text="Triple" VerticalAlignment="Center" Margin="0,6,10,0"/>
-                        <StackPanel Grid.Row="11" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,6,0,0">
+                        <TextBlock Grid.Row="12" Grid.Column="0" x:Name="TripleLabel" Text="Triple" VerticalAlignment="Center" Margin="0,6,10,0"/>
+                        <StackPanel Grid.Row="12" Grid.Column="1" Grid.ColumnSpan="2" x:Name="TriplePanel" Orientation="Horizontal" Margin="0,6,0,0">
                             <TextBlock Text="Center" VerticalAlignment="Center" Margin="0,0,6,0"/>
                             <Slider x:Name="TripleCenterSlider" Width="100" Minimum="20" Maximum="90"
                                     TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center"
@@ -195,8 +200,8 @@
                         </StackPanel>
 
                         <!-- Triple + top: a fourth screen above the middle one, same width -->
-                        <TextBlock Grid.Row="12" Grid.Column="0" Text="Top screen" VerticalAlignment="Center" Margin="0,6,10,0"/>
-                        <StackPanel Grid.Row="12" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,6,0,0">
+                        <TextBlock Grid.Row="13" Grid.Column="0" x:Name="TopLabel" Text="Top screen" VerticalAlignment="Center" Margin="0,6,10,0"/>
+                        <StackPanel Grid.Row="13" Grid.Column="1" Grid.ColumnSpan="2" x:Name="TopPanel" Orientation="Horizontal" Margin="0,6,0,0">
                             <TextBlock Text="Height" VerticalAlignment="Center" Margin="0,0,6,0"/>
                             <Slider x:Name="TopHeightSlider" Width="100" Minimum="0.2" Maximum="4"
                                     TickFrequency="0.05" IsSnapToTickEnabled="True" VerticalAlignment="Center"
