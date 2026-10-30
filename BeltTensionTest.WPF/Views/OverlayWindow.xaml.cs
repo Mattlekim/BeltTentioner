@@ -320,7 +320,7 @@ namespace BeltTensionTest.WPF.Views
 
             // Restore the last dragged position (clamped in case the canvas shrank).
             var s = _vm.AppSettings;
-            if (s != null && s.OverlayPanelX >= 0 && s.OverlayPanelY >= 0)
+            if (s != null && HasSavedPos(s.OverlayPanelX, s.OverlayPanelY))
             {
                 // Clamp against the size it will actually be shown at (its saved scale).
                 double beltScale = s.OverlayPanelScale > 0 ? s.OverlayPanelScale : 1.0;
@@ -338,11 +338,11 @@ namespace BeltTensionTest.WPF.Views
             // on the session. It keeps the old Race box's saved position and
             // size; the first time it inherits the old combined "Main" panel's.
             int boxX = 16, boxY = 16;
-            if (s != null && s.OverlayMainPanelX >= 0 && s.OverlayMainPanelY >= 0)
+            if (s != null && HasSavedPos(s.OverlayMainPanelX, s.OverlayMainPanelY))
                 (boxX, boxY) = (s.OverlayMainPanelX, s.OverlayMainPanelY);
 
             int raceX = boxX, raceY = boxY;
-            if (s != null && s.OverlayRacePanelX >= 0 && s.OverlayRacePanelY >= 0)
+            if (s != null && HasSavedPos(s.OverlayRacePanelX, s.OverlayRacePanelY))
                 (raceX, raceY) = (s.OverlayRacePanelX, s.OverlayRacePanelY);
             _relativePanel = _host.AddRenderTarget(new RelativeOverlay(_host.GraphicsDevice,
                 Math.Min(raceX, Math.Max(0, _host.CanvasWidth - 100)),
@@ -365,7 +365,7 @@ namespace BeltTensionTest.WPF.Views
             const float StandingsDefaultScale = 0.7f;
             int standX = Math.Max(0, _host.CanvasWidth - (int)(StandingsOverlay.BoardWidth * StandingsDefaultScale) - 16);
             int standY = 16;
-            if (s != null && s.OverlayStandingsPanelX >= 0 && s.OverlayStandingsPanelY >= 0)
+            if (s != null && HasSavedPos(s.OverlayStandingsPanelX, s.OverlayStandingsPanelY))
             {
                 standX = Math.Min(s.OverlayStandingsPanelX, Math.Max(0, _host.CanvasWidth - 100));
                 standY = Math.Min(s.OverlayStandingsPanelY, Math.Max(0, _host.CanvasHeight - 100));
@@ -432,7 +432,7 @@ namespace BeltTensionTest.WPF.Views
             };
 
             int hudX = 16, hudY = Math.Max(0, _host.CanvasHeight - 400); // above the GPU panel's corner
-            if (s != null && s.OverlayHudSettingsPanelX >= 0 && s.OverlayHudSettingsPanelY >= 0)
+            if (s != null && HasSavedPos(s.OverlayHudSettingsPanelX, s.OverlayHudSettingsPanelY))
             {
                 hudX = Math.Min(s.OverlayHudSettingsPanelX, Math.Max(0, _host.CanvasWidth - 100));
                 hudY = Math.Min(s.OverlayHudSettingsPanelY, Math.Max(0, _host.CanvasHeight - 100));
@@ -446,7 +446,7 @@ namespace BeltTensionTest.WPF.Views
             // Yellow-flag warning card: defaults to top-center, above where
             // the eye already is for flags.
             int warnX = (_host.CanvasWidth - 360) / 2, warnY = 16;
-            if (s != null && s.OverlayWarningPanelX >= 0 && s.OverlayWarningPanelY >= 0)
+            if (s != null && HasSavedPos(s.OverlayWarningPanelX, s.OverlayWarningPanelY))
             {
                 warnX = Math.Min(s.OverlayWarningPanelX, Math.Max(0, _host.CanvasWidth - 100));
                 warnY = Math.Min(s.OverlayWarningPanelY, Math.Max(0, _host.CanvasHeight - 100));
@@ -457,7 +457,7 @@ namespace BeltTensionTest.WPF.Views
             // Car-alongside spotter (NearbyCarsOverlay): defaults to bottom-
             // center, roughly where your peripheral vision expects a spotter.
             int nearX = (_host.CanvasWidth - 500) / 2, nearY = _host.CanvasHeight - 200;
-            if (s != null && s.OverlayNearbyPanelX >= 0 && s.OverlayNearbyPanelY >= 0)
+            if (s != null && HasSavedPos(s.OverlayNearbyPanelX, s.OverlayNearbyPanelY))
             {
                 nearX = Math.Min(s.OverlayNearbyPanelX, Math.Max(0, _host.CanvasWidth - 100));
                 nearY = Math.Min(s.OverlayNearbyPanelY, Math.Max(0, _host.CanvasHeight - 100));
@@ -468,7 +468,7 @@ namespace BeltTensionTest.WPF.Views
             // Slow-car warning card: defaults just below the yellow-flag card
             // (both live top-center; a slow car and a stopped car are cousins).
             int slowX = (_host.CanvasWidth - 300) / 2, slowY = 16 + 120 + 12;
-            if (s != null && s.OverlaySlowCarPanelX >= 0 && s.OverlaySlowCarPanelY >= 0)
+            if (s != null && HasSavedPos(s.OverlaySlowCarPanelX, s.OverlaySlowCarPanelY))
             {
                 slowX = Math.Min(s.OverlaySlowCarPanelX, Math.Max(0, _host.CanvasWidth - 100));
                 slowY = Math.Min(s.OverlaySlowCarPanelY, Math.Max(0, _host.CanvasHeight - 100));
@@ -479,7 +479,7 @@ namespace BeltTensionTest.WPF.Views
             // Distance-to-car-behind box: defaults just above the spotter
             // strip, bottom-center (where a mirror glance would go).
             int behindX = (_host.CanvasWidth - 160) / 2, behindY = Math.Max(0, _host.CanvasHeight - 200 - 80 - 12);
-            if (s != null && s.OverlayCarBehindPanelX >= 0 && s.OverlayCarBehindPanelY >= 0)
+            if (s != null && HasSavedPos(s.OverlayCarBehindPanelX, s.OverlayCarBehindPanelY))
             {
                 behindX = Math.Min(s.OverlayCarBehindPanelX, Math.Max(0, _host.CanvasWidth - 100));
                 behindY = Math.Min(s.OverlayCarBehindPanelY, Math.Max(0, _host.CanvasHeight - 100));
@@ -495,7 +495,7 @@ namespace BeltTensionTest.WPF.Views
             if (s?.EnableYouTubeOverlay == true)
             {
                 int ytX = Math.Max(0, _host.CanvasWidth - 720 - 16), ytY = 16;
-                if (s.OverlayYouTubePanelX >= 0 && s.OverlayYouTubePanelY >= 0)
+                if (HasSavedPos(s.OverlayYouTubePanelX, s.OverlayYouTubePanelY))
                 {
                     ytX = Math.Min(s.OverlayYouTubePanelX, Math.Max(0, _host.CanvasWidth - 100));
                     ytY = Math.Min(s.OverlayYouTubePanelY, Math.Max(0, _host.CanvasHeight - 100));
@@ -506,7 +506,7 @@ namespace BeltTensionTest.WPF.Views
 
             // GPU load / temperature / VRAM panel: defaults to the bottom-left corner.
             int gpuX = 16, gpuY = Math.Max(0, _host.CanvasHeight - 250 - 16);
-            if (s != null && s.OverlayGpuPanelX >= 0 && s.OverlayGpuPanelY >= 0)
+            if (s != null && HasSavedPos(s.OverlayGpuPanelX, s.OverlayGpuPanelY))
             {
                 gpuX = Math.Min(s.OverlayGpuPanelX, Math.Max(0, _host.CanvasWidth - 100));
                 gpuY = Math.Min(s.OverlayGpuPanelY, Math.Max(0, _host.CanvasHeight - 100));
@@ -518,7 +518,7 @@ namespace BeltTensionTest.WPF.Views
             var incidents = new IncidentsOverlay(_host.GraphicsDevice, 0, 0);
             int incX = Math.Max(0, _host.CanvasWidth - incidents.Width - 24);
             int incY = Math.Max(0, _host.CanvasHeight - incidents.Height - 24);
-            if (s != null && s.OverlayIncidentPanelX >= 0 && s.OverlayIncidentPanelY >= 0)
+            if (s != null && HasSavedPos(s.OverlayIncidentPanelX, s.OverlayIncidentPanelY))
             {
                 incX = Math.Min(s.OverlayIncidentPanelX, Math.Max(0, _host.CanvasWidth - 100));
                 incY = Math.Min(s.OverlayIncidentPanelY, Math.Max(0, _host.CanvasHeight - 100));
@@ -543,6 +543,8 @@ namespace BeltTensionTest.WPF.Views
                 new BeltSettingRow("Side angle",   () => host.TripleSideAngle,     v => ApplyDisplaySetting(DisplaySetting.TripleAngle, v),  0f,  90f, 1f, "0"),
                 new BeltSettingRow("Top height (m)", () => host.TripleTopHeight, v => ApplyDisplaySetting(DisplaySetting.TopHeight, v), 0.2f, 4f, 0.05f, "0.00"),
                 new BeltSettingRow("Top tilt",     () => host.TripleTopAngle,  v => ApplyDisplaySetting(DisplaySetting.TopAngle, v),  0f,  90f, 1f, "0"),
+                new BeltSettingRow("Bottom height (m)", () => host.TripleBottomHeight, v => ApplyDisplaySetting(DisplaySetting.BottomHeight, v), 0.2f, 4f, 0.05f, "0.00"),
+                new BeltSettingRow("Bottom tilt",  () => host.TripleBottomAngle,  v => ApplyDisplaySetting(DisplaySetting.BottomAngle, v),  0f,  90f, 1f, "0"),
                 new BeltSettingRow("X offset (m)", () => host.OffsetX,       v => ApplyDisplaySetting(DisplaySetting.OffsetX, v),  -5f,   5f,   0.05f, "0.00"),
                 new BeltSettingRow("Y offset (m)", () => host.OffsetY,       v => ApplyDisplaySetting(DisplaySetting.OffsetY, v),  -5f,   5f,   0.05f, "0.00"),
                 new BeltSettingRow("DPI (px/m)",   () => (float)_dpi,        v => ApplyDisplaySetting(DisplaySetting.Dpi, v),      128f, 2048f, 16f,   "0"),
@@ -556,7 +558,7 @@ namespace BeltTensionTest.WPF.Views
             // panels are all taken); then the saved position, clamped.
             int dispX = Math.Max(0, _host.CanvasWidth - display.Width - 24);
             int dispY = Math.Max(0, (_host.CanvasHeight - display.Height) / 2);
-            if (s != null && s.OverlayDisplayPanelX >= 0 && s.OverlayDisplayPanelY >= 0)
+            if (s != null && HasSavedPos(s.OverlayDisplayPanelX, s.OverlayDisplayPanelY))
             {
                 dispX = Math.Min(s.OverlayDisplayPanelX, Math.Max(0, _host.CanvasWidth - 100));
                 dispY = Math.Min(s.OverlayDisplayPanelY, Math.Max(0, _host.CanvasHeight - 100));
@@ -566,6 +568,16 @@ namespace BeltTensionTest.WPF.Views
             // A tab on the right edge, edit mode only: opens the panel, which the host places.
             display.DockSide = MonoXR.Client.OverlayDockSide.Right;
             _displayPanel = _host.AddRenderTarget(display);
+
+            // Saved positions are measured from the centre screen's corner:
+            // move the panels just built onto the canvas from there.
+            var origin = _host.CenterOrigin;
+            foreach (var (_, panel) in PanelPrefixes())
+            {
+                if (panel == null || panel.IsDocked) continue;
+                panel.X += origin.X;
+                panel.Y += origin.Y;
+            }
 
             // Restore each panel's saved size (edit-mode -/+ buttons / corner
             // grip), then pull anything the new size pushed off the canvas back on.
@@ -643,6 +655,9 @@ namespace BeltTensionTest.WPF.Views
                 _host.TripleTopHeight = (float)s.OverlayTopHeight;
                 _host.TripleTopAngle = (float)s.OverlayTopAngle;
                 _host.TripleTop = s.OverlayTripleTop;
+                _host.TripleBottomHeight = (float)s.OverlayBottomHeight;
+                _host.TripleBottomAngle = (float)s.OverlayBottomAngle;
+                _host.TripleBottom = s.OverlayTripleBottom;
                 _host.Triple = s.OverlayTriple;
                 _host.OffsetX = (float)s.OverlayOffsetX;
                 _host.OffsetY = (float)s.OverlayOffsetY;
@@ -724,6 +739,13 @@ namespace BeltTensionTest.WPF.Views
                 if (p != null) yield return p;
         }
 
+        /// <summary>Whether a panel has a saved position (both coordinates -1 means it was never moved).</summary>
+        private static bool HasSavedPos(int x, int y) => !(x == -1 && y == -1);
+
+        // Layout waiting for the canvas to finish resizing after a shape change;
+        // panels are placed once the centre screen's corner has settled.
+        private Dictionary<string, double>? _pendingShapeLayout;
+
         private void OnResolutionTimerTick(object? sender, EventArgs e)
         {
             // The in-VR sliders are dragged in canvas pixels, so rebuilding the
@@ -734,6 +756,13 @@ namespace BeltTensionTest.WPF.Views
 
             _resolutionTimer.Stop();
             ApplyCanvasResolution();
+            if (_pendingShapeLayout != null && _vm.AppSettings != null)
+            {
+                Services.OverlayLayoutService.RestorePanels(_vm.AppSettings, _pendingShapeLayout);
+                _pendingShapeLayout = null;
+                ApplyPanelLayoutFromSettings();
+            }
+            ClampPanelsToCanvas();
             UpdateEditValueLabels();
             SaveLayout();
         }
@@ -780,6 +809,16 @@ namespace BeltTensionTest.WPF.Views
                     s.OverlayHudSettingsPanelY = _hudSettingsPanel.Y;
                     s.OverlayHudSettingsPanelScale = SavedScaleOf(_hudSettingsPanel);
                     s.OverlayHudSettingsPanelOpacity = SavedOpacityOf(_hudSettingsPanel);
+                }
+                // Positions are saved from the centre screen's corner, so they
+                // keep their place when top / bottom screens come and go.
+                var origin = _host.CenterOrigin;
+                var settingsType = typeof(Models.AppSettings);
+                foreach (var (prefix, panel) in PanelPrefixes())
+                {
+                    if (panel == null || panel.IsDocked) continue;
+                    settingsType.GetProperty(prefix + "X")?.SetValue(s, panel.X - origin.X);
+                    settingsType.GetProperty(prefix + "Y")?.SetValue(s, panel.Y - origin.Y);
                 }
                 if (_recenterBinding != null) s.OverlayRecenterButton = _recenterBinding.Binding;
                 // Driver tags and their colours live in DriverTags while the
@@ -863,6 +902,9 @@ namespace BeltTensionTest.WPF.Views
                 s.OverlayTripleTop = _host.TripleTop;
                 s.OverlayTopHeight = _host.TripleTopHeight;
                 s.OverlayTopAngle = _host.TripleTopAngle;
+                s.OverlayTripleBottom = _host.TripleBottom;
+                s.OverlayBottomHeight = _host.TripleBottomHeight;
+                s.OverlayBottomAngle = _host.TripleBottomAngle;
                 s.OverlayTripleCenter = _host.TripleCenterPercent;
                 s.OverlayTripleAngle = _host.TripleSideAngle;
                 s.OverlayOffsetX = _host.OffsetX;
@@ -1219,11 +1261,13 @@ namespace BeltTensionTest.WPF.Views
             SetShape(ShapeBox.SelectedIndex);
         }
 
-        /// <summary>0 flat, 1 curved, 2 triple: what the overlay currently is.</summary>
-        private int CurrentShape => _host == null ? 0 : _host.Triple ? (_host.TripleTop ? 3 : 2) : _host.Curved ? 1 : 0;
+        /// <summary>0 flat, 1 curved, 2 triple, 3 with top, 4 with bottom, 5 with both: what the overlay currently is.</summary>
+        private int CurrentShape => _host == null ? 0
+            : _host.Triple ? (_host.TripleTop ? (_host.TripleBottom ? 5 : 3) : _host.TripleBottom ? 4 : 2)
+            : _host.Curved ? 1 : 0;
 
         private static readonly string[] ColorBlindModeNames = { "Off", "Deuteranopia", "Tritanomaly" };
-        private static readonly string[] ShapeKeys = { "Flat", "Curved", "Triple", "TripleTop" };
+        private static readonly string[] ShapeKeys = { "Flat", "Curved", "Triple", "TripleTop", "TripleBottom", "TripleTopBottom" };
 
         /// <summary>Each live panel with the settings prefix its position, scale and opacity are saved under.</summary>
         private (string Prefix, OverlayRenderTarget? Panel)[] PanelPrefixes() => new (string, OverlayRenderTarget?)[]
@@ -1246,10 +1290,11 @@ namespace BeltTensionTest.WPF.Views
             foreach (var (prefix, panel) in PanelPrefixes())
             {
                 if (panel == null || panel.IsDocked) continue;
-                if (Get(prefix + "X") >= 0 && Get(prefix + "Y") >= 0)
+                if (HasSavedPos((int)Get(prefix + "X"), (int)Get(prefix + "Y")))
                 {
-                    panel.X = (int)Get(prefix + "X");
-                    panel.Y = (int)Get(prefix + "Y");
+                    var origin = _host?.CenterOrigin ?? default;
+                    panel.X = (int)Get(prefix + "X") + origin.X;
+                    panel.Y = (int)Get(prefix + "Y") + origin.Y;
                 }
                 RestoreScale(panel, Get(prefix + "Scale"));
                 RestoreOpacity(panel, Get(prefix + "Opacity"));
@@ -1276,27 +1321,30 @@ namespace BeltTensionTest.WPF.Views
             // shape (a shape never used before keeps the current layout).
             SaveLayout();
             bool restored = false;
+            Dictionary<string, double>? saved = null;
             var settings = _vm.AppSettings;
             if (settings != null)
             {
                 settings.OverlayShapeLayouts[ShapeKeys[CurrentShape]] = Services.OverlayLayoutService.SnapshotPanels(settings);
-                if (settings.OverlayShapeLayouts.TryGetValue(ShapeKeys[shape], out var saved))
-                {
-                    Services.OverlayLayoutService.RestorePanels(settings, saved);
+                if (settings.OverlayShapeLayouts.TryGetValue(ShapeKeys[shape], out saved))
                     restored = true;
-                }
             }
 
             _host.Triple = shape >= 2;
-            _host.TripleTop = shape == 3;
+            _host.TripleTop = shape == 3 || shape == 5;
+            _host.TripleBottom = shape == 4 || shape == 5;
             _host.Curved = shape == 1;
-            if (restored) ApplyPanelLayoutFromSettings();
             SyncEditPanel();
-            SaveLayout();
+            // The canvas is about to be rebuilt for the new screens, which moves
+            // the centre screen's corner; a saved layout is placed after that.
+            if (restored) _pendingShapeLayout = saved;
+            else SaveLayout();
             // The canvas gains or loses the top screen's band, so it gets rebuilt.
             _resolutionTimer.Stop();
             _resolutionTimer.Start();
-            Log(shape == 3 ? "Overlay split into three screens with a fourth above the middle one."
+            Log(shape == 5 ? "Overlay split into three screens with one above and one below the middle one."
+              : shape == 4 ? "Overlay split into three screens with a fourth below the middle one."
+              : shape == 3 ? "Overlay split into three screens with a fourth above the middle one."
               : shape == 2 ? "Overlay split into three screens."
               : shape == 1 ? "Overlay curved around you."
               : "Overlay flat.");
@@ -1357,10 +1405,14 @@ namespace BeltTensionTest.WPF.Views
             TopHeightSlider.Value = _host.TripleTopHeight;
             TopAngleSlider.Value = _host.TripleTopAngle;
             TopHeightSlider.IsEnabled = TopAngleSlider.IsEnabled = _host.Triple && _host.TripleTop;
+            BottomHeightSlider.Value = _host.TripleBottomHeight;
+            BottomAngleSlider.Value = _host.TripleBottomAngle;
+            BottomHeightSlider.IsEnabled = BottomAngleSlider.IsEnabled = _host.Triple && _host.TripleBottom;
             // Only the settings of the selected shape are shown.
             CurveLabel.Visibility = CurvePanel.Visibility = _host.Curved && !_host.Triple ? Visibility.Visible : Visibility.Collapsed;
             TripleLabel.Visibility = TriplePanel.Visibility = _host.Triple ? Visibility.Visible : Visibility.Collapsed;
             TopLabel.Visibility = TopPanel.Visibility = _host.Triple && _host.TripleTop ? Visibility.Visible : Visibility.Collapsed;
+            BottomLabel.Visibility = BottomPanel.Visibility = _host.Triple && _host.TripleBottom ? Visibility.Visible : Visibility.Collapsed;
             OffsetXSlider.Value = _host.OffsetX;
             OffsetYSlider.Value = _host.OffsetY;
             DpiSlider.Value = _dpi;
@@ -1382,13 +1434,15 @@ namespace BeltTensionTest.WPF.Views
             TripleAngleValue.Text = _host.TripleSideAngle.ToString("0") + "°";
             TopHeightValue.Text = _host.TripleTopHeight.ToString("0.00");
             TopAngleValue.Text = _host.TripleTopAngle.ToString("0") + "°";
+            BottomHeightValue.Text = _host.TripleBottomHeight.ToString("0.00");
+            BottomAngleValue.Text = _host.TripleBottomAngle.ToString("0") + "°";
             OffsetYValue.Text = _host.OffsetY.ToString("0.00");
             DpiValue.Text = _dpi.ToString("0");
             ResolutionValue.Text = $"{_host.CanvasWidth} × {_host.CanvasHeight} px";
         }
 
         /// <summary>One of the overlay display values adjustable in edit mode.</summary>
-        private enum DisplaySetting { Width, Height, Distance, Dpi, OffsetX, OffsetY, Curve, TripleCenter, TripleAngle, TopHeight, TopAngle }
+        private enum DisplaySetting { Width, Height, Distance, Dpi, OffsetX, OffsetY, Curve, TripleCenter, TripleAngle, TopHeight, TopAngle, BottomHeight, BottomAngle }
 
         private void DisplaySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
@@ -1402,6 +1456,8 @@ namespace BeltTensionTest.WPF.Views
                 : sender == TripleAngleSlider ? DisplaySetting.TripleAngle
                 : sender == TopHeightSlider ? DisplaySetting.TopHeight
                 : sender == TopAngleSlider ? DisplaySetting.TopAngle
+                : sender == BottomHeightSlider ? DisplaySetting.BottomHeight
+                : sender == BottomAngleSlider ? DisplaySetting.BottomAngle
                 : sender == OffsetXSlider ? DisplaySetting.OffsetX
                 : sender == OffsetYSlider ? DisplaySetting.OffsetY
                 : DisplaySetting.Distance,
@@ -1449,6 +1505,13 @@ namespace BeltTensionTest.WPF.Views
                     break;
                 case DisplaySetting.TopAngle:
                     _host.TripleTopAngle = (float)value;
+                    resolutionMayChange = false;
+                    break;
+                case DisplaySetting.BottomHeight:
+                    _host.TripleBottomHeight = (float)value; // changes the canvas height too
+                    break;
+                case DisplaySetting.BottomAngle:
+                    _host.TripleBottomAngle = (float)value;
                     resolutionMayChange = false;
                     break;
                 case DisplaySetting.OffsetX:

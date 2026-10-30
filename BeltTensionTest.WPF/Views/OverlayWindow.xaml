@@ -84,6 +84,7 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Width (m)" VerticalAlignment="Center" Margin="0,0,10,4"/>
@@ -169,6 +170,8 @@
                                 <ComboBoxItem Content="Curved"/>
                                 <ComboBoxItem Content="Triple"/>
                                 <ComboBoxItem Content="Triple + top"/>
+                                <ComboBoxItem Content="Triple + bottom"/>
+                                <ComboBoxItem Content="Triple + top + bottom"/>
                             </ComboBox>
                         </StackPanel>
 
@@ -214,6 +217,23 @@
                                     ValueChanged="DisplaySlider_ValueChanged"
                                     ToolTip="How far the top screen tips forward toward you, in degrees. 0 is upright; 90 faces straight down."/>
                             <TextBlock x:Name="TopAngleValue" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                        </StackPanel>
+
+                        <!-- Triple + bottom: a screen below the middle one, same width -->
+                        <TextBlock Grid.Row="14" Grid.Column="0" x:Name="BottomLabel" Text="Bottom screen" VerticalAlignment="Center" Margin="0,6,10,0"/>
+                        <StackPanel Grid.Row="14" Grid.Column="1" Grid.ColumnSpan="2" x:Name="BottomPanel" Orientation="Horizontal" Margin="0,6,0,0">
+                            <TextBlock Text="Height" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <Slider x:Name="BottomHeightSlider" Width="100" Minimum="0.2" Maximum="4"
+                                    TickFrequency="0.05" IsSnapToTickEnabled="True" VerticalAlignment="Center"
+                                    ValueChanged="DisplaySlider_ValueChanged"
+                                    ToolTip="How tall the bottom screen is, in meters. It is as wide as the middle screen."/>
+                            <TextBlock x:Name="BottomHeightValue" Width="38" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                            <TextBlock Text="Tilt back" VerticalAlignment="Center" Margin="10,0,6,0"/>
+                            <Slider x:Name="BottomAngleSlider" Width="100" Minimum="0" Maximum="90"
+                                    TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center"
+                                    ValueChanged="DisplaySlider_ValueChanged"
+                                    ToolTip="How far the bottom screen tips toward you, in degrees. 0 is upright; 90 faces straight up."/>
+                            <TextBlock x:Name="BottomAngleValue" VerticalAlignment="Center" Margin="6,0,0,0"/>
                         </StackPanel>
                     </Grid>
                 </Border>

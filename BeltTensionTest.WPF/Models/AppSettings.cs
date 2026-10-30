@@ -47,8 +47,9 @@ namespace BeltTensionTest.WPF.Models
         // Recenter the VR overlay on the headset (same as the overlay window's Recenter button).
         // Always registered system-wide — it is only ever pressed while the sim has focus.
         public string RecenterOverlayKey { get; set; } = string.Empty;
-        // VR overlay layout (edit mode). Panel position is in canvas pixels,
-        // -1 = never dragged (use the coded default). Size/distance/DPI
+        // VR overlay layout (edit mode). Panel position is in canvas pixels measured
+        // from the centre screen's top-left corner (negative on the top screen or
+        // the left screen); both -1 = never dragged (use the coded default). Size/distance/DPI
         // 0 = unset (keep the host defaults).
         public int OverlayPanelX { get; set; } = -1;
         public int OverlayPanelY { get; set; } = -1;
@@ -99,7 +100,7 @@ namespace BeltTensionTest.WPF.Models
         // in-VR HUD Settings panel (GamepadService control name, e.g. "Button5").
         public string OverlayRecenterButton { get; set; } = string.Empty;
         // The panel layout (positions, sizes, opacity, rows) of each overlay shape,
-        // keyed "Flat", "Curved", "Triple" or "TripleTop": saved when the shape is
+        // keyed "Flat", "Curved", "Triple", "TripleTop", "TripleBottom" or "TripleTopBottom": saved when the shape is
         // left and restored when it is chosen again.
         public Dictionary<string, Dictionary<string, double>> OverlayShapeLayouts { get; set; } = new();
         // Gaze focus: what looking at a panel does to it (Services.GazeEffect),
@@ -227,6 +228,11 @@ namespace BeltTensionTest.WPF.Models
         public bool OverlayTripleTop { get; set; } = false;
         public double OverlayTopHeight { get; set; } = 1;
         public double OverlayTopAngle { get; set; } = 30;
+        // Triple + bottom: a screen below the centre one, mirroring the top screen
+        // (OverlayBottomHeight meters tall, tipped back toward you by OverlayBottomAngle degrees).
+        public bool OverlayTripleBottom { get; set; } = false;
+        public double OverlayBottomHeight { get; set; } = 1;
+        public double OverlayBottomAngle { get; set; } = 30;
         public double OverlayOffsetX { get; set; } = 0;
         public double OverlayOffsetY { get; set; } = 0;
         // View origin captured by the overlay's Recenter button/binding: the
