@@ -125,7 +125,14 @@ namespace BeltTensionTest.WPF.Views
 
             if (!GetCursorPos(out var pt)) return null;
             // Not covered by another window (the old WPF IsMouseOver check).
-            if (WindowFromPoint(pt) != hwnd) return null;
+            bool onSurface = WindowFromPoint(pt) == hwnd;
+            bool buttonDown = ((GetAsyncKeyState(VK_LBUTTON) | GetAsyncKeyState(VK_RBUTTON)) & 0x8000) != 0;
+            // A press that started on the canvas keeps steering it when the mouse leaves the
+            // window (dragging a panel past the edge), pinned to the canvas edge; otherwise the
+            // crosshair would snap to the whole-monitor position the moment it crossed the edge.
+            if (onSurface && buttonDown) _dragCaptured = true;
+            else if (!buttonDown) _dragCaptured = false;
+            if (!onSurface && !_dragCaptured) return null;
             if (!ScreenToClient(hwnd, ref pt) || !GetClientRect(hwnd, out var rect)) return null;
 
             double areaW = rect.Right - rect.Left, areaH = rect.Bottom - rect.Top;
@@ -139,9 +146,11 @@ namespace BeltTensionTest.WPF.Views
 
             double cx = (pt.X - offX) / scale;
             double cy = (pt.Y - offY) / scale;
-            if (cx < 0 || cy < 0 || cx >= canvasW || cy >= canvasH) return null;
-            return ((int)cx, (int)cy);
+            // Over the letterbox bars or past the edge: stop at the canvas edge.
+            return (Math.Clamp((int)Math.Floor(cx), 0, canvasW - 1), Math.Clamp((int)Math.Floor(cy), 0, canvasH - 1));
         }
+
+        private bool _dragCaptured;
 
         private void TitleBar_MouseDown(object sender, MouseButtonEventArgs e)
         {

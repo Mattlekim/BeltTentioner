@@ -38,6 +38,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         // stay readable in VR, with room for the blame column it didn't have.
         private const int PanelWidth = 720;
         private const int TitleBarHeight = 48;
+        public override int TitleBarSourceHeight => TitleBarHeight;
         private const int HeaderRowHeight = 30;
         private const int RowHeight = 30;
         private const int RowSpacing = 2;
@@ -478,7 +479,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public override void Render(GameTime gameTime)
         {
-            const int Radius = 16;
+            int Radius = OverlayStyle.CornerRadius;
             GraphicsDevice.Clear(XnaColor.Transparent);
 
             if (IsCollapsed)

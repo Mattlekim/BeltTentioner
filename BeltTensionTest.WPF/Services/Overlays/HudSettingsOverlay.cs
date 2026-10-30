@@ -45,6 +45,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
     public sealed class HudSettingsOverlay : OverlayRenderTarget
     {
         private const int TitleBarHeight = 56;
+        public override int TitleBarSourceHeight => TitleBarHeight;
         private const int PanelWidth = 760;
         private const int RowHeight = 48;
         private const int RowSpacing = 6;
@@ -363,7 +364,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public override void Render(GameTime gameTime)
         {
-            const int Radius = 18;
+            int Radius = OverlayStyle.CornerRadius;
 
             GraphicsDevice.Clear(XnaColor.Transparent);
 

@@ -53,6 +53,11 @@ namespace BeltTensionTest.WPF.Models
         // 0 = unset (keep the host defaults).
         public int OverlayPanelX { get; set; } = -1;
         public int OverlayPanelY { get; set; } = -1;
+        // The in-VR Wind settings panel (position, size multiplier, opacity: same meaning as the belt panel's).
+        public int OverlayWindPanelX { get; set; } = -1;
+        public int OverlayWindPanelY { get; set; } = -1;
+        public double OverlayWindPanelScale { get; set; } = 0;
+        public double OverlayWindPanelOpacity { get; set; } = 0;
         // Legacy combined "Main" standings panel (replaced by the Race and
         // Qualifying panels). Only read to seed their position/size the
         // first time; no longer written.
@@ -221,7 +226,7 @@ namespace BeltTensionTest.WPF.Models
         // One OpenXR overlay per window instead of one shared canvas: less GPU memory, and a
         // window that did not change is not copied. The canvas is still used while editing.
         public bool OverlayPerWindow { get; set; } = false;
-        // 3D (needs OverlayPerWindow): every window as a pair of overlays, one per eye, with its picture
+        // 3D: the whole overlay (or, with OverlayPerWindow, every window) as a pair of overlays, one per eye, with its picture
         // standing OverlayStereoDepth meters out of its frame (negative: behind it).
         public bool OverlayStereo { get; set; } = false;
         public double OverlayStereoDepth { get; set; } = 0.2;
@@ -233,6 +238,8 @@ namespace BeltTensionTest.WPF.Models
         public string ColorBlindMode { get; set; } = "Off";
         // Panels grouped in edit mode (right-click > Group): each entry is a list of panel names that move together.
         public List<List<string>> OverlayPanelGroups { get; set; } = new();
+        // Windows whose title bar is hidden (right-click > Hide title bar in edit mode), by panel name.
+        public List<string> OverlayHiddenTitleBars { get; set; } = new();
         // How strongly it bends, 0.1..1.5 (1 = every point equally far from the viewer).
         public double OverlayCurveAmount { get; set; } = 1;
         // Triple = three flat screens like a triple monitor setup: the centre one takes

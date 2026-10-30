@@ -19,6 +19,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private const int PanelWidth = 440;
         private const int PanelHeight = 250;
         private const int TitleBarHeight = 56;
+        public override int TitleBarSourceHeight => TitleBarHeight;
         private const int RowHeight = 56;
 
         // App palette (Resources/Styles.xaml), same as the Belt Settings panel.
@@ -69,7 +70,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public override void Render(GameTime gameTime)
         {
-            const int Radius = 18;
+            int Radius = OverlayStyle.CornerRadius;
             GraphicsDevice.Clear(XnaColor.Transparent);
             _sb.Begin();
 

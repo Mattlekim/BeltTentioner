@@ -35,6 +35,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         public const int DefaultCarsToDisplay = 7;
 
         protected const int TitleBarHeight = 48;
+        public override int TitleBarSourceHeight => TitleBarHeight;
         protected const int HeaderRowHeight = 34; // column labels above the rows
         protected const int RowHeight = 44;
         protected const int RowSpacing = 3;
@@ -1186,7 +1187,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public override void Render(GameTime gameTime)
         {
-            const int Radius = 16;
+            int Radius = OverlayStyle.CornerRadius;
             const int RowRadius = 8;
 
             GraphicsDevice.Clear(XnaColor.Transparent);

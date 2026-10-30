@@ -209,6 +209,202 @@ namespace BeltTensionTest.WPF.Services.Overlays
     }
 
     /// <summary>
+    /// A row that shows the current option in a box; clicking it opens a list of
+    /// every option to pick from. The list is drawn by <see cref="DrawPopup"/>
+    /// after the rest of the panel, so it sits on top of the rows around it, and
+    /// <see cref="HandlePopupPress"/> must be offered each press before the
+    /// menu sees it. Opens below the row, or above it when there is no room.
+    /// Navigation Increase/Decrease still step through the options without
+    /// opening the list, so it works from a wheel button as well.
+    /// </summary>
+    public sealed class OverlayDropdownRow : MonoXRControl
+    {
+        private const int EdgePad = 12;
+        private const int ArrowWidth = 34;
+        private const int PopupPad = 6;
+
+        private readonly string[] _options;
+        private readonly bool[] _optionEnabled;
+        private int _index;
+        private int _hover = -1;
+        private int _itemHeight = 40;
+        private XnaRectangle _box;
+        private XnaRectangle _popup;
+
+        public OverlayDropdownRow(string label, string[] options, int index)
+        {
+            Label = label;
+            _options = options.Length > 0 ? options : new[] { string.Empty };
+            _optionEnabled = new bool[_options.Length];
+            Array.Fill(_optionEnabled, true);
+            _index = Math.Clamp(index, 0, _options.Length - 1);
+            PreferredHeight = 48;
+        }
+
+        public string Label { get; set; }
+
+        public bool IsOpen { get; private set; }
+
+        /// <summary>An unavailable option is drawn greyed out and struck through, and cannot be picked.</summary>
+        public void SetOptionEnabled(int index, bool enabled)
+        {
+            if (index >= 0 && index < _options.Length) _optionEnabled[index] = enabled;
+        }
+
+        /// <summary>Selected option. Setting it does not raise <see cref="SelectedIndexChanged"/>.</summary>
+        public int SelectedIndex
+        {
+            get => _index;
+            set => _index = Math.Clamp(value, 0, _options.Length - 1);
+        }
+
+        public event Action<int>? SelectedIndexChanged;
+
+        public void Close()
+        {
+            IsOpen = false;
+            _hover = -1;
+        }
+
+        public override void Increase() => Step(+1);
+        public override void Decrease() => Step(-1);
+
+        private void Step(int direction)
+        {
+            Close();
+            if (!IsEnabled || _options.Length < 2) return;
+            // Skip the options that are not available.
+            int next = _index;
+            for (int i = 0; i < _options.Length; i++)
+            {
+                next = (next + direction + _options.Length) % _options.Length;
+                if (_optionEnabled[next]) break;
+            }
+            Pick(next);
+        }
+
+        private void Pick(int index)
+        {
+            Close();
+            if (index == _index || !_optionEnabled[index]) return;
+            _index = index;
+            SelectedIndexChanged?.Invoke(_index);
+        }
+
+        public override bool OnPointerPress(int x, int y)
+        {
+            if (!IsEnabled || !Bounds.Contains(x, y)) return false;
+            // The value box opens the list; the label side just claims the press.
+            if (_options.Length > 1 && _box.Contains(x, y))
+            {
+                IsOpen = !IsOpen;
+                _hover = -1;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// While the list is open, a press picks the option under it or closes the list;
+        /// either way the press is used up. Returns false when the list is closed.
+        /// </summary>
+        public bool HandlePopupPress(int x, int y)
+        {
+            if (!IsOpen) return false;
+            int item = ItemAt(x, y);
+            if (item >= 0 && !_optionEnabled[item]) return true; // an unavailable option: the list stays open
+            if (item >= 0) Pick(item);
+            else Close();
+            return true;
+        }
+
+        private int ItemAt(int x, int y)
+        {
+            if (!_popup.Contains(x, y)) return -1;
+            int item = (y - _popup.Y - PopupPad) / _itemHeight;
+            return y >= _popup.Y + PopupPad && item >= 0 && item < _options.Length ? item : -1;
+        }
+
+        /// <summary>The pointer is resting at <paramref name="x"/>,<paramref name="y"/>: highlight the option under it. Returns true when the highlight changed (the panel needs redrawing).</summary>
+        public bool HandleHover(int x, int y)
+        {
+            int item = IsOpen ? ItemAt(x, y) : -1;
+            if (item == _hover) return false;
+            _hover = item;
+            return IsOpen;
+        }
+
+        /// <summary>The pointer left the panel. Returns true when a highlight was dropped.</summary>
+        public bool HandleHoverExit()
+        {
+            if (_hover < 0) return false;
+            _hover = -1;
+            return IsOpen;
+        }
+        public override void Draw(SpriteBatch spriteBatch, SpriteFont font, Texture2D white)
+        {
+            DrawSelectionBackground(spriteBatch, white);
+
+            float widest = 0f;
+            foreach (string option in _options)
+                widest = Math.Max(widest, font.MeasureString(option).X);
+            int width = Math.Min((int)Math.Ceiling(widest) + ArrowWidth + 32, Bounds.Width / 2);
+
+            int textY = Bounds.Y + (Bounds.Height - font.LineSpacing) / 2;
+            spriteBatch.DrawString(font, Label, new XnaVector2(Bounds.X + EdgePad + 8, textY), TextColor);
+
+            _box = new XnaRectangle(Bounds.Right - EdgePad - width, Bounds.Y + 5, width, Bounds.Height - 10);
+            MonoXRDraw.RoundedRect(spriteBatch, _box, 8, TrackFill);
+            if (IsOpen) MonoXRDraw.RoundedRect(spriteBatch, _box, 8, SelectionFill);
+
+            var arrow = _options.Length > 1 ? AccentColor : DisabledText;
+            var down = font.MeasureString("v");
+            spriteBatch.DrawString(font, "v",
+                new XnaVector2(_box.Right - ArrowWidth + (ArrowWidth - down.X) / 2f, textY), arrow);
+            spriteBatch.DrawString(font, _options[_index], new XnaVector2(_box.X + 14, textY), TextColor);
+        }
+
+        /// <summary>Draw the open list on top of everything else in the panel; does nothing while closed.</summary>
+        /// <param name="panelHeight">Height of the hosting panel, to keep the list inside it.</param>
+        public void DrawPopup(SpriteBatch spriteBatch, SpriteFont font, Texture2D white, int panelHeight)
+        {
+            if (!IsOpen) return;
+
+            _itemHeight = font.LineSpacing + 10;
+            int height = _options.Length * _itemHeight + PopupPad * 2;
+            int y = _box.Bottom + 4;
+            if (y + height > panelHeight - 4) y = Math.Max(4, _box.Y - 4 - height);
+            _popup = new XnaRectangle(_box.X, y, _box.Width, height);
+
+            MonoXRDraw.RoundedRect(spriteBatch, _popup, 8, new XnaColor(0x1E, 0x1E, 0x30));
+            for (int i = 0; i < _options.Length; i++)
+            {
+                var item = new XnaRectangle(_popup.X + 4, _popup.Y + PopupPad + i * _itemHeight, _popup.Width - 8, _itemHeight);
+                bool available = _optionEnabled[i];
+                // The picked option has a fill and an accent bar; the one under the pointer is
+                // lit up (red when it cannot be picked).
+                if (i == _index) MonoXRDraw.RoundedRect(spriteBatch, item, 6, SelectionFill);
+                if (i == _hover)
+                {
+                    MonoXRDraw.RoundedRect(spriteBatch, item, 6, available ? new XnaColor(0x46, 0x6E, 0xC8, 150) : new XnaColor(0xB4, 0x3C, 0x3C, 90));
+                    MonoXRDraw.RoundedRectOutline(spriteBatch, item, 6, 2, available ? AccentSelected : new XnaColor(0xDC, 0x3C, 0x3C));
+                }
+                if (i == _index)
+                    MonoXRDraw.RoundedRect(spriteBatch, new XnaRectangle(item.X + 3, item.Y + 6, 5, item.Height - 12), 2, AccentSelected);
+
+                var textPos = new XnaVector2(item.X + 16, item.Y + (item.Height - font.LineSpacing) / 2f);
+                spriteBatch.DrawString(font, _options[i], textPos,
+                    !available ? DisabledText : i == _index || i == _hover ? SelectedText : NormalText);
+                if (!available)
+                {
+                    float w = font.MeasureString(_options[i]).X;
+                    spriteBatch.Draw(white, new XnaRectangle((int)textPos.X, item.Y + item.Height / 2, (int)w, 2), DisabledText);
+                }
+            }
+            MonoXRDraw.RoundedRectOutline(spriteBatch, _popup, 8, 2, AccentSelected);
+        }
+    }
+
+    /// <summary>
     /// A row that acts as a push button: a framed, centered label that runs
     /// <see cref="Click"/> when pressed. Navigation Increase/Decrease both
     /// fire it, so it is reachable without the pointer like every other row.

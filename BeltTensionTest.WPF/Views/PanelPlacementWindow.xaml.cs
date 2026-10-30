@@ -43,7 +43,7 @@ namespace BeltTensionTest.WPF.Views
         private void UpdateNote()
         {
             NoteText.Text = !OverlayWindow.PerWindowRequested
-                ? "Placement only applies with \"One overlay per window\" switched on in the overlay window."
+                ? "Distance, turn, tilt, roll and curve only apply with \"One overlay per window\" switched on in the overlay window. 3D depth also works in 3D mode."
                 : !OverlayWindow.PerWindowActive
                     ? "Paused: edit mode, the mouse calibration, the triple layout or too many windows is using the single canvas right now."
                     : "";
@@ -61,6 +61,7 @@ namespace BeltTensionTest.WPF.Views
             sld_Pitch.Value = p?.PitchDegrees ?? 0;
             sld_Roll.Value = p?.RollDegrees ?? 0;
             sld_Depth.Value = p?.StereoDepthOffset ?? 0;
+            sld_Curve.Value = (p?.CurveAmount ?? 0) * 100;
             _loading = false;
             ShowValues();
         }
@@ -72,6 +73,7 @@ namespace BeltTensionTest.WPF.Views
             PitchValue.Text = $"{sld_Pitch.Value:0}\u00B0";
             RollValue.Text = $"{sld_Roll.Value:0}\u00B0";
             DepthValue.Text = $"{sld_Depth.Value:+0.00;-0.00;0.00} m";
+            CurveValue.Text = sld_Curve.Value <= 0 ? "Flat" : $"{sld_Curve.Value:0}%";
         }
 
         private void Slider_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -84,6 +86,7 @@ namespace BeltTensionTest.WPF.Views
             p.PitchDegrees = (float)sld_Pitch.Value;
             p.RollDegrees = (float)sld_Roll.Value;
             p.StereoDepthOffset = (float)sld_Depth.Value;
+            p.CurveAmount = (float)(sld_Curve.Value / 100);
             _unsaved = true;
         }
 
@@ -109,6 +112,7 @@ namespace BeltTensionTest.WPF.Views
             p.PitchDegrees = 0;
             p.RollDegrees = 0;
             p.StereoDepthOffset = 0;
+            p.CurveAmount = 0;
         }
 
         private void TitleBar_MouseDown(object sender, MouseButtonEventArgs e)

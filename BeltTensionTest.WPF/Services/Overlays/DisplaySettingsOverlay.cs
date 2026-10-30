@@ -24,6 +24,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
     public sealed class DisplaySettingsOverlay : OverlayRenderTarget
     {
         private const int TitleBarHeight = 56;
+        public override int TitleBarSourceHeight => TitleBarHeight;
         private const int PanelWidth = 700;
         private const int RowHeight = 48;
         private const int RowSpacing = 6;
@@ -44,8 +45,10 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private readonly MonoXRMenuControl _menu;
         private readonly List<(BeltSettingRow Row, MonoXRSliderControl Slider)> _bindings = new();
         private readonly OverlayChoiceRow _editView;
-        private readonly OverlayChoiceRow _shape;
+        private readonly OverlayDropdownRow _shape;
+        private readonly OverlayDropdownRow _colorBlind;
         private readonly Func<int> _getShape;
+        private readonly Func<int> _getColorBlind;
         private readonly Func<int> _getEditView;
         private readonly MonoXRLabel _resolution;
         private readonly Func<string> _resolutionText;
@@ -58,19 +61,34 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private static int HeightFor(int rowCount) =>
             TitleBarHeight + 14 + rowCount * (RowHeight + RowSpacing) + ResolutionRowHeight + 16;
 
-        /// <param name="rows">Width / height / distance / DPI, in display order.</param>
+        private static int RowsFor(IReadOnlyList<BeltSettingRow> rows, int shape)
+        {
+            int n = 3; // Shape, Colour blind, Editing for
+            foreach (var row in rows) if (row.VisibleFor == null || row.VisibleFor(shape)) n++;
+            return n;
+        }
+
+        private readonly List<BeltSettingRow> _allRows;
+        private int _builtShape = -1;
+
+        /// <param name="rows">Width / height / distance / DPI and the rows of one shape (<see cref="BeltSettingRow.VisibleFor"/>), in display order.</param>
         /// <param name="resolutionText">Current canvas resolution and sim state, polled every frame for the readout.</param>
         /// <param name="editViewOptions">Choices for which state (current / in car / replay) the layout is arranged for.</param>
         /// <param name="getEditView">Selected choice, polled every frame so the desktop window's box stays in step.</param>
         /// <param name="setEditView">Called when the choice is changed here.</param>
-        /// <param name="getShape">The overlay's shape (0 flat, 1 curved, 2 triple, 3 triple with a top screen, 4 with a bottom screen, 5 with both), polled every frame like <paramref name="getEditView"/>.</param>
+        /// <param name="getShape">The overlay's shape (0 flat, 1 curved, 2 triple, 3 triple with a top screen, 4 with a bottom screen, 5 with both, 6 flat with an overlay per window, 7 the same in 3D), polled every frame like <paramref name="getEditView"/>.</param>
         /// <param name="setShape">Called when the shape is changed here.</param>
+        /// <param name="colorBlindOptions">Choices for the colour-blind mode.</param>
+        /// <param name="getColorBlind">Selected colour-blind mode, polled every frame like <paramref name="getShape"/>.</param>
+        /// <param name="setColorBlind">Called when the colour-blind mode is changed here.</param>
         public DisplaySettingsOverlay(GraphicsDevice device, int x, int y,
                                       IReadOnlyList<BeltSettingRow> rows, Func<string> resolutionText,
                                       string[] editViewOptions, Func<int> getEditView, Action<int> setEditView,
-                                      Func<int> getShape, Action<int> setShape)
-            : base(device, PanelWidth, HeightFor(rows.Count + 2), x, y)
+                                      Func<int> getShape, Action<int> setShape,
+                                      string[] colorBlindOptions, Func<int> getColorBlind, Action<int> setColorBlind)
+            : base(device, PanelWidth, HeightFor(RowsFor(rows, getShape())), x, y)
         {
+            _allRows = new List<BeltSettingRow>(rows);
             Name = "Display";
             EditModeOnly = true;
             _resolutionText = resolutionText;
@@ -95,33 +113,59 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 { FillColor = row.Fill };
                 slider.ValueChanged += row.Set;
                 slider.ValueChanged += _ => Invalidate();
-                _menu.Add(slider);
                 _bindings.Add((row, slider));
             }
 
             // Flat quad, wrapped around the viewer on a cylinder, or three screens.
             _getShape = getShape;
-            _shape = new OverlayChoiceRow("Shape", new[] { "Flat", "Curved", "Triple", "Triple + top", "Triple + bottom", "Triple + top + bottom" }, getShape());
+            _shape = new OverlayDropdownRow("Shape", new[] { "Flat", "Curved", "Triple", "Triple + top", "Triple + bottom", "Triple + top + bottom", "Flat - Individual Overlays" }, getShape());
             _shape.SelectedIndexChanged += i => { setShape(i); Invalidate(); };
-            _menu.Add(_shape);
+
+            // Swaps the status colours for a set that is easier to tell apart.
+            _getColorBlind = getColorBlind;
+            _colorBlind = new OverlayDropdownRow("Colour blind", colorBlindOptions, getColorBlind());
+            _colorBlind.SelectedIndexChanged += i => { setColorBlind(i); Invalidate(); };
 
             // Which state the layout is being arranged for; panels that only show
             // in the other state are left out (see PanelVisibility.HideInEdit).
             _getEditView = getEditView;
             _editView = new OverlayChoiceRow("Editing for", editViewOptions, getEditView());
             _editView.SelectedIndexChanged += i => { setEditView(i); Invalidate(); };
-            _menu.Add(_editView);
 
             // Not selectable (MonoXRLabel is disabled), so navigation skips it.
             _resolution =new MonoXRLabel(resolutionText()) { PreferredHeight = ResolutionRowHeight };
+
+            BuildMenu(getShape());
+            OverlayNavigation.Navigated += OnNavigated;
+        }
+
+        // Lays the menu out for a shape: the rows for every shape, the Shape box, the rows of
+        // this shape only, then the rest. The panel is resized to fit.
+        private void BuildMenu(int shape)
+        {
+            var selected = _menu.SelectedItem;
+            _menu.Clear();
+            foreach (var (row, slider) in _bindings)
+                if (row.VisibleFor == null) _menu.Add(slider);
+            _menu.Add(_shape);
+            foreach (var (row, slider) in _bindings)
+                if (row.VisibleFor != null && row.VisibleFor(shape)) _menu.Add(slider);
+            _menu.Add(_colorBlind);
+            _menu.Add(_editView);
             _menu.Add(_resolution);
 
-            OverlayNavigation.Navigated += OnNavigated;
+            Resize(Width, HeightFor(RowsFor(_allRows, shape)));
+            _menu.Bounds = new XnaRectangle(16, TitleBarHeight + 14, Width - 32, Height - TitleBarHeight - 22);
+            if (selected != null) _menu.Select(selected);
+            _builtShape = shape;
+            Invalidate();
         }
 
         private void OnNavigated(OverlayNavAction action)
         {
             if (IsCollapsed) return;
+            _shape.Close();
+            _colorBlind.Close();
             _menu.HandleNavigation(action);
             Invalidate(); // Up/Down move the highlight without changing a value
         }
@@ -134,12 +178,32 @@ namespace BeltTensionTest.WPF.Services.Overlays
         public override bool OnEditPress(int x, int y)
         {
             if (IsCollapsed) return false;
-            bool captured = _menu.OnPointerPress(x, y);
+            // An open shape list sits on top of the other rows, so it gets the press first.
+            bool captured = _shape.HandlePopupPress(x, y) || _colorBlind.HandlePopupPress(x, y) || _menu.OnPointerPress(x, y);
             Invalidate(); // the press may have moved the selection highlight
             return captured;
         }
 
         public override void OnEditDrag(int x, int y) => _menu.OnPointerDrag(x, y);
+
+        // The open lists light up the option under the pointer.
+        public override void OnEditHover(int x, int y)
+        {
+            if (IsCollapsed) return;
+            if (_shape.HandleHover(x, y) | _colorBlind.HandleHover(x, y)) Invalidate();
+        }
+
+        public override void OnEditHoverExit()
+        {
+            if (_shape.HandleHoverExit() | _colorBlind.HandleHoverExit()) Invalidate();
+        }
+
+        /// <summary>Grey out a shape that cannot be picked right now (Curved without cylinder layers).</summary>
+        public void SetShapeEnabled(int shape, bool enabled)
+        {
+            _shape.SetOptionEnabled(shape, enabled);
+            Invalidate();
+        }
 
         public override void OnEditRelease(int x, int y)
         {
@@ -156,9 +220,17 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 slider.Value = row.Get();
 
             int shape = _getShape();
+            if (shape != _builtShape) BuildMenu(shape); // the rows for another shape
             if (shape != _shape.SelectedIndex)
             {
                 _shape.SelectedIndex = shape; // changed in the desktop window
+                Invalidate();
+            }
+
+            int colorBlind = _getColorBlind();
+            if (colorBlind != _colorBlind.SelectedIndex)
+            {
+                _colorBlind.SelectedIndex = colorBlind; // changed in HUD Settings or Preferences
                 Invalidate();
             }
 
@@ -181,7 +253,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public override void Render(GameTime gameTime)
         {
-            const int Radius = 18;
+            int Radius = OverlayStyle.CornerRadius;
 
             if (IsCollapsed)
             {
@@ -214,6 +286,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
             MonoXRDraw.VerticalFade(_sb, new XnaRectangle(0, TitleBarHeight, Width, 14), Accent * 0.25f);
 
             _menu.Draw(_sb, _fontBody, _white);
+            _shape.DrawPopup(_sb, _fontBody, _white, Height);
+            _colorBlind.DrawPopup(_sb, _fontBody, _white, Height);
 
             MonoXRDraw.RoundedRectOutline(_sb, panel, Radius, 2, Border);
 
