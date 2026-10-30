@@ -168,6 +168,8 @@ namespace BeltTensionTest.WPF.Models
         public int OverlayYouTubePanelY { get; set; } = -1;
         public int OverlayGpuPanelX { get; set; } = -1;
         public int OverlayGpuPanelY { get; set; } = -1;
+        public int OverlayCatchPanelX { get; set; } = -1;
+        public int OverlayCatchPanelY { get; set; } = -1;
         public int OverlayIncidentPanelX { get; set; } = -1;
         public int OverlayIncidentPanelY { get; set; } = -1;
         // In-VR display panel (edit mode only: overlay width/height/distance/DPI).
@@ -187,6 +189,7 @@ namespace BeltTensionTest.WPF.Models
         public double OverlayCarBehindPanelScale { get; set; } = 0;
         public double OverlayYouTubePanelScale { get; set; } = 0;
         public double OverlayGpuPanelScale { get; set; } = 0;
+        public double OverlayCatchPanelScale { get; set; } = 0;
         public double OverlayIncidentPanelScale { get; set; } = 0;
         public double OverlayDisplayPanelScale { get; set; } = 0;
         // Per-panel opacity set with the edit-mode opacity -/+ buttons;
@@ -202,6 +205,7 @@ namespace BeltTensionTest.WPF.Models
         public double OverlayCarBehindPanelOpacity { get; set; } = 0;
         public double OverlayYouTubePanelOpacity { get; set; } = 0;
         public double OverlayGpuPanelOpacity { get; set; } = 0;
+        public double OverlayCatchPanelOpacity { get; set; } = 0;
         public double OverlayIncidentPanelOpacity { get; set; } = 0;
         public double OverlayDisplayPanelOpacity { get; set; } = 0;
         // Controller/wheel buttons that toggle a VR overlay panel's

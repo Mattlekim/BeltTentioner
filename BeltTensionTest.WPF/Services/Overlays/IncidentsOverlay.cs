@@ -65,7 +65,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private static readonly string[] Reasons =
         {
             "Overly aggressive", "Dive bomb", "Driving slow", "Doesn't hold brakes",
-            "Unsafe rejoin", "Deliberate wrecking", "Reckless", "No awareness",
+            "Unsafe rejoin", "Deliberate wrecking", "Reckless", "No awareness", "Unforced error",
         };
 
         // App palette (Resources/Styles.xaml), matching the other panels.

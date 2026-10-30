@@ -49,6 +49,7 @@ namespace BeltTensionTest.WPF.Views
         private CarBehindOverlay? _carBehindPanel;
         private YouTubeOverlay? _youtubePanel;
         private GpuStatsOverlay? _gpuPanel;
+        private CatchEstimateOverlay? _catchPanel;
         private IncidentsOverlay? _incidentPanel;
         private DisplaySettingsOverlay? _displayPanel;
         private OverlayPreviewWindow? _preview;
@@ -240,7 +241,7 @@ namespace BeltTensionTest.WPF.Views
             _gazeFocus = null;
             _beltPanel = null; _windPanel = null; _relativePanel = null; _standingsPanel = null;
             _hudSettingsPanel = null; _headPanel = null; _warningPanel = null; _nearbyPanel = null; _slowCarPanel = null; _carBehindPanel = null;
-            _youtubePanel = null; _gpuPanel = null; _incidentPanel = null; _displayPanel = null;
+            _youtubePanel = null; _gpuPanel = null; _catchPanel = null; _incidentPanel = null; _displayPanel = null;
             bool wasRunning = _host != null;
             _benchmark?.Dispose(); // puts the host's mode back before it goes
             _benchmark = null;
@@ -589,6 +590,16 @@ namespace BeltTensionTest.WPF.Views
             _gpuPanel = _host.AddRenderTarget(new GpuStatsOverlay(
                 _host.GraphicsDevice, gpuX, gpuY));
 
+            // Laps-to-catch estimate (car ahead / car behind): defaults to the bottom-left corner, above the GPU panel.
+            int catchX = 16, catchY = Math.Max(0, gpuY - 228 - 12);
+            if (s != null && HasSavedPos(s.OverlayCatchPanelX, s.OverlayCatchPanelY))
+            {
+                catchX = Math.Min(s.OverlayCatchPanelX, Math.Max(0, _host.CanvasWidth - 100));
+                catchY = Math.Min(s.OverlayCatchPanelY, Math.Max(0, _host.CanvasHeight - 100));
+            }
+            _catchPanel = _host.AddRenderTarget(new CatchEstimateOverlay(
+                _host.GraphicsDevice, catchX, catchY));
+
             // Incident list (replay only): defaults to the bottom-right corner.
             var incidents = new IncidentsOverlay(_host.GraphicsDevice, 0, 0);
             int incX = Math.Max(0, _host.CanvasWidth - incidents.Width - 24);
@@ -685,6 +696,7 @@ namespace BeltTensionTest.WPF.Views
                 RestoreScale(_carBehindPanel, s.OverlayCarBehindPanelScale);
                 RestoreScale(_youtubePanel, s.OverlayYouTubePanelScale);
                 RestoreScale(_gpuPanel, s.OverlayGpuPanelScale);
+                RestoreScale(_catchPanel, s.OverlayCatchPanelScale);
                 RestoreScale(_incidentPanel, s.OverlayIncidentPanelScale);
                 RestoreScale(_displayPanel, s.OverlayDisplayPanelScale);
 
@@ -699,6 +711,7 @@ namespace BeltTensionTest.WPF.Views
                 RestoreOpacity(_carBehindPanel, s.OverlayCarBehindPanelOpacity);
                 RestoreOpacity(_youtubePanel, s.OverlayYouTubePanelOpacity);
                 RestoreOpacity(_gpuPanel, s.OverlayGpuPanelOpacity);
+                RestoreOpacity(_catchPanel, s.OverlayCatchPanelOpacity);
                 RestoreOpacity(_incidentPanel, s.OverlayIncidentPanelOpacity);
                 RestoreOpacity(_displayPanel, s.OverlayDisplayPanelOpacity);
                 foreach (var panel in _host.RenderTargets)
@@ -851,7 +864,7 @@ namespace BeltTensionTest.WPF.Views
         {
             var panels = new OverlayRenderTarget?[]
                 { _beltPanel, _windPanel, _relativePanel, _standingsPanel, _hudSettingsPanel, _headPanel, _warningPanel,
-                  _nearbyPanel, _slowCarPanel, _carBehindPanel, _youtubePanel, _gpuPanel, _incidentPanel, _displayPanel };
+                  _nearbyPanel, _slowCarPanel, _carBehindPanel, _youtubePanel, _gpuPanel, _catchPanel, _incidentPanel, _displayPanel };
             foreach (var p in panels)
                 if (p != null) yield return p;
         }
@@ -1014,6 +1027,13 @@ namespace BeltTensionTest.WPF.Views
                     s.OverlayGpuPanelY = _gpuPanel.Y;
                     s.OverlayGpuPanelScale = SavedScaleOf(_gpuPanel);
                     s.OverlayGpuPanelOpacity = SavedOpacityOf(_gpuPanel);
+                }
+                if (_catchPanel != null)
+                {
+                    s.OverlayCatchPanelX = _catchPanel.X;
+                    s.OverlayCatchPanelY = _catchPanel.Y;
+                    s.OverlayCatchPanelScale = SavedScaleOf(_catchPanel);
+                    s.OverlayCatchPanelOpacity = SavedOpacityOf(_catchPanel);
                 }
                 if (_incidentPanel != null)
                 {
@@ -1569,7 +1589,7 @@ namespace BeltTensionTest.WPF.Views
             ("OverlayHudSettingsPanel", _hudSettingsPanel), ("OverlayWarningPanel", _warningPanel),
             ("OverlayNearbyPanel", _nearbyPanel), ("OverlaySlowCarPanel", _slowCarPanel),
             ("OverlayCarBehindPanel", _carBehindPanel), ("OverlayYouTubePanel", _youtubePanel),
-            ("OverlayGpuPanel", _gpuPanel), ("OverlayIncidentPanel", _incidentPanel), ("OverlayDisplayPanel", _displayPanel),
+            ("OverlayGpuPanel", _gpuPanel), ("OverlayCatchPanel", _catchPanel), ("OverlayIncidentPanel", _incidentPanel), ("OverlayDisplayPanel", _displayPanel),
         };
 
         /// <summary>Move the live panels to the positions, sizes and row counts in the settings.</summary>
