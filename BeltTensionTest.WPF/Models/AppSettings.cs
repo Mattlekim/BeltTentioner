@@ -71,6 +71,15 @@ namespace BeltTensionTest.WPF.Models
         public string OverlayRaceColumnOrder { get; set; } = "";
         public string OverlayQualifyingColumnOrder { get; set; } = "";
         public string OverlayStandingsColumnOrder { get; set; } = "";
+        // The Race panel entries are the combined relative box's (it replaced the
+        // separate Race and Qualifying boxes; the Qualifying ones are legacy and
+        // no longer read). Hidden columns (comma-separated names, right-click a
+        // header) and how driver names are written ("Full", "Initial" or
+        // "Surname") are kept per box.
+        public string OverlayRaceHiddenColumns { get; set; } = "";
+        public string OverlayRaceNameFormat { get; set; } = "Full";
+        public string OverlayStandingsHiddenColumns { get; set; } = "";
+        public string OverlayStandingsNameFormat { get; set; } = "Full";
         // Drivers marked as a friend or a rival, keyed by iRacing customer id
         // ("name:<driver>" for AI): "Friend" or "Rival" (Services.Data.DriverTag).
         // Set by clicking a row on the in-VR standings board.

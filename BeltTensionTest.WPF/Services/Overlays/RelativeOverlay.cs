@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -12,45 +12,82 @@ using XnaVector2 = Microsoft.Xna.Framework.Vector2;
 namespace BeltTensionTest.WPF.Services.Overlays
 {
     /// <summary>
-    /// In-VR race box, ported from the race half of IrachingHud's
-    /// RelativeBox. Only shown during race sessions.
+    /// The in-VR relative box: one panel that changes what it shows with the
+    /// session. It merges the old race box and practice/qualifying box (both
+    /// ported from IrachingHud's RelativeBox).
     ///
-    /// Rows are the cars physically around you (all classes; in multiclass
-    /// the position badge takes the class color and shows class position),
-    /// colored red when a car is a lap or more ahead of you in the race and
-    /// blue when it is a lap or more down. Columns: position, license,
-    /// iRating, driver, status (yellow/slow/pit/finished/fastest lap), last
-    /// lap, relative, gap, tire, positions gained, stint length, sectors.
+    /// Rows are the cars physically around you in every session. In a race
+    /// they carry class position, lap-up (red) / lap-down (blue) colors, the
+    /// race gap, tire, positions gained and stint; the info bar shows the
+    /// grid / clutch status before the start and the class fastest lap after,
+    /// and the footer has SOF, an iRating estimate, brake bias, fuel and
+    /// temperatures. Everywhere else the rows show the timed standing, best
+    /// lap and best-lap gap, the info bar shows the class fastest lap and
+    /// temperatures, and the footer is your sector strip with the projected
+    /// lap and pace delta.
     ///
-    /// Before the start the info bar shows the start type, how many cars
-    /// still have to grid and your clutch; once racing it shows the class
-    /// fastest lap. The footer has SOF, an iRating estimate, brake bias, fuel
-    /// (with laps remaining) and track/air temperature.
+    /// Right-click a column header to hide it (and bring hidden ones back) or,
+    /// on the driver header, change how names are written.
     ///
     /// Fixes over the original: grid/"positions gained" use class grid
     /// positions (not overall vs class), the grid count ignores the pace car
-    /// and spectators and counts the player properly, class colors come from
-    /// iRacing instead of a 10-entry table that crashed past 10 classes and
-    /// painted the first class black, SOF and the iRating estimate are per
-    /// class using iRacing's formula (the original mixed classes, included
-    /// the driver in their own field and was off by one on position), the
-    /// fuel laps readout it computed but never showed now works, cars
-    /// sitting in their stall behind you are dropped as in the original, and
-    /// the finished flag no longer marks cars that merely sit near the line.
+    /// and spectators, class colors come from iRacing instead of a 10-entry
+    /// table, SOF and the iRating estimate are per class using iRacing's
+    /// formula, the fuel laps readout it computed but never showed now works,
+    /// cars sitting in their stall behind you are dropped as in the original,
+    /// the finished flag no longer marks cars that merely sit near the line,
+    /// qualifying is handled (the original only knew Race and Practice), and
+    /// the pace delta no longer shows a double minus sign or a bogus value
+    /// before a reference lap exists.
     /// </summary>
-    public sealed class RaceOverlay : StandingsOverlayBase
+    public sealed class RelativeOverlay : StandingsOverlayBase
     {
         private const int InfoBarH = 44;
-        private const int FooterH = 56;
+        private const int RaceFooterH = 56;
+        private const int SectorStripHeight = 110;
+        private const int SectorColWidth = 110;
 
+        // Every column either mode can show; ColumnApplies picks per session.
         private static readonly Col[] Columns =
         {
-            Col.Pos, Col.License, Col.IRating, Col.Driver, Col.Status, Col.LastLap,
+            Col.Pos, Col.License, Col.IRating, Col.Driver, Col.Status, Col.BestLap, Col.LastLap,
             Col.Rel, Col.Gap, Col.Tire, Col.Gained, Col.Stint, Col.Sectors,
         };
         protected override Col[] DefaultColumns => Columns;
 
-        protected override string EmptyMessage => "Shown during race sessions";
+        /// <summary>True while the session on screen is a race.</summary>
+        private bool IsRace => IsRaceSession(CurrentSessionType);
+
+        private static bool IsRaceSession(string sessionType) =>
+            sessionType.IndexOf("Race", StringComparison.OrdinalIgnoreCase) >= 0;
+
+        protected override bool ColumnApplies(Col c) => c switch
+        {
+            Col.BestLap => !IsRace,
+            Col.Tire or Col.Gained or Col.Stint => IsRace,
+            _ => true,
+        };
+
+        protected override string EmptyMessage => "Shown during practice, qualifying and races";
+
+        /// <summary>
+        /// The title names the session actually on screen: "Race", "Practice",
+        /// "Qualifying" and so on. The panel's <see cref="Name"/> stays
+        /// "Relative" - it keys the saved toggle binding and show mode.
+        /// </summary>
+        protected override string DisplayName
+        {
+            get
+            {
+                string type = CurrentSessionType;
+                if (type.IndexOf("Race", StringComparison.OrdinalIgnoreCase) >= 0) return "Race";
+                if (type.IndexOf("Qual", StringComparison.OrdinalIgnoreCase) >= 0) return "Qualifying";
+                if (type.IndexOf("Practice", StringComparison.OrdinalIgnoreCase) >= 0) return "Practice";
+                if (type.IndexOf("Warmup", StringComparison.OrdinalIgnoreCase) >= 0) return "Warmup";
+                if (type.IndexOf("Test", StringComparison.OrdinalIgnoreCase) >= 0) return "Testing";
+                return "Relative";
+            }
+        }
 
         // UI-thread state (Update/BuildRows/Render all run on the UI thread).
         private readonly Dictionary<int, int> _stintStartLap = new();
@@ -75,13 +112,13 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private string _fuel = string.Empty;
         private string _temps = string.Empty;
 
-        public RaceOverlay(GraphicsDevice device, int x, int y, int carsToDisplay = DefaultCarsToDisplay)
-            : base(device, "Race", x, y, carsToDisplay, InfoBarH, FooterH)
+        public RelativeOverlay(GraphicsDevice device, int x, int y, int carsToDisplay = DefaultCarsToDisplay)
+            : base(device, "Relative", x, y, carsToDisplay, InfoBarH, SectorStripHeight)
         {
         }
 
-        protected override bool IsSessionActive(string sessionType) =>
-            sessionType.IndexOf("Race", StringComparison.OrdinalIgnoreCase) >= 0;
+        // Every session type; the title and columns adapt instead.
+        protected override bool IsSessionActive(string sessionType) => !string.IsNullOrEmpty(sessionType);
 
         protected override void OnSessionReset()
         {
@@ -107,6 +144,52 @@ namespace BeltTensionTest.WPF.Services.Overlays
         {
             if (_resetRequested) { _resetRequested = false; ResetState(); }
 
+            // The footer is the sector strip outside races and a thin stats
+            // bar in them, so the panel resizes as the session changes.
+            SetFooterHeight(IsRace ? RaceFooterH : SectorStripHeight);
+
+            if (IsRace) BuildRaceRows(all, player);
+            else BuildPracticeRows(all, player);
+        }
+
+        private void BuildPracticeRows(IReadOnlyList<Car> all, Car player)
+        {
+            var (fastest, fastestDriver) = ClassFastestLap(all, player);
+
+            // Timed standing within each class, for cars iRacing hasn't
+            // classified yet.
+            var rankByIdx = all
+                .Where(c => c.BestLapTime > 0)
+                .GroupBy(c => c.CarClassId)
+                .SelectMany(g => g.OrderBy(c => c.BestLapTime).ThenBy(c => c.CarIdx)
+                                  .Select((c, i) => (c.CarIdx, Rank: i + 1)))
+                .ToDictionary(t => t.CarIdx, t => t.Rank);
+
+            foreach (var (car, rel) in RelativeWindow(all, player))
+            {
+                var row = BaseRow(car, player, rel, fastest);
+                bool sameClass = player.CarClassId < 0 || car.CarClassId == player.CarClassId;
+
+                // No position until the car has set a time (the original's rule).
+                if (car.BestLapTime > 0)
+                    row.Pos = car.ClassPosition > 0 ? car.ClassPosition
+                        : rankByIdx.TryGetValue(car.CarIdx, out int rank) ? rank : 0;
+
+                if (!row.IsPlayer && sameClass)
+                    row.Gap = car.BestLapTime <= 0 || player.BestLapTime <= 0 ? "--"
+                        : (car.BestLapTime - player.BestLapTime).ToString("+0.000;-0.000;0.000");
+
+                Rows.Add(row);
+            }
+
+            var svc = IracingService.Instance;
+            _fastestText = fastest < float.PositiveInfinity ? $"{FormatName(fastestDriver)}  {FormatLapTime(fastest)}" : string.Empty;
+            _temps = float.IsNaN(svc.TrackTempC) ? string.Empty
+                : $"Track {svc.TrackTempC:0}C  Air {svc.AirTempC:0}C";
+        }
+
+        private void BuildRaceRows(IReadOnlyList<Car> all, Car player)
+        {
             var svc = IracingService.Instance;
             int state = svc.SessionState;
             bool racing = state >= IracingService.SessionStateRacing;
@@ -163,7 +246,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _waitingToGrid = all.Count(c => !c.IsOnTrack);
             _clutchPct = (int)Math.Round(svc.ClutchPressed * 100f);
             _fastestText = racing && fastest < float.PositiveInfinity
-                ? $"{fastestDriver}  {FormatLapTime(fastest)}" : string.Empty;
+                ? $"{FormatName(fastestDriver)}  {FormatLapTime(fastest)}" : string.Empty;
 
             // ----- Footer -----
             var classCars = all.Where(c => player.CarClassId < 0 || c.CarClassId == player.CarClassId).ToList();
@@ -296,12 +379,38 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         protected override void AppendSnapshot(StringBuilder sb)
         {
-            sb.Append('#').Append(_preRace ? 'P' : 'p').Append(_startType).Append(_waitingToGrid)
-              .Append(',').Append(_clutchPct).Append(_fastestText).Append(_sof).Append(_irDelta?.ToString() ?? "~")
-              .Append(_brakeBias).Append(_fuel).Append(_temps);
+            sb.Append('#').Append(IsRace ? 'R' : 'r').Append(_fastestText).Append(_temps);
+            if (IsRace)
+            {
+                sb.Append(_preRace ? 'P' : 'p').Append(_startType).Append(_waitingToGrid)
+                  .Append(',').Append(_clutchPct).Append(_sof).Append(_irDelta?.ToString() ?? "~")
+                  .Append(_brakeBias).Append(_fuel);
+                return;
+            }
+
+            // Sector strip state: the live sector time ticks while driving, so
+            // this keeps the panel repainting during an active sector.
+            lock (SectorLock)
+            {
+                foreach (var s in PlayerSectors.Sectors)
+                    sb.Append('|').Append(s.Active ? 'A' : 'i')
+                      .Append((s.Active ? s.Current : s.Last).ToString("0.00"))
+                      .Append(s.Valid ? 'v' : 'x').Append(s.Best.ToString("0.00"));
+                sb.Append('|').Append(FastestLapFromSectors.ToString("0.000"));
+            }
         }
 
         protected override void DrawInfoBar(XnaRectangle area)
+        {
+            if (IsRace) DrawRaceInfoBar(area); else DrawPracticeInfoBar(area);
+        }
+
+        protected override void DrawFooter(XnaRectangle area)
+        {
+            if (IsRace) DrawRaceFooter(area); else DrawPracticeFooter(area);
+        }
+
+        private void DrawRaceInfoBar(XnaRectangle area)
         {
             float y = area.Y + (area.Height - FontBody.LineSpacing) / 2f;
             if (_preRace)
@@ -328,7 +437,29 @@ namespace BeltTensionTest.WPF.Services.Overlays
             MonoXRDraw.HorizontalFade(Batch, new XnaRectangle(area.X - 4, area.Bottom - 2, area.Width + 8, 2), Border);
         }
 
-        protected override void DrawFooter(XnaRectangle area)
+
+        private void DrawPracticeInfoBar(XnaRectangle area)
+        {
+            float y = area.Y + (area.Height - FontBody.LineSpacing) / 2f;
+            if (!string.IsNullOrEmpty(_fastestText))
+            {
+                var chip = new XnaRectangle(area.X, area.Y + 9, 36, area.Height - 18);
+                MonoXRDraw.RoundedRect(Batch, chip, 5, SecPurple);
+                var fl = FontHead.MeasureString("FL");
+                Batch.DrawString(FontHead, "FL",
+                    new XnaVector2(chip.X + (chip.Width - fl.X) / 2f, area.Y + (area.Height - FontHead.LineSpacing) / 2f),
+                    XnaColor.White);
+                Batch.DrawString(FontBody, _fastestText, new XnaVector2(chip.Right + 10, y), RowText);
+            }
+            else
+            {
+                Batch.DrawString(FontBody, "No lap times yet", new XnaVector2(area.X, y), RowTextDim);
+            }
+            DrawRight(FontBody, _temps, area.Right, y, RowTextDim);
+            MonoXRDraw.HorizontalFade(Batch, new XnaRectangle(area.X - 4, area.Bottom - 2, area.Width + 8, 2), Border);
+        }
+
+        private void DrawRaceFooter(XnaRectangle area)
         {
             MonoXRDraw.HorizontalFade(Batch, new XnaRectangle(area.X - 6, area.Y, area.Width + 12, 2), Border);
             float y = area.Y + (area.Height - FontBody.LineSpacing) / 2f;
@@ -347,6 +478,110 @@ namespace BeltTensionTest.WPF.Services.Overlays
             Item(_brakeBias, RowText);
             Item(_fuel, RowText);
             DrawRight(FontBody, _temps, area.Right, y, RowTextDim);
+        }
+
+        /// <summary>
+        /// The player's sector strip, as in the original RelativeBox: one
+        /// column per sector (live time while in the sector; afterwards the
+        /// last time colored red = invalid, purple = matches the session's
+        /// fastest lap sector, green = personal sector best, yellow = slower,
+        /// with the delta to the fastest lap's sector underneath) and a
+        /// projected-lap column on the right (completed sectors as driven,
+        /// bests for the rest) with the pace delta to the fastest lap.
+        /// </summary>
+        private void DrawPracticeFooter(XnaRectangle area)
+        {
+            MonoXRDraw.HorizontalFade(Batch, new XnaRectangle(area.X - 6, area.Y, area.Width + 12, 2), Border);
+
+            int headerY = area.Y + 8;
+            int timeY = headerY + 30;
+            int deltaY = timeY + 32;
+
+            lock (SectorLock)
+            {
+                var sectors = PlayerSectors.Sectors;
+                if (sectors.Count == 0)
+                {
+                    Batch.DrawString(FontBody, "Waiting for sector data...", new XnaVector2(area.X, timeY), RowTextDim);
+                    return;
+                }
+
+                var reference = FastestLapSectors;
+                double projected = 0, currentPace = 0, referencePace = 0;
+                bool pastActive = false, projectedKnown = true;
+
+                for (int i = 0; i < sectors.Count; i++)
+                {
+                    var s = sectors[i];
+                    int x = area.X + i * SectorColWidth;
+                    Batch.DrawString(FontBody, $"S{i + 1}", new XnaVector2(x + 10, headerY), RowTextDim);
+
+                    double bls = reference != null && i < reference.Length ? reference[i] : double.PositiveInfinity;
+
+                    if (s.Active || pastActive)
+                    {
+                        // The sector being driven and the ones still ahead
+                        // this lap count at their best in the projection.
+                        if (double.IsPositiveInfinity(s.Best)) projectedKnown = false;
+                        else projected += s.Best;
+                    }
+                    else
+                    {
+                        // Completed this lap: as driven, and part of the pace delta.
+                        if (s.Last > 0) projected += s.Last; else projectedKnown = false;
+                        if (s.Last > 0 && !double.IsPositiveInfinity(bls))
+                        {
+                            currentPace += s.Last;
+                            referencePace += bls;
+                        }
+                    }
+
+                    if (s.Active)
+                    {
+                        // Live ticking time for the sector being driven.
+                        Batch.DrawString(FontBody, $"{s.Current:00.00}", new XnaVector2(x, timeY), RowText);
+                        pastActive = true;
+                        continue;
+                    }
+
+                    // Last time, colored by merit.
+                    XnaColor timeColor = !s.Valid ? SecRed
+                        : Math.Abs(s.Last - bls) < 0.005 ? SecPurple
+                        : Math.Abs(s.Last - s.Best) < 0.005 ? SecGreen
+                        : SecYellow;
+                    Batch.DrawString(FontBody, s.Last > 0 ? $"{s.Last:00.00}" : "--.--",
+                        new XnaVector2(x, timeY), s.Last > 0 ? timeColor : RowTextDim);
+
+                    // Delta to the fastest lap's sector.
+                    if (s.Last <= 0 || double.IsPositiveInfinity(bls))
+                        Batch.DrawString(FontBody, "-----", new XnaVector2(x, deltaY), s.Last <= 0 ? SecRed : RowTextDim);
+                    else
+                    {
+                        double delta = s.Last - bls;
+                        Batch.DrawString(FontBody, delta.ToString("+0.00;-0.00;0.00"),
+                            new XnaVector2(x, deltaY), delta <= 0 ? SecGreen : SecYellow);
+                    }
+                }
+
+                // Projected lap on the right, plus the pace delta to the
+                // fastest lap over the sectors completed so far.
+                float rightX = area.Right;
+                DrawRight(FontBody, "Projected", rightX, headerY, RowTextDim);
+                string projText = projectedKnown && projected > 0 && projected < 2000
+                    ? FormatLapTime((float)projected) : "--:--.---";
+                DrawRight(FontBody, projText, rightX, timeY, RowText);
+
+                if (currentPace > 0 && referencePace > 0)
+                {
+                    double deltaToBest = currentPace - referencePace;
+                    DrawRight(FontBody, deltaToBest.ToString("+0.000;-0.000;0.000"), rightX, deltaY,
+                        deltaToBest <= 0 ? SecGreen : SecYellow);
+                }
+                else
+                {
+                    DrawRight(FontBody, "-----", rightX, deltaY, RowTextDim);
+                }
+            }
         }
     }
 }

@@ -36,8 +36,7 @@ namespace BeltTensionTest.WPF.Views
         private readonly MainViewModel _vm;
         private readonly Services.SettingsService _settingsSvc = new();
         private BeltSettingsOverlay? _beltPanel;
-        private RaceOverlay? _racePanel;
-        private QualifyingOverlay? _qualifyingPanel;
+        private RelativeOverlay? _relativePanel;
         private StandingsOverlay? _standingsPanel;
         private HudSettingsOverlay? _hudSettingsPanel;
         private WarningOverlay? _warningPanel;
@@ -210,7 +209,7 @@ namespace BeltTensionTest.WPF.Views
             _toggleBindings = null;
             _panelVisibility = null;
             _gazeFocus = null;
-            _beltPanel = null; _racePanel = null; _qualifyingPanel = null; _standingsPanel = null;
+            _beltPanel = null; _relativePanel = null; _standingsPanel = null;
             _hudSettingsPanel = null; _warningPanel = null; _nearbyPanel = null; _slowCarPanel = null; _carBehindPanel = null;
             _youtubePanel = null; _gpuPanel = null; _incidentPanel = null; _displayPanel = null;
             bool wasRunning = _host != null;
@@ -331,12 +330,10 @@ namespace BeltTensionTest.WPF.Views
                 _beltPanel = _host.AddRenderTarget(new BeltSettingsOverlay(
                     _host.GraphicsDevice, panelWidth, panelHeight, x, y, groups));
 
-            // Race and Qualifying relative boxes (ported from IrachingHud's
-            // RelativeBox): each only shows during its own session types, so
-            // they share the top-left corner by default. The qualifying box
-            // starts offset a little so both title bars can be grabbed in
-            // edit mode. The first time, both inherit the old combined "Main"
-            // panel's position and size.
+            // Relative box (ported from IrachingHud's RelativeBox): one panel
+            // that shows the race or the practice/qualifying layout depending
+            // on the session. It keeps the old Race box's saved position and
+            // size; the first time it inherits the old combined "Main" panel's.
             int boxX = 16, boxY = 16;
             if (s != null && s.OverlayMainPanelX >= 0 && s.OverlayMainPanelY >= 0)
                 (boxX, boxY) = (s.OverlayMainPanelX, s.OverlayMainPanelY);
@@ -344,22 +341,19 @@ namespace BeltTensionTest.WPF.Views
             int raceX = boxX, raceY = boxY;
             if (s != null && s.OverlayRacePanelX >= 0 && s.OverlayRacePanelY >= 0)
                 (raceX, raceY) = (s.OverlayRacePanelX, s.OverlayRacePanelY);
-            _racePanel = _host.AddRenderTarget(new RaceOverlay(_host.GraphicsDevice,
+            _relativePanel = _host.AddRenderTarget(new RelativeOverlay(_host.GraphicsDevice,
                 Math.Min(raceX, Math.Max(0, _host.CanvasWidth - 100)),
                 Math.Min(raceY, Math.Max(0, _host.CanvasHeight - 100)), StandingsCarCount));
             if (!string.IsNullOrEmpty(s?.OverlayRaceColumnOrder))
-                _racePanel.ColumnOrder = s.OverlayRaceColumnOrder;
-            _racePanel.ColumnOrderChanged += SaveLayout; // persist header drags like panel moves
+                _relativePanel.ColumnOrder = s.OverlayRaceColumnOrder;
+            if (s != null)
+            {
+                _relativePanel.HiddenColumns = s.OverlayRaceHiddenColumns;
+                if (Enum.TryParse(s.OverlayRaceNameFormat, out RelativeNameFormat relFmt))
+                    _relativePanel.NameFormat = relFmt;
+            }
+            _relativePanel.ColumnOrderChanged += SaveLayout; // persist header drags and menu changes like panel moves
 
-            int qualX = boxX + 60, qualY = boxY + 60;
-            if (s != null && s.OverlayQualifyingPanelX >= 0 && s.OverlayQualifyingPanelY >= 0)
-                (qualX, qualY) = (s.OverlayQualifyingPanelX, s.OverlayQualifyingPanelY);
-            _qualifyingPanel = _host.AddRenderTarget(new QualifyingOverlay(_host.GraphicsDevice,
-                Math.Min(qualX, Math.Max(0, _host.CanvasWidth - 100)),
-                Math.Min(qualY, Math.Max(0, _host.CanvasHeight - 100)), StandingsCarCount));
-            if (!string.IsNullOrEmpty(s?.OverlayQualifyingColumnOrder))
-                _qualifyingPanel.ColumnOrder = s.OverlayQualifyingColumnOrder;
-            _qualifyingPanel.ColumnOrderChanged += SaveLayout;
 
             // Full-field standings board. It is much wider and taller than the
             // relative boxes, so it defaults to the right-hand side at 70% —
@@ -377,6 +371,12 @@ namespace BeltTensionTest.WPF.Views
             _standingsPanel.Scale = StandingsDefaultScale; // RestoreScale overrides it when one was saved
             if (!string.IsNullOrEmpty(s?.OverlayStandingsColumnOrder))
                 _standingsPanel.ColumnOrder = s.OverlayStandingsColumnOrder;
+            if (s != null)
+            {
+                _standingsPanel.HiddenColumns = s.OverlayStandingsHiddenColumns;
+                if (Enum.TryParse(s.OverlayStandingsNameFormat, out RelativeNameFormat standFmt))
+                    _standingsPanel.NameFormat = standFmt;
+            }
             _standingsPanel.ColumnOrderChanged += SaveLayout;
             _standingsPanel.MaxRows = s?.OverlayStandingsRows ?? StandingsOverlay.MaxRowSetting;
 
@@ -556,8 +556,7 @@ namespace BeltTensionTest.WPF.Views
             {
                 RestoreScale(_beltPanel, s.OverlayPanelScale);
                 double boxScale = s.OverlayMainPanelScale;
-                RestoreScale(_racePanel, s.OverlayRacePanelScale > 0 ? s.OverlayRacePanelScale : boxScale);
-                RestoreScale(_qualifyingPanel, s.OverlayQualifyingPanelScale > 0 ? s.OverlayQualifyingPanelScale : boxScale);
+                RestoreScale(_relativePanel, s.OverlayRacePanelScale > 0 ? s.OverlayRacePanelScale : boxScale);
                 RestoreScale(_standingsPanel, s.OverlayStandingsPanelScale);
                 RestoreScale(_hudSettingsPanel, s.OverlayHudSettingsPanelScale);
                 RestoreScale(_warningPanel, s.OverlayWarningPanelScale);
@@ -570,8 +569,7 @@ namespace BeltTensionTest.WPF.Views
                 RestoreScale(_displayPanel, s.OverlayDisplayPanelScale);
 
                 RestoreOpacity(_beltPanel, s.OverlayPanelOpacity);
-                RestoreOpacity(_racePanel, s.OverlayRacePanelOpacity);
-                RestoreOpacity(_qualifyingPanel, s.OverlayQualifyingPanelOpacity);
+                RestoreOpacity(_relativePanel, s.OverlayRacePanelOpacity);
                 RestoreOpacity(_standingsPanel, s.OverlayStandingsPanelOpacity);
                 RestoreOpacity(_hudSettingsPanel, s.OverlayHudSettingsPanelOpacity);
                 RestoreOpacity(_warningPanel, s.OverlayWarningPanelOpacity);
@@ -703,7 +701,7 @@ namespace BeltTensionTest.WPF.Views
         private IEnumerable<OverlayRenderTarget> AllPanels()
         {
             var panels = new OverlayRenderTarget?[]
-                { _beltPanel, _racePanel, _qualifyingPanel, _standingsPanel, _hudSettingsPanel, _warningPanel,
+                { _beltPanel, _relativePanel, _standingsPanel, _hudSettingsPanel, _warningPanel,
                   _nearbyPanel, _slowCarPanel, _carBehindPanel, _youtubePanel, _gpuPanel, _incidentPanel, _displayPanel };
             foreach (var p in panels)
                 if (p != null) yield return p;
@@ -737,21 +735,15 @@ namespace BeltTensionTest.WPF.Views
                     s.OverlayPanelScale = SavedScaleOf(_beltPanel);
                     s.OverlayPanelOpacity = SavedOpacityOf(_beltPanel);
                 }
-                if (_racePanel != null)
+                if (_relativePanel != null)
                 {
-                    s.OverlayRacePanelX = _racePanel.X;
-                    s.OverlayRacePanelY = _racePanel.Y;
-                    s.OverlayRacePanelScale = SavedScaleOf(_racePanel);
-                    s.OverlayRacePanelOpacity = SavedOpacityOf(_racePanel);
-                    s.OverlayRaceColumnOrder = _racePanel.ColumnOrder;
-                }
-                if (_qualifyingPanel != null)
-                {
-                    s.OverlayQualifyingPanelX = _qualifyingPanel.X;
-                    s.OverlayQualifyingPanelY = _qualifyingPanel.Y;
-                    s.OverlayQualifyingPanelScale = SavedScaleOf(_qualifyingPanel);
-                    s.OverlayQualifyingPanelOpacity = SavedOpacityOf(_qualifyingPanel);
-                    s.OverlayQualifyingColumnOrder = _qualifyingPanel.ColumnOrder;
+                    s.OverlayRacePanelX = _relativePanel.X;
+                    s.OverlayRacePanelY = _relativePanel.Y;
+                    s.OverlayRacePanelScale = SavedScaleOf(_relativePanel);
+                    s.OverlayRacePanelOpacity = SavedOpacityOf(_relativePanel);
+                    s.OverlayRaceColumnOrder = _relativePanel.ColumnOrder;
+                    s.OverlayRaceHiddenColumns = _relativePanel.HiddenColumns;
+                    s.OverlayRaceNameFormat = _relativePanel.NameFormat.ToString();
                 }
                 if (_standingsPanel != null)
                 {
@@ -760,6 +752,8 @@ namespace BeltTensionTest.WPF.Views
                     s.OverlayStandingsPanelScale = SavedScaleOf(_standingsPanel);
                     s.OverlayStandingsPanelOpacity = SavedOpacityOf(_standingsPanel);
                     s.OverlayStandingsColumnOrder = _standingsPanel.ColumnOrder;
+                    s.OverlayStandingsHiddenColumns = _standingsPanel.HiddenColumns;
+                    s.OverlayStandingsNameFormat = _standingsPanel.NameFormat.ToString();
                     s.OverlayStandingsRows = _standingsPanel.MaxRows;
                 }
                 if (_hudSettingsPanel != null)

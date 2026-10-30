@@ -149,7 +149,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             if (MenuOpen && !ordered.Any(c => c.CarIdx == _menuCar)) CloseMenu();
 
             _fastestText = classFastest < float.PositiveInfinity
-                ? $"{fastestDriver}  {FormatLapTime(classFastest)}" : string.Empty;
+                ? $"{FormatName(fastestDriver)}  {FormatLapTime(classFastest)}" : string.Empty;
             _fieldText = ordered.Count == 1 ? "1 driver" : $"{ordered.Count} drivers";
             _temps = float.IsNaN(svc.TrackTempC) ? string.Empty
                 : $"Track {svc.TrackTempC:0}C  Air {svc.AirTempC:0}C";
@@ -261,6 +261,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public override void OnPointerMove(int x, int y)
         {
+            if (HeaderMenuPointerMove(x, y)) return;
             if (MenuOpen)
             {
                 int item = MenuItemAt(x, y);
@@ -283,6 +284,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public override void OnPointerExit()
         {
+            HeaderMenuPointerExit();
             if (_hoverCar < 0 && _menuHover < 0) return;
             _hoverCar = -1;
             _menuHover = -1;
@@ -291,6 +293,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public override bool OnPointerPress(int x, int y)
         {
+            if (HeaderMenuPress(x, y)) return true;
             if (!IsActive || IsCollapsed) return false;
 
             // With the menu up it takes the click wherever it lands, so a
@@ -314,6 +317,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         // pointer sends reaches the menu.
         public override bool OnPointerRightPress(int x, int y)
         {
+            if (HeaderMenuRightPress(x, y)) return true;
             if (MenuOpen) { CloseMenu(); return true; }
             return OnPointerPress(x, y);
         }
