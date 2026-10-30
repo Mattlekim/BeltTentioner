@@ -39,6 +39,7 @@ namespace BeltTensionTest.WPF.Views
         private RelativeOverlay? _relativePanel;
         private StandingsOverlay? _standingsPanel;
         private HudSettingsOverlay? _hudSettingsPanel;
+        private HeadTrackingOverlay? _headPanel;
         private WarningOverlay? _warningPanel;
         private NearbyCarsOverlay? _nearbyPanel;
         private SlowCarOverlay? _slowCarPanel;
@@ -213,7 +214,7 @@ namespace BeltTensionTest.WPF.Views
             _panelVisibility = null;
             _gazeFocus = null;
             _beltPanel = null; _relativePanel = null; _standingsPanel = null;
-            _hudSettingsPanel = null; _warningPanel = null; _nearbyPanel = null; _slowCarPanel = null; _carBehindPanel = null;
+            _hudSettingsPanel = null; _headPanel = null; _warningPanel = null; _nearbyPanel = null; _slowCarPanel = null; _carBehindPanel = null;
             _youtubePanel = null; _gpuPanel = null; _incidentPanel = null; _displayPanel = null;
             bool wasRunning = _host != null;
             _host?.Dispose();
@@ -442,6 +443,16 @@ namespace BeltTensionTest.WPF.Views
             // A tab on the left edge, edit mode only: opens the panel, which the host places.
             _hudSettingsPanel.EditModeOnly = true;
             _hudSettingsPanel.DockSide = MonoXR.Client.OverlayDockSide.Left;
+
+            // Headset settings (smoothing, ignore small movements, lock position):
+            // a second tab on the left edge, under HUD Settings.
+            if (s != null)
+            {
+                _headPanel = _host.AddRenderTarget(new HeadTrackingOverlay(
+                    _host.GraphicsDevice, 0, 0, s, () => { ApplyHeadTracking(); _settingsSvc.Save(s); }));
+                _headPanel.EditModeOnly = true;
+                _headPanel.DockSide = MonoXR.Client.OverlayDockSide.Left;
+            }
 
             // Yellow-flag warning card: defaults to top-center, above where
             // the eye already is for flags.
@@ -733,7 +744,7 @@ namespace BeltTensionTest.WPF.Views
         private IEnumerable<OverlayRenderTarget> AllPanels()
         {
             var panels = new OverlayRenderTarget?[]
-                { _beltPanel, _relativePanel, _standingsPanel, _hudSettingsPanel, _warningPanel,
+                { _beltPanel, _relativePanel, _standingsPanel, _hudSettingsPanel, _headPanel, _warningPanel,
                   _nearbyPanel, _slowCarPanel, _carBehindPanel, _youtubePanel, _gpuPanel, _incidentPanel, _displayPanel };
             foreach (var p in panels)
                 if (p != null) yield return p;
