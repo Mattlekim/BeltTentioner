@@ -221,8 +221,12 @@ namespace BeltTensionTest.WPF.Models
         // One OpenXR overlay per window instead of one shared canvas: less GPU memory, and a
         // window that did not change is not copied. The canvas is still used while editing.
         public bool OverlayPerWindow { get; set; } = false;
+        // 3D (needs OverlayPerWindow): every window as a pair of overlays, one per eye, with its picture
+        // standing OverlayStereoDepth meters out of its frame (negative: behind it).
+        public bool OverlayStereo { get; set; } = false;
+        public double OverlayStereoDepth { get; set; } = 0.2;
         // Where each window sits in 3D when OverlayPerWindow is on, keyed by panel name:
-        // "Distance" (meters further from the viewer), "Yaw", "Pitch", "Roll" (degrees).
+        // "Distance" (meters further from the viewer), "Yaw", "Pitch", "Roll" (degrees), "Depth" (3D, meters).
         // A panel with no entry stays where its canvas position puts it.
         public Dictionary<string, Dictionary<string, double>> OverlayPanelPlacement { get; set; } = new();
         // Colour-blind mode for the overlay colours: "Off", "Deuteranopia" or "Tritanomaly".

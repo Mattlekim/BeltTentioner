@@ -21,8 +21,9 @@ namespace BeltTensionTest.WPF.Views
             _bench = bench;
             InitializeComponent();
             IntroText.Text =
-                "Runs the VR overlay for 2 minutes as one shared canvas, then 2 minutes with one overlay per window, " +
-                "and compares GPU use and GPU memory.\n\n" +
+                "Runs the VR overlay for 2 minutes as one shared canvas, 2 minutes with one overlay per window, and " +
+                "2 minutes with one overlay per window and 3D on (an overlay for each eye), " +
+                "and compares GPU use and GPU memory between them.\n\n" +
                 "For the VR game's own GPU numbers, start the game first with the overlay showing. " +
                 "Leave edit mode and the desktop preview alone while it runs. " +
                 "The overlay stays usable; the numbers are best if you leave the PC otherwise idle.";

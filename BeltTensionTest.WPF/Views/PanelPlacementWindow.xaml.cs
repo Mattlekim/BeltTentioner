@@ -9,7 +9,7 @@ namespace BeltTensionTest.WPF.Views
     /// Sets each overlay window's distance and rotation in 3D. The values live on the
     /// panels themselves (<see cref="OverlayRenderTarget.DistanceOffset"/> and friends),
     /// take effect at once in VR, and are saved by the overlay window. They only
-    /// apply while one overlay per window is on.
+    /// apply while one overlay per window is on (the 3D depth, while 3D is on too).
     /// </summary>
     public partial class PanelPlacementWindow : Window
     {
@@ -60,6 +60,7 @@ namespace BeltTensionTest.WPF.Views
             sld_Yaw.Value = p?.YawDegrees ?? 0;
             sld_Pitch.Value = p?.PitchDegrees ?? 0;
             sld_Roll.Value = p?.RollDegrees ?? 0;
+            sld_Depth.Value = p?.StereoDepthOffset ?? 0;
             _loading = false;
             ShowValues();
         }
@@ -70,6 +71,7 @@ namespace BeltTensionTest.WPF.Views
             YawValue.Text = $"{sld_Yaw.Value:0}\u00B0";
             PitchValue.Text = $"{sld_Pitch.Value:0}\u00B0";
             RollValue.Text = $"{sld_Roll.Value:0}\u00B0";
+            DepthValue.Text = $"{sld_Depth.Value:+0.00;-0.00;0.00} m";
         }
 
         private void Slider_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -81,6 +83,7 @@ namespace BeltTensionTest.WPF.Views
             p.YawDegrees = (float)sld_Yaw.Value;
             p.PitchDegrees = (float)sld_Pitch.Value;
             p.RollDegrees = (float)sld_Roll.Value;
+            p.StereoDepthOffset = (float)sld_Depth.Value;
             _unsaved = true;
         }
 
@@ -105,6 +108,7 @@ namespace BeltTensionTest.WPF.Views
             p.YawDegrees = 0;
             p.PitchDegrees = 0;
             p.RollDegrees = 0;
+            p.StereoDepthOffset = 0;
         }
 
         private void TitleBar_MouseDown(object sender, MouseButtonEventArgs e)
