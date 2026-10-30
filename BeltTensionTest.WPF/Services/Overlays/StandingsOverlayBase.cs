@@ -160,12 +160,12 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private static XnaColor PlayerBg => ColorBlind.Map(CbRole.Good, new XnaColor(0x1E, 0x5C, 0x38, 235), 0.4f);   // green
         private static XnaColor LapAheadBg => ColorBlind.Map(CbRole.Bad, new XnaColor(0x6E, 0x1A, 0x1A, 235), 0.45f); // red
         private static XnaColor LapBehindBg => ColorBlind.Map(CbRole.Info, new XnaColor(0x1A, 0x30, 0x6E, 235), 0.45f);// blue
+        // Plain rows alternate between near-black and a clearly lighter grey, by the row's place on the
+        // screen (not the driver's position: the relative boxes list cars by where they are on the track).
         private static readonly XnaColor[] RowShades =
         {
-            new XnaColor(0x1A, 0x1A, 0x28, 235),
-            new XnaColor(0x22, 0x22, 0x32, 235),
-            new XnaColor(0x1C, 0x24, 0x32, 235),
-            new XnaColor(0x24, 0x1C, 0x32, 235),
+            new XnaColor(0x0C, 0x0C, 0x12, 240),
+            new XnaColor(0x3A, 0x3A, 0x4E, 240),
         };
 
         // Sector / lap-time colors, mirroring the RelativeBox rules.
@@ -1488,9 +1488,10 @@ namespace BeltTensionTest.WPF.Services.Overlays
             }
 
             int y = headTop + HeaderH + RowOffset * (RowHeight + RowSpacing);
+            int shown = RowOffset; // which row on screen this is, to alternate the shades
             foreach (var row in Rows)
             {
-                DrawRow(row, y, cells, RowRadius);
+                DrawRow(row, y, cells, RowRadius, shown++);
                 y += RowHeight + RowSpacing;
             }
 
@@ -1515,7 +1516,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _sb.End();
         }
 
-        private void DrawRow(Row row, int y, (Col Col, int Left, int Width)[] cells, int rowRadius)
+        private void DrawRow(Row row, int y, (Col Col, int Left, int Width)[] cells, int rowRadius, int index)
         {
             if (row.Divider)
             {
@@ -1532,7 +1533,12 @@ namespace BeltTensionTest.WPF.Services.Overlays
             if (row.IsPlayer) { bg = PlayerBg; badge = ColorBlind.Map(CbRole.Good, new XnaColor(0x2E, 0x8C, 0x57), 0.6f); }
             else if (row.LapDelta >= 1) { bg = LapAheadBg; badge = ColorBlind.Map(CbRole.Bad, new XnaColor(0xA8, 0x30, 0x30), 0.65f); }
             else if (row.LapDelta <= -1) { bg = LapBehindBg; badge = ColorBlind.Map(CbRole.Info, new XnaColor(0x30, 0x50, 0xA8), 0.65f); }
-            else { bg = RowShades[Math.Abs(row.Pos) % RowShades.Length]; badge = new XnaColor(0x32, 0x32, 0x48); }
+            else
+            {
+                bg = RowShades[index & 1];
+                // The position badge is the opposite shade, so it stands out on either row.
+                badge = (index & 1) == 0 ? new XnaColor(0x3A, 0x3A, 0x50) : new XnaColor(0x14, 0x14, 0x1E);
+            }
 
             // A tagged driver's color replaces the plain row shade, mixed in
             // by the strength set in HUD settings, so a friend or a rival is
