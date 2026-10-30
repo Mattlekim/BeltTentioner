@@ -81,6 +81,10 @@ namespace BeltTensionTest.WPF.Models
         public string OverlayRaceNameFormat { get; set; } = "Full";
         public string OverlayStandingsHiddenColumns { get; set; } = "";
         public string OverlayStandingsNameFormat { get; set; } = "Full";
+        // Font family and size (percent of default, 70..130) of the relative box and
+        // the standings board; set from the in-VR HUD Settings panel.
+        public string OverlayFontFamily { get; set; } = "Segoe UI";
+        public int OverlayFontPercent { get; set; } = 100;
         // Drivers marked as a friend or a rival, keyed by iRacing customer id
         // ("name:<driver>" for AI): "Friend" or "Rival" (Services.Data.DriverTag).
         // Set by clicking a row on the in-VR standings board.

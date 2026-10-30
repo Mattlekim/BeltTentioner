@@ -140,6 +140,11 @@ namespace BeltTensionTest.WPF.Views
                         settings.OverlayDriverTags, settings.OverlayFriendColor, settings.OverlayRivalColor,
                         settings.OverlayTagTint, settings.OverlayTagsInRelativeBoxes);
 
+                if (settings != null)
+                {
+                    OverlayFonts.Family = settings.OverlayFontFamily;
+                    OverlayFonts.Percent = settings.OverlayFontPercent;
+                }
                 SetupRenderTargets();
                 ApplySavedPanelStates();
                 _host.StateChanged += OnPanelStateChanged;
@@ -831,6 +836,8 @@ namespace BeltTensionTest.WPF.Views
                     settingsType.GetProperty(prefix + "X")?.SetValue(s, panel.X - origin.X);
                     settingsType.GetProperty(prefix + "Y")?.SetValue(s, panel.Y - origin.Y);
                 }
+                s.OverlayFontFamily = OverlayFonts.Family;
+                s.OverlayFontPercent = OverlayFonts.Percent;
                 if (_recenterBinding != null) s.OverlayRecenterButton = _recenterBinding.Binding;
                 // Driver tags and their colours live in DriverTags while the
                 // overlay runs; push them back into the settings before saving.

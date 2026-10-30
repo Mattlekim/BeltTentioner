@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using BeltTensionTest.WPF.Services.Data;
 using Microsoft.Xna.Framework.Graphics;
 using GameTime = Microsoft.Xna.Framework.GameTime;
@@ -68,6 +69,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private readonly MonoXRSliderControl _tint;
         private readonly MonoXRCheckbox _inRelative;
         private readonly MonoXRCheckbox _eyeTracking;
+        private readonly OverlayChoiceRow _fontChoice;
+        private readonly MonoXRSliderControl _fontSize;
         private readonly OverlayChoiceRow _colorBlind;
         private readonly OverlayButtonRow _recenterBtn;
         private readonly HudOptions _options;
@@ -111,6 +114,9 @@ namespace BeltTensionTest.WPF.Services.Overlays
             + RowHeight + RowSpacing     // eye tracking
             + RowHeight + RowSpacing     // colour blind mode
             + RowHeight + RowSpacing     // recenter button
+            + 36 + RowSpacing            // "Text" header
+            + RowHeight + RowSpacing     // font
+            + RowHeight + RowSpacing     // font size
             + 36 + RowSpacing            // "Look at a panel" header
             + RowHeight + RowSpacing     // gaze effect
             + RowHeight + RowSpacing     // gaze source
@@ -190,6 +196,17 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 Invalidate();
             };
             _menu.Add(_recenterBtn);
+
+            // Font and size of the relative box and the standings board.
+            _menu.Add(new MonoXRLabel("Text (relative box and standings)"));
+            var fonts = OverlayFonts.Available.ToArray();
+            _fontChoice = new OverlayChoiceRow("Font", fonts, Math.Max(0, Array.IndexOf(fonts, OverlayFonts.Family)));
+            _fontChoice.SelectedIndexChanged += i => { OverlayFonts.Family = fonts[i]; saved(); Invalidate(); };
+            _menu.Add(_fontChoice);
+            _fontSize = new MonoXRSliderControl("Text size (%)", OverlayFonts.MinPercent, OverlayFonts.MaxPercent,
+                                                OverlayFonts.Percent, 5f, "0");
+            _fontSize.ValueChanged += v => { OverlayFonts.Percent = (int)v; saved(); Invalidate(); };
+            _menu.Add(_fontSize);
 
             _gaze = gaze;
             _menu.Add(new MonoXRLabel("Look at a panel"));

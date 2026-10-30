@@ -230,9 +230,10 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         private readonly SpriteBatch _sb;
         private readonly Texture2D _white;
-        protected readonly SpriteFont Font;     // title
-        protected readonly SpriteFont FontBody; // rows
-        protected readonly SpriteFont FontHead; // column headers / small labels
+        protected SpriteFont Font = null!;     // title
+        protected SpriteFont FontBody = null!; // rows
+        protected SpriteFont FontHead = null!; // column headers / small labels
+        private int _fontVersion = -1;
         protected int CarsToDisplay { get; private set; }
         private readonly int _infoBarHeight;
         private int _footerHeight;
@@ -281,9 +282,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _sb = new SpriteBatch(device);
             _white = new Texture2D(device, 1, 1);
             _white.SetData(new[] { XnaColor.White });
-            Font = RuntimeSpriteFont.Bake(device, "Segoe UI", 30f);
-            FontBody = RuntimeSpriteFont.Bake(device, "Segoe UI", 24f);
-            FontHead = RuntimeSpriteFont.Bake(device, "Segoe UI", 18f, System.Drawing.FontStyle.Bold);
+            BakeFonts();
 
             // Sector timing runs at full telemetry rate (60 Hz) so boundary
             // crossings land inside the validity windows; the overlay's own
@@ -293,6 +292,20 @@ namespace BeltTensionTest.WPF.Services.Overlays
             IracingService.Instance.CarsUpdated += OnCarsUpdated;
             IracingService.Instance.SessionTypeChanged += OnSessionTypeChanged;
             IracingService.Instance.Disconnected += OnIracingDisconnected;
+        }
+
+        // Bake the three fonts from the shared font choice (and again whenever it changes).
+        private void BakeFonts()
+        {
+            var old = (Font, FontBody, FontHead);
+            string family = OverlayFonts.Family;
+            Font = RuntimeSpriteFont.Bake(GraphicsDevice, family, OverlayFonts.Scaled(30f));
+            FontBody = RuntimeSpriteFont.Bake(GraphicsDevice, family, OverlayFonts.Scaled(24f));
+            FontHead = RuntimeSpriteFont.Bake(GraphicsDevice, family, OverlayFonts.Scaled(18f), System.Drawing.FontStyle.Bold);
+            _fontVersion = OverlayFonts.Version;
+            old.Item1?.Texture.Dispose();
+            old.Item2?.Texture.Dispose();
+            old.Item3?.Texture.Dispose();
         }
 
         /// <summary>
@@ -959,6 +972,13 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public override void Update(GameTime gameTime)
         {
+            if (_fontVersion != OverlayFonts.Version)
+            {
+                BakeFonts();
+                _lastSnapshot = string.Empty; // repaint with the new font
+                Invalidate();
+            }
+
             Flasher += (float)gameTime.ElapsedGameTime.TotalSeconds * 15f;
             if (Flasher > 2f) Flasher -= 2f;
 
