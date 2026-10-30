@@ -91,8 +91,17 @@ namespace BeltTensionTest.WPF.Models
         public int OverlayRivalColor { get; set; } = 0xD8462E;
         public double OverlayTagTint { get; set; } = 0.35;
         public bool OverlayTagsInRelativeBoxes { get; set; } = true;
-        // Rows the standings board grows to before it starts leaving cars out.
+        // Rows each box holds, set by dragging its bottom edge in edit mode
+        // (the standings board leaves cars out beyond it; 0 = coded default).
         public int OverlayStandingsRows { get; set; } = 26;
+        public int OverlayRaceRows { get; set; } = 0;
+        // Controller / wheel button that recenters the overlay, bound from the
+        // in-VR HUD Settings panel (GamepadService control name, e.g. "Button5").
+        public string OverlayRecenterButton { get; set; } = string.Empty;
+        // The panel layout (positions, sizes, opacity, rows) of each overlay shape,
+        // keyed "Flat", "Curved", "Triple" or "TripleTop": saved when the shape is
+        // left and restored when it is chosen again.
+        public Dictionary<string, Dictionary<string, double>> OverlayShapeLayouts { get; set; } = new();
         // Gaze focus: what looking at a panel does to it (Services.GazeEffect),
         // where the look direction comes from (Services.GazeSource), the opacity
         // the other panels fade to (0.05..1) and how much the looked-at one grows

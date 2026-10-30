@@ -21,7 +21,7 @@ namespace BeltTensionTest.WPF.Services
         private const int FormatVersion = 1;
 
         private static readonly string[] ExcludedPrefixes = { "OverlayOrigin", "OverlayCursorCal" };
-        private static readonly string[] ExcludedNames = { "OverlayDriverTags" };
+        private static readonly string[] ExcludedNames = { "OverlayDriverTags", "OverlayRecenterButton" };
 
         private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
 
@@ -31,6 +31,26 @@ namespace BeltTensionTest.WPF.Services
                     && p.Name.StartsWith("Overlay", StringComparison.Ordinal)
                     && !ExcludedNames.Contains(p.Name)
                     && !ExcludedPrefixes.Any(x => p.Name.StartsWith(x, StringComparison.Ordinal)));
+
+        private static readonly System.Text.RegularExpressions.Regex PanelProp =
+            new(@"^Overlay\w*Panel(X|Y|Scale|Opacity)$|^Overlay(Standings|Race)Rows$");
+
+        /// <summary>
+        /// The per-shape part of the layout: every panel's position, scale and
+        /// opacity plus the rows each box holds. Switching between flat,
+        /// triple and so on swaps these in and out.
+        /// </summary>
+        public static Dictionary<string, double> SnapshotPanels(AppSettings settings) =>
+            LayoutProperties().Where(p => PanelProp.IsMatch(p.Name))
+                .ToDictionary(p => p.Name, p => Convert.ToDouble(p.GetValue(settings)));
+
+        /// <summary>Writes a <see cref="SnapshotPanels"/> snapshot back into the settings.</summary>
+        public static void RestorePanels(AppSettings settings, Dictionary<string, double> snapshot)
+        {
+            foreach (var p in LayoutProperties().Where(p => PanelProp.IsMatch(p.Name)))
+                if (snapshot.TryGetValue(p.Name, out double v))
+                    p.SetValue(settings, Convert.ChangeType(v, p.PropertyType));
+        }
 
         public static void Export(AppSettings settings, string path)
         {

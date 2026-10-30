@@ -321,6 +321,19 @@ namespace BeltTensionTest.WPF.Services.Overlays
             Resize(Width, PanelHeightFor(CarsToDisplay, _infoBarHeight, _footerHeight));
         }
 
+        /// <summary>Fewest and most rows a box can be dragged to.</summary>
+        public const int MinPanelRows = 3, MaxPanelRows = 40;
+
+        /// <summary>
+        /// Rows the panel holds. Dragging the bottom edge in edit mode sets
+        /// it, so the height of the box decides how many cars it shows.
+        /// </summary>
+        public int RowCapacity
+        {
+            get => CarsToDisplay;
+            set { SetRowCapacity(Math.Clamp(value, MinPanelRows, MaxPanelRows)); Invalidate(); }
+        }
+
         /// <summary>True when this box belongs to the given iRacing session type.</summary>
         protected abstract bool IsSessionActive(string sessionType);
 
@@ -692,6 +705,12 @@ namespace BeltTensionTest.WPF.Services.Overlays
         public override bool OnEditPress(int x, int y)
         {
             if (IsCollapsed) return false;
+            if (OnResizeGrip(x, y))
+            {
+                _resizeRows = true;
+                Invalidate();
+                return true;
+            }
             int top = HeaderTop;
             if (y < top || y >= top + HeaderRowHeight) return false;
             var cells = ColumnCells();
@@ -713,6 +732,14 @@ namespace BeltTensionTest.WPF.Services.Overlays
         // order, so hidden columns keep their place.
         public override void OnEditDrag(int x, int y)
         {
+            if (_resizeRows)
+            {
+                // The bottom edge follows the pointer: whole rows only, from
+                // the first row down to just above the footer.
+                int rowsHeight = y - RowsTop - Pad - _footerHeight + (RowHeight + RowSpacing) / 2;
+                RowCapacity = rowsHeight / (RowHeight + RowSpacing);
+                return;
+            }
             if (_dragCol < 0) return;
             while (true)
             {
@@ -737,6 +764,14 @@ namespace BeltTensionTest.WPF.Services.Overlays
             }
         }
 
+        // Edit mode: the strip along the bottom edge (short of the host's own
+        // corner grip) stretches the panel vertically.
+        private bool _resizeRows;
+        private const int GripHeight = 22, GripCornerSkip = 90;
+
+        private bool OnResizeGrip(int x, int y) =>
+            y >= Height - GripHeight && x < Width - GripCornerSkip;
+
         private void SwapColumns(Col a, Col b)
         {
             int ia = Array.IndexOf(_colOrder, a), ib = Array.IndexOf(_colOrder, b);
@@ -746,6 +781,13 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public override void OnEditRelease(int x, int y)
         {
+            if (_resizeRows)
+            {
+                _resizeRows = false;
+                Invalidate();
+                ColumnOrderChanged?.Invoke(); // persists the layout, like a header drag
+                return;
+            }
             if (_dragCol < 0) return;
             _dragCol = -1;
             Invalidate();
@@ -1219,6 +1261,13 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
             if (_footerHeight > 0 && _active)
                 DrawFooter(new XnaRectangle(Pad + 10, Height - _footerHeight, Width - (Pad + 10) * 2, _footerHeight));
+
+            // Edit mode: a handle on the bottom edge to drag the box taller or shorter.
+            if (EditMode)
+            {
+                var grip = new XnaRectangle(Width / 2 - 60, Height - GripHeight + 6, 120, 8);
+                MonoXRDraw.RoundedRect(_sb, grip, 4, _resizeRows ? Accent : XnaColor.White * 0.35f);
+            }
 
             // Anything that has to sit above the rows (the standings board's
             // driver-tag menu) draws last.

@@ -50,10 +50,11 @@ namespace BeltTensionTest.WPF.Views
         private OverlayPreviewWindow? _preview;
         private Services.GazeFocus? _gazeFocus;
         private Services.PanelToggleBindings? _toggleBindings;
+        private Services.RecenterBinding? _recenterBinding;
         private Services.PanelVisibility? _panelVisibility;
 
-        // Cars shown in the Race / Qualifying panels (player included) —
-        // change this to make the panels taller/shorter.
+        // Cars the relative box shows (player included) until it is dragged
+        // taller or shorter in edit mode.
         private const int StandingsCarCount = 7;
 
         // ~60 Hz ticks so edit-mode input (cursor, clicks) is sampled quickly;
@@ -207,6 +208,8 @@ namespace BeltTensionTest.WPF.Views
             _preview?.Close();
             _toggleBindings?.Dispose();
             _toggleBindings = null;
+            _recenterBinding?.Dispose();
+            _recenterBinding = null;
             _panelVisibility = null;
             _gazeFocus = null;
             _beltPanel = null; _relativePanel = null; _standingsPanel = null;
@@ -343,7 +346,8 @@ namespace BeltTensionTest.WPF.Views
                 (raceX, raceY) = (s.OverlayRacePanelX, s.OverlayRacePanelY);
             _relativePanel = _host.AddRenderTarget(new RelativeOverlay(_host.GraphicsDevice,
                 Math.Min(raceX, Math.Max(0, _host.CanvasWidth - 100)),
-                Math.Min(raceY, Math.Max(0, _host.CanvasHeight - 100)), StandingsCarCount));
+                Math.Min(raceY, Math.Max(0, _host.CanvasHeight - 100)),
+                s?.OverlayRaceRows > 0 ? s.OverlayRaceRows : StandingsCarCount));
             if (!string.IsNullOrEmpty(s?.OverlayRaceColumnOrder))
                 _relativePanel.ColumnOrder = s.OverlayRaceColumnOrder;
             if (s != null)
@@ -408,11 +412,24 @@ namespace BeltTensionTest.WPF.Views
             // HUD settings (tag colours, standings size). Not edit-mode only:
             // these are changed while sitting in the pits. It starts collapsed
             // to a pill near the bottom-left, which opens it when clicked.
-            var standingsRowsSetting = new BeltSettingRow(
-                "Rows on the board",
-                () => _standingsPanel?.MaxRows ?? 0,
-                v => { if (_standingsPanel != null) _standingsPanel.MaxRows = (int)v; },
-                StandingsOverlay.MinRowSetting, StandingsOverlay.MaxRowSetting, 1f, "0");
+            _recenterBinding = new Services.RecenterBinding(s?.OverlayRecenterButton ?? string.Empty, Recenter);
+            var hudOptions = new HudOptions
+            {
+                Recenter = _recenterBinding,
+                GetEyeTracking = () => _vm.AppSettings?.EnableEyeTracking ?? true,
+                SetEyeTracking = on =>
+                {
+                    if (_vm.AppSettings != null) _vm.AppSettings.EnableEyeTracking = on;
+                    if (_gazeFocus != null) _gazeFocus.Enabled = on;
+                },
+                GetColorBlindIndex = () => Math.Max(0, Array.IndexOf(ColorBlindModeNames, _vm.AppSettings?.ColorBlindMode)),
+                SetColorBlindIndex = i =>
+                {
+                    string mode = ColorBlindModeNames[Math.Clamp(i, 0, ColorBlindModeNames.Length - 1)];
+                    if (_vm.AppSettings != null) _vm.AppSettings.ColorBlindMode = mode;
+                    SetColorBlind(mode);
+                },
+            };
 
             int hudX = 16, hudY = Math.Max(0, _host.CanvasHeight - 400); // above the GPU panel's corner
             if (s != null && s.OverlayHudSettingsPanelX >= 0 && s.OverlayHudSettingsPanelY >= 0)
@@ -421,7 +438,7 @@ namespace BeltTensionTest.WPF.Views
                 hudY = Math.Min(s.OverlayHudSettingsPanelY, Math.Max(0, _host.CanvasHeight - 100));
             }
             _hudSettingsPanel = _host.AddRenderTarget(new HudSettingsOverlay(
-                _host.GraphicsDevice, hudX, hudY, standingsRowsSetting, _gazeFocus, SaveLayout));
+                _host.GraphicsDevice, hudX, hudY, hudOptions, _gazeFocus, SaveLayout));
             // A tab on the left edge, edit mode only: opens the panel, which the host places.
             _hudSettingsPanel.EditModeOnly = true;
             _hudSettingsPanel.DockSide = MonoXR.Client.OverlayDockSide.Left;
@@ -742,6 +759,7 @@ namespace BeltTensionTest.WPF.Views
                     s.OverlayRacePanelScale = SavedScaleOf(_relativePanel);
                     s.OverlayRacePanelOpacity = SavedOpacityOf(_relativePanel);
                     s.OverlayRaceColumnOrder = _relativePanel.ColumnOrder;
+                    s.OverlayRaceRows = _relativePanel.RowCapacity;
                     s.OverlayRaceHiddenColumns = _relativePanel.HiddenColumns;
                     s.OverlayRaceNameFormat = _relativePanel.NameFormat.ToString();
                 }
@@ -763,6 +781,7 @@ namespace BeltTensionTest.WPF.Views
                     s.OverlayHudSettingsPanelScale = SavedScaleOf(_hudSettingsPanel);
                     s.OverlayHudSettingsPanelOpacity = SavedOpacityOf(_hudSettingsPanel);
                 }
+                if (_recenterBinding != null) s.OverlayRecenterButton = _recenterBinding.Binding;
                 // Driver tags and their colours live in DriverTags while the
                 // overlay runs; push them back into the settings before saving.
                 var tags = Services.Data.DriverTags.Instance;
@@ -1203,6 +1222,44 @@ namespace BeltTensionTest.WPF.Views
         /// <summary>0 flat, 1 curved, 2 triple: what the overlay currently is.</summary>
         private int CurrentShape => _host == null ? 0 : _host.Triple ? (_host.TripleTop ? 3 : 2) : _host.Curved ? 1 : 0;
 
+        private static readonly string[] ColorBlindModeNames = { "Off", "Deuteranopia", "Tritanomaly" };
+        private static readonly string[] ShapeKeys = { "Flat", "Curved", "Triple", "TripleTop" };
+
+        /// <summary>Each live panel with the settings prefix its position, scale and opacity are saved under.</summary>
+        private (string Prefix, OverlayRenderTarget? Panel)[] PanelPrefixes() => new (string, OverlayRenderTarget?)[]
+        {
+            ("OverlayPanel", _beltPanel), ("OverlayRacePanel", _relativePanel), ("OverlayStandingsPanel", _standingsPanel),
+            ("OverlayHudSettingsPanel", _hudSettingsPanel), ("OverlayWarningPanel", _warningPanel),
+            ("OverlayNearbyPanel", _nearbyPanel), ("OverlaySlowCarPanel", _slowCarPanel),
+            ("OverlayCarBehindPanel", _carBehindPanel), ("OverlayYouTubePanel", _youtubePanel),
+            ("OverlayGpuPanel", _gpuPanel), ("OverlayIncidentPanel", _incidentPanel), ("OverlayDisplayPanel", _displayPanel),
+        };
+
+        /// <summary>Move the live panels to the positions, sizes and row counts in the settings.</summary>
+        private void ApplyPanelLayoutFromSettings()
+        {
+            var s = _vm.AppSettings;
+            if (s == null) return;
+            var props = typeof(Models.AppSettings);
+            double Get(string name) => Convert.ToDouble(props.GetProperty(name)?.GetValue(s) ?? 0);
+
+            foreach (var (prefix, panel) in PanelPrefixes())
+            {
+                if (panel == null || panel.IsDocked) continue;
+                if (Get(prefix + "X") >= 0 && Get(prefix + "Y") >= 0)
+                {
+                    panel.X = (int)Get(prefix + "X");
+                    panel.Y = (int)Get(prefix + "Y");
+                }
+                RestoreScale(panel, Get(prefix + "Scale"));
+                RestoreOpacity(panel, Get(prefix + "Opacity"));
+            }
+            if (_relativePanel != null && s.OverlayRaceRows > 0) _relativePanel.RowCapacity = s.OverlayRaceRows;
+            if (_standingsPanel != null && s.OverlayStandingsRows > 0) _standingsPanel.MaxRows = s.OverlayStandingsRows;
+            ClampPanelsToCanvas();
+            _host?.InvalidateCanvas();
+        }
+
         /// <summary>Flat, curved or triple overlay, from this window's box or the in-VR Display panel.</summary>
         private void SetShape(int shape)
         {
@@ -1213,9 +1270,27 @@ namespace BeltTensionTest.WPF.Views
                 SyncEditPanel();
                 return;
             }
+
+            // Each shape keeps its own panel layout: file the current one under
+            // the shape being left, and bring back the one saved for the new
+            // shape (a shape never used before keeps the current layout).
+            SaveLayout();
+            bool restored = false;
+            var settings = _vm.AppSettings;
+            if (settings != null)
+            {
+                settings.OverlayShapeLayouts[ShapeKeys[CurrentShape]] = Services.OverlayLayoutService.SnapshotPanels(settings);
+                if (settings.OverlayShapeLayouts.TryGetValue(ShapeKeys[shape], out var saved))
+                {
+                    Services.OverlayLayoutService.RestorePanels(settings, saved);
+                    restored = true;
+                }
+            }
+
             _host.Triple = shape >= 2;
             _host.TripleTop = shape == 3;
             _host.Curved = shape == 1;
+            if (restored) ApplyPanelLayoutFromSettings();
             SyncEditPanel();
             SaveLayout();
             // The canvas gains or loses the top screen's band, so it gets rebuilt.
