@@ -59,7 +59,10 @@ namespace BeltTensionTest.WPF.Services.Data
         private const float CatchRateOn = 0.25f;   // slow-car: s/s closing → slow
         private const float CatchRateOff = 0.125f; // slow-car: s/s → clear again
         private const float WarnWindowSeconds = 10f;
-        private const float StallSpeedKmh = 5f;    // under this on pit road = in the stall
+        private const float StopSpeedKmh = 4f;     // under this on pit road the car is stopped...
+        private const float StopHoldSeconds = 0.4f;//   ...once it has been for this long
+        private const float GoSpeedKmh = 10f;      // over this on pit road the car is moving...
+        private const float GoHoldSeconds = 0.4f;  //   ...once it has been for this long
 
         // CarIdxTrackSurface values (irsdk TrkLoc enum).
         private const int SurfaceNotInWorld = -1;
@@ -79,6 +82,9 @@ namespace BeltTensionTest.WPF.Services.Data
             public bool YellowHazard;
             public bool SlowHazard;
             public PitState Pit;
+            public float StoppedFor;           // seconds in a row on pit road below StopSpeedKmh
+            public float MovingFor;            // seconds in a row on pit road above GoSpeedKmh
+            public bool StoppedThisVisit;      // has stopped since it came onto pit road (a drive-through never does)
             public int ExitLap = -1;           // lap number when the car rejoined the track
             public bool Seen;                  // had at least one tick (first tick seeds state)
         }
@@ -89,6 +95,7 @@ namespace BeltTensionTest.WPF.Services.Data
         private bool _yellowActive, _slowActive;
         private float _yellowGap, _slowGap;
         private bool _behindActive;
+        private int _behindCarIdx = -1;
         private float _behindGap;
         private BehindLap _behindLap;
 
@@ -107,6 +114,12 @@ namespace BeltTensionTest.WPF.Services.Data
         public (bool Active, float Gap, BehindLap Lap) Behind
         {
             get { lock (_lock) return (_behindActive, _behindGap, _behindLap); }
+        }
+
+        /// <summary>CarIdx of the car <see cref="Behind"/> is measuring; -1 when there is none.</summary>
+        public int BehindCarIdx
+        {
+            get { lock (_lock) return _behindActive ? _behindCarIdx : -1; }
         }
 
         public CarStatus StatusOf(int carIdx)
@@ -178,7 +191,7 @@ namespace BeltTensionTest.WPF.Services.Data
                     }
                     w.LastDist = dist;
 
-                    UpdatePitState(w, car, gridOrPace);
+                    UpdatePitState(w, car, gridOrPace, dt);
 
                     // Yellow: sustained low speed on track.
                     if (gridOrPace || !car.IsOnTrack || car.OnPitRoad)
@@ -223,6 +236,7 @@ namespace BeltTensionTest.WPF.Services.Data
                     {
                         float carMeters = dist * trackLen;
                         _behindActive = true;
+                        _behindCarIdx = car.CarIdx;
                         _behindGap = gap;
                         _behindLap = playerMeters - carMeters > 500f ? BehindLap.LappedBy
                                    : carMeters - playerMeters > 500f ? BehindLap.LapsUp
@@ -272,22 +286,52 @@ namespace BeltTensionTest.WPF.Services.Data
             }
         }
 
-        private static void UpdatePitState(Watch w, Car car, bool gridOrPace)
+        // Pit phase on pit road, from how the car moves (its speed is worked out from its lap
+        // distance, which is noisy, so a change needs to hold for a moment):
+        //   PIT IN   arrived from the track and has not stopped yet; a drive-through stays
+        //            PIT IN all the way until the car is back on the track,
+        //   PIT      stopped,
+        //   PIT OUT  moving again after having stopped, until it is back on the track.
+        private static void UpdatePitState(Watch w, Car car, bool gridOrPace, float dt)
         {
             if (car.IsInGarage)
             {
                 w.Pit = PitState.Pit;
+                w.StoppedThisVisit = true;
+                w.StoppedFor = w.MovingFor = 0f;
             }
             else if (car.OnPitRoad)
             {
+                bool arriving = w.Pit == PitState.None || w.Pit == PitState.OutLap;
                 if (!w.Seen)
-                    w.Pit = PitState.Pit; // no history (session join): assume parked
-                else if (w.SpeedKmh < StallSpeedKmh)
+                {
+                    // No history (session join): assume parked.
                     w.Pit = PitState.Pit;
-                else if (w.Pit == PitState.Pit || w.Pit == PitState.PitOut)
-                    w.Pit = PitState.PitOut; // moving again after a stop → leaving
-                else
-                    w.Pit = PitState.PitIn;  // arrived moving from the track
+                    w.StoppedThisVisit = true;
+                }
+                else if (arriving)
+                {
+                    w.Pit = PitState.PitIn;
+                    w.StoppedThisVisit = false;
+                    w.StoppedFor = w.MovingFor = 0f;
+                }
+
+                if (dt > 0f && dt < 1f)
+                {
+                    if (w.SpeedKmh < StopSpeedKmh) { w.StoppedFor += dt; w.MovingFor = 0f; }
+                    else if (w.SpeedKmh > GoSpeedKmh) { w.MovingFor += dt; w.StoppedFor = 0f; }
+                }
+
+                if (w.StoppedFor >= StopHoldSeconds)
+                {
+                    w.Pit = PitState.Pit;
+                    w.StoppedThisVisit = true;
+                }
+                else if (w.MovingFor >= GoHoldSeconds && w.StoppedThisVisit)
+                {
+                    w.Pit = PitState.PitOut;
+                }
+                // Otherwise keep the phase it is in: PIT IN until it stops, PIT while it creeps, PIT OUT once rolling.
             }
             else if (gridOrPace)
             {
@@ -302,6 +346,8 @@ namespace BeltTensionTest.WPF.Services.Data
                 {
                     w.Pit = PitState.OutLap;
                     w.ExitLap = car.Lap;
+                    w.StoppedThisVisit = false;
+                    w.StoppedFor = w.MovingFor = 0f;
                 }
                 else if (w.Pit == PitState.OutLap && car.Lap > w.ExitLap)
                 {

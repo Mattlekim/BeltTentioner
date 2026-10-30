@@ -38,6 +38,7 @@ namespace BeltTensionTest.WPF.Views
         private readonly MainViewModel _vm;
         private readonly Services.SettingsService _settingsSvc = new();
         private BeltSettingsOverlay? _beltPanel;
+        private BeltSettingsOverlay? _windPanel;
         private RelativeOverlay? _relativePanel;
         private StandingsOverlay? _standingsPanel;
         private HudSettingsOverlay? _hudSettingsPanel;
@@ -48,6 +49,7 @@ namespace BeltTensionTest.WPF.Views
         private CarBehindOverlay? _carBehindPanel;
         private YouTubeOverlay? _youtubePanel;
         private GpuStatsOverlay? _gpuPanel;
+        private CatchEstimateOverlay? _catchPanel;
         private IncidentsOverlay? _incidentPanel;
         private DisplaySettingsOverlay? _displayPanel;
         private OverlayPreviewWindow? _preview;
@@ -112,7 +114,7 @@ namespace BeltTensionTest.WPF.Views
             }
             ApplyHeadTracking();
             SetColorBlind(_vm.AppSettings?.ColorBlindMode);
-            if ((_beltPanel != null) == _vm.BeltFeatureEnabled) return;
+            if ((_beltPanel != null) == _vm.BeltFeatureEnabled && (_windPanel != null) == _vm.WindFeatureEnabled) return;
             Stop();
             Start();
         }
@@ -127,6 +129,7 @@ namespace BeltTensionTest.WPF.Views
                 _host = new MonoGameOverlayHost(CanvasXSize, CanvasYSize);
                 Log("Host ready: MonoGame device up, overlay published (World, 3m ahead, 2.5m).");
 
+                Services.Overlays.OverlayStyle.Load();
                 ApplySavedLayout();
                 ApplyHeadTracking();
                 SetColorBlind(_vm.AppSettings?.ColorBlindMode);
@@ -137,6 +140,14 @@ namespace BeltTensionTest.WPF.Views
                 // dictionary by reference, so a tag set in VR is already in
                 // the settings object when SaveLayout runs.
                 var settings = _vm.AppSettings;
+                if (settings != null)
+                {
+                    // Blame counts are kept by reference in the settings too; a change just needs saving.
+                    var blame = Services.Data.DriverBlame.Instance;
+                    blame.Load(settings.OverlayDriverBlame);
+                    blame.Changed -= SaveBlame;
+                    blame.Changed += SaveBlame;
+                }
                 if (settings != null)
                     Services.Data.DriverTags.Instance.Load(
                         settings.OverlayDriverTags, settings.OverlayFriendColor, settings.OverlayRivalColor,
@@ -155,6 +166,8 @@ namespace BeltTensionTest.WPF.Views
                 _host.SetGroups((_vm.AppSettings?.OverlayPanelGroups ?? new List<List<string>>())
                     .Select(names => names.Where(byName.ContainsKey).Select(n => byName[n]).ToList()));
                 _host.GroupsChanged += SaveLayout;
+                _host.TitleBarsChanged += SaveLayout;
+                _host.PanelOptionsChanged += SaveLayout;
                 _host.StateChanged += OnPanelStateChanged;
                 _host.DragCompleted += OnDragCompleted;
                 _host.ScaleChanged += OnScaleChanged;
@@ -226,9 +239,9 @@ namespace BeltTensionTest.WPF.Views
             _recenterBinding = null;
             _panelVisibility = null;
             _gazeFocus = null;
-            _beltPanel = null; _relativePanel = null; _standingsPanel = null;
+            _beltPanel = null; _windPanel = null; _relativePanel = null; _standingsPanel = null;
             _hudSettingsPanel = null; _headPanel = null; _warningPanel = null; _nearbyPanel = null; _slowCarPanel = null; _carBehindPanel = null;
-            _youtubePanel = null; _gpuPanel = null; _incidentPanel = null; _displayPanel = null;
+            _youtubePanel = null; _gpuPanel = null; _catchPanel = null; _incidentPanel = null; _displayPanel = null;
             bool wasRunning = _host != null;
             _benchmark?.Dispose(); // puts the host's mode back before it goes
             _benchmark = null;
@@ -356,6 +369,35 @@ namespace BeltTensionTest.WPF.Views
             if (_vm.BeltFeatureEnabled)
                 _beltPanel = _host.AddRenderTarget(new BeltSettingsOverlay(
                     _host.GraphicsDevice, panelWidth, panelHeight, x, y, groups));
+
+            // Wind settings: the same five sliders as the Wind tab, for setting the fan up from
+            // the headset. Not created when the Wind feature is off in Preferences → Features.
+            if (_vm.WindFeatureEnabled)
+            {
+                var wind = Services.Overlays.ColorBlind.Map(Services.Overlays.CbRole.Good, new Microsoft.Xna.Framework.Color(0x50, 0xC8, 0x78));
+                var windGroups = new[]
+                {
+                    new BeltSettingGroup("Wind",
+                        new[]
+                        {
+                            new BeltSettingRow("Resting Power", () => (float)_vm.WindRestingPower,    v => _vm.WindRestingPower    = Math.Round(v), 0f, 255f, 5f, "0", wind),
+                            new BeltSettingRow("Min Speed",     () => (float)_vm.WindMinSpeed,        v => _vm.WindMinSpeed        = Math.Round(v), 0f, 255f, 5f, "0", wind),
+                            new BeltSettingRow("Min Power",     () => (float)_vm.WindMinPower,        v => _vm.WindMinPower        = Math.Round(v), 0f, 255f, 5f, "0", wind),
+                            new BeltSettingRow("Power",         () => (float)_vm.WindPowerPercentage, v => _vm.WindPowerPercentage = Math.Round(v), 0f, 255f, 5f, "0", wind),
+                            new BeltSettingRow("Curve",         () => _vm.WindCurve,                  v => _vm.WindCurve           = v,             0.1f, 5f, 0.1f, "0.0", wind),
+                        }),
+                };
+                const int windWidth = 640, windHeight = 440;
+                int windX = Math.Max(0, _host.CanvasWidth - windWidth - 16), windY = Math.Max(0, _host.CanvasHeight - windHeight - 16);
+                if (s != null && HasSavedPos(s.OverlayWindPanelX, s.OverlayWindPanelY))
+                {
+                    double windScale = s.OverlayWindPanelScale > 0 ? s.OverlayWindPanelScale : 1.0;
+                    windX = Math.Min(s.OverlayWindPanelX, Math.Max(0, _host.CanvasWidth - (int)(windWidth * windScale)));
+                    windY = Math.Min(s.OverlayWindPanelY, Math.Max(0, _host.CanvasHeight - (int)(windHeight * windScale)));
+                }
+                _windPanel = _host.AddRenderTarget(new BeltSettingsOverlay(
+                    _host.GraphicsDevice, windWidth, windHeight, windX, windY, windGroups, "Wind Settings"));
+            }
 
             // Relative box (ported from IrachingHud's RelativeBox): one panel
             // that shows the race or the practice/qualifying layout depending
@@ -548,6 +590,16 @@ namespace BeltTensionTest.WPF.Views
             _gpuPanel = _host.AddRenderTarget(new GpuStatsOverlay(
                 _host.GraphicsDevice, gpuX, gpuY));
 
+            // Laps-to-catch estimate (car ahead / car behind): defaults to the bottom-left corner, above the GPU panel.
+            int catchX = 16, catchY = Math.Max(0, gpuY - 228 - 12);
+            if (s != null && HasSavedPos(s.OverlayCatchPanelX, s.OverlayCatchPanelY))
+            {
+                catchX = Math.Min(s.OverlayCatchPanelX, Math.Max(0, _host.CanvasWidth - 100));
+                catchY = Math.Min(s.OverlayCatchPanelY, Math.Max(0, _host.CanvasHeight - 100));
+            }
+            _catchPanel = _host.AddRenderTarget(new CatchEstimateOverlay(
+                _host.GraphicsDevice, catchX, catchY));
+
             // Incident list (replay only): defaults to the bottom-right corner.
             var incidents = new IncidentsOverlay(_host.GraphicsDevice, 0, 0);
             int incX = Math.Max(0, _host.CanvasWidth - incidents.Width - 24);
@@ -567,26 +619,41 @@ namespace BeltTensionTest.WPF.Views
             // the values are saved the usual way. The panel only exists in
             // edit mode (EditModeOnly), which is also when it is useful.
             var host = _host;
-            var displayRows = new[]
+            var displayRows = new List<BeltSettingRow>
             {
                 new BeltSettingRow("Width (m)",    () => host.DisplaySize.X, v => ApplyDisplaySetting(DisplaySetting.Width, v),    MinDisplayMeters,  8f,   0.05f, "0.00"),
                 new BeltSettingRow("Height (m)",   () => host.DisplaySize.Y, v => ApplyDisplaySetting(DisplaySetting.Height, v),   MinDisplayMeters,  8f,   0.05f, "0.00"),
                 new BeltSettingRow("Distance (m)", () => host.Distance,      v => ApplyDisplaySetting(DisplaySetting.Distance, v), 0.25f, 10f,   0.05f, "0.00"),
-                new BeltSettingRow("Curve (%)",    () => host.CurveAmount * 100f, v => ApplyDisplaySetting(DisplaySetting.Curve, v),  10f, 150f,  5f,   "0"),
-                new BeltSettingRow("Center (%)",   () => host.TripleCenterPercent, v => ApplyDisplaySetting(DisplaySetting.TripleCenter, v), 20f, 90f, 1f, "0"),
-                new BeltSettingRow("Side angle",   () => host.TripleSideAngle,     v => ApplyDisplaySetting(DisplaySetting.TripleAngle, v),  0f,  90f, 1f, "0"),
-                new BeltSettingRow("Top height (m)", () => host.TripleTopHeight, v => ApplyDisplaySetting(DisplaySetting.TopHeight, v), 0.2f, 4f, 0.05f, "0.00"),
-                new BeltSettingRow("Top tilt",     () => host.TripleTopAngle,  v => ApplyDisplaySetting(DisplaySetting.TopAngle, v),  0f,  90f, 1f, "0"),
-                new BeltSettingRow("Bottom height (m)", () => host.TripleBottomHeight, v => ApplyDisplaySetting(DisplaySetting.BottomHeight, v), 0.2f, 4f, 0.05f, "0.00"),
-                new BeltSettingRow("Bottom tilt",  () => host.TripleBottomAngle,  v => ApplyDisplaySetting(DisplaySetting.BottomAngle, v),  0f,  90f, 1f, "0"),
+                // The rows of one shape: only shown (under the Shape box) while that shape is picked.
+                // Shapes: 0 flat, 1 curved, 2 triple, 3 with top, 4 with bottom, 5 with both, 6 individual overlays.
+                new BeltSettingRow("Curve (%)",    () => host.CurveAmount * 100f, v => ApplyDisplaySetting(DisplaySetting.Curve, v),  10f, 150f,  5f,   "0") { VisibleFor = sh => sh == 1 },
+                new BeltSettingRow("Center (%)",   () => host.TripleCenterPercent, v => ApplyDisplaySetting(DisplaySetting.TripleCenter, v), 20f, 90f, 1f, "0") { VisibleFor = sh => sh is >= 2 and <= 5 },
+                new BeltSettingRow("Side angle",   () => host.TripleSideAngle,     v => ApplyDisplaySetting(DisplaySetting.TripleAngle, v),  0f,  90f, 1f, "0") { VisibleFor = sh => sh is >= 2 and <= 5 },
+                new BeltSettingRow("Top height (m)", () => host.TripleTopHeight, v => ApplyDisplaySetting(DisplaySetting.TopHeight, v), 0.2f, 4f, 0.05f, "0.00") { VisibleFor = sh => sh is 3 or 5 },
+                new BeltSettingRow("Top tilt",     () => host.TripleTopAngle,  v => ApplyDisplaySetting(DisplaySetting.TopAngle, v),  0f,  90f, 1f, "0") { VisibleFor = sh => sh is 3 or 5 },
+                new BeltSettingRow("Bottom height (m)", () => host.TripleBottomHeight, v => ApplyDisplaySetting(DisplaySetting.BottomHeight, v), 0.2f, 4f, 0.05f, "0.00") { VisibleFor = sh => sh is 4 or 5 },
+                new BeltSettingRow("Bottom tilt",  () => host.TripleBottomAngle,  v => ApplyDisplaySetting(DisplaySetting.BottomAngle, v),  0f,  90f, 1f, "0") { VisibleFor = sh => sh is 4 or 5 },
                 new BeltSettingRow("X offset (m)", () => host.OffsetX,       v => ApplyDisplaySetting(DisplaySetting.OffsetX, v),  -5f,   5f,   0.05f, "0.00"),
                 new BeltSettingRow("Y offset (m)", () => host.OffsetY,       v => ApplyDisplaySetting(DisplaySetting.OffsetY, v),  -5f,   5f,   0.05f, "0.00"),
                 new BeltSettingRow("DPI (px/m)",   () => (float)_dpi,        v => ApplyDisplaySetting(DisplaySetting.Dpi, v),      128f, 2048f, 16f,   "0"),
             };
+#if DEBUG
+            // Debug builds only: how round the windows' corners are. Saving the layout writes it to overlaystyle.json.
+            displayRows.Add(new BeltSettingRow("Corner radius", () => Services.Overlays.OverlayStyle.CornerRadius, SetCornerRadius,
+                0f, Services.Overlays.OverlayStyle.MaxCornerRadius, 1f, "0"));
+#endif
             var display = new DisplaySettingsOverlay(_host.GraphicsDevice, 0, 0, displayRows,
                 () => $"Resolution  {host.CanvasWidth} x {host.CanvasHeight} px     Sim: {Services.PanelVisibility.Describe(Services.PanelVisibility.CurrentSimState())} ({Services.PanelVisibility.Diagnostics()})",
                 Services.PanelVisibility.EditViewOptions, () => _editView, SetEditView,
-                () => CurrentShape, SetShape);
+                () => ShapeChoice, SetShapeChoice,
+                ColorBlindModeNames, () => Math.Max(0, Array.IndexOf(ColorBlindModeNames, _vm.AppSettings?.ColorBlindMode)),
+                i =>
+                {
+                    string mode = ColorBlindModeNames[Math.Clamp(i, 0, ColorBlindModeNames.Length - 1)];
+                    if (_vm.AppSettings != null) _vm.AppSettings.ColorBlindMode = mode;
+                    SetColorBlind(mode);
+                    SaveLayout();
+                });
 
             // Defaults to the right-hand edge, vertically centered (the corner
             // panels are all taken); then the saved position, clamped.
@@ -618,6 +685,7 @@ namespace BeltTensionTest.WPF.Views
             if (s != null)
             {
                 RestoreScale(_beltPanel, s.OverlayPanelScale);
+                RestoreScale(_windPanel, s.OverlayWindPanelScale);
                 double boxScale = s.OverlayMainPanelScale;
                 RestoreScale(_relativePanel, s.OverlayRacePanelScale > 0 ? s.OverlayRacePanelScale : boxScale);
                 RestoreScale(_standingsPanel, s.OverlayStandingsPanelScale);
@@ -628,10 +696,12 @@ namespace BeltTensionTest.WPF.Views
                 RestoreScale(_carBehindPanel, s.OverlayCarBehindPanelScale);
                 RestoreScale(_youtubePanel, s.OverlayYouTubePanelScale);
                 RestoreScale(_gpuPanel, s.OverlayGpuPanelScale);
+                RestoreScale(_catchPanel, s.OverlayCatchPanelScale);
                 RestoreScale(_incidentPanel, s.OverlayIncidentPanelScale);
                 RestoreScale(_displayPanel, s.OverlayDisplayPanelScale);
 
                 RestoreOpacity(_beltPanel, s.OverlayPanelOpacity);
+                RestoreOpacity(_windPanel, s.OverlayWindPanelOpacity);
                 RestoreOpacity(_relativePanel, s.OverlayRacePanelOpacity);
                 RestoreOpacity(_standingsPanel, s.OverlayStandingsPanelOpacity);
                 RestoreOpacity(_hudSettingsPanel, s.OverlayHudSettingsPanelOpacity);
@@ -641,8 +711,14 @@ namespace BeltTensionTest.WPF.Views
                 RestoreOpacity(_carBehindPanel, s.OverlayCarBehindPanelOpacity);
                 RestoreOpacity(_youtubePanel, s.OverlayYouTubePanelOpacity);
                 RestoreOpacity(_gpuPanel, s.OverlayGpuPanelOpacity);
+                RestoreOpacity(_catchPanel, s.OverlayCatchPanelOpacity);
                 RestoreOpacity(_incidentPanel, s.OverlayIncidentPanelOpacity);
                 RestoreOpacity(_displayPanel, s.OverlayDisplayPanelOpacity);
+                foreach (var panel in _host.RenderTargets)
+                {
+                    panel.TitleBarHidden = s.OverlayHiddenTitleBars.Contains(panel.Name);
+                    if (panel.HasHeadings) panel.HeadingsHidden = s.OverlayHiddenHeadings.Contains(panel.Name);
+                }
                 ClampPanelsToCanvas();
                 ApplySavedPlacement(s);
             }
@@ -660,6 +736,7 @@ namespace BeltTensionTest.WPF.Views
                 panel.PitchDegrees = (float)p.GetValueOrDefault("Pitch");
                 panel.RollDegrees = (float)p.GetValueOrDefault("Roll");
                 panel.StereoDepthOffset = (float)p.GetValueOrDefault("Depth");
+                panel.CurveAmount = (float)p.GetValueOrDefault("Curve");
             }
         }
 
@@ -702,7 +779,7 @@ namespace BeltTensionTest.WPF.Views
                 _host.Curved = s.OverlayCurved;
                 _host.PerWindowOverlays = s.OverlayPerWindow;
                 _host.StereoDepth = (float)s.OverlayStereoDepth;
-                _host.Stereo3D = s.OverlayStereo;
+                _host.Stereo3D = Stereo3DAvailable && s.OverlayStereo;
                 _host.TripleCenterPercent = (float)s.OverlayTripleCenter;
                 _host.TripleSideAngle = (float)s.OverlayTripleAngle;
                 _host.TripleTopHeight = (float)s.OverlayTopHeight;
@@ -786,8 +863,8 @@ namespace BeltTensionTest.WPF.Views
         private IEnumerable<OverlayRenderTarget> AllPanels()
         {
             var panels = new OverlayRenderTarget?[]
-                { _beltPanel, _relativePanel, _standingsPanel, _hudSettingsPanel, _headPanel, _warningPanel,
-                  _nearbyPanel, _slowCarPanel, _carBehindPanel, _youtubePanel, _gpuPanel, _incidentPanel, _displayPanel };
+                { _beltPanel, _windPanel, _relativePanel, _standingsPanel, _hudSettingsPanel, _headPanel, _warningPanel,
+                  _nearbyPanel, _slowCarPanel, _carBehindPanel, _youtubePanel, _gpuPanel, _catchPanel, _incidentPanel, _displayPanel };
             foreach (var p in panels)
                 if (p != null) yield return p;
         }
@@ -820,11 +897,18 @@ namespace BeltTensionTest.WPF.Views
             SaveLayout();
         }
 
+        private void SaveBlame()
+        {
+            var s = _vm.AppSettings;
+            if (s != null) _settingsSvc.Save(s);
+        }
+
         /// <summary>Persist the current overlay layout (panel position, size, distance, DPI).</summary>
         private void SaveLayout()
         {
             var s = _vm.AppSettings;
             if (_host == null || s == null) return;
+            Services.Overlays.OverlayStyle.Save(); // Debug builds only: the shared look goes to overlaystyle.json
             try
             {
                 if (_beltPanel != null)
@@ -833,6 +917,13 @@ namespace BeltTensionTest.WPF.Views
                     s.OverlayPanelY = _beltPanel.Y;
                     s.OverlayPanelScale = SavedScaleOf(_beltPanel);
                     s.OverlayPanelOpacity = SavedOpacityOf(_beltPanel);
+                }
+                if (_windPanel != null)
+                {
+                    s.OverlayWindPanelX = _windPanel.X;
+                    s.OverlayWindPanelY = _windPanel.Y;
+                    s.OverlayWindPanelScale = SavedScaleOf(_windPanel);
+                    s.OverlayWindPanelOpacity = SavedOpacityOf(_windPanel);
                 }
                 if (_relativePanel != null)
                 {
@@ -892,6 +983,8 @@ namespace BeltTensionTest.WPF.Views
                     s.OverlayGazeEnabledPanels = new List<string>(_gazeFocus.EnabledPanels);
                 }
                 s.OverlayPanelGroups = _host.Groups.Select(g => g.Select(m => m.Name).ToList()).ToList();
+                s.OverlayHiddenTitleBars = _host.RenderTargets.Where(p => p.TitleBarHidden).Select(p => p.Name).ToList();
+                s.OverlayHiddenHeadings = _host.RenderTargets.Where(p => p.HasHeadings && p.HeadingsHidden).Select(p => p.Name).ToList();
                 if (_warningPanel != null)
                 {
                     s.OverlayWarningPanelX = _warningPanel.X;
@@ -934,6 +1027,13 @@ namespace BeltTensionTest.WPF.Views
                     s.OverlayGpuPanelY = _gpuPanel.Y;
                     s.OverlayGpuPanelScale = SavedScaleOf(_gpuPanel);
                     s.OverlayGpuPanelOpacity = SavedOpacityOf(_gpuPanel);
+                }
+                if (_catchPanel != null)
+                {
+                    s.OverlayCatchPanelX = _catchPanel.X;
+                    s.OverlayCatchPanelY = _catchPanel.Y;
+                    s.OverlayCatchPanelScale = SavedScaleOf(_catchPanel);
+                    s.OverlayCatchPanelOpacity = SavedOpacityOf(_catchPanel);
                 }
                 if (_incidentPanel != null)
                 {
@@ -996,6 +1096,7 @@ namespace BeltTensionTest.WPF.Views
                             ["Pitch"] = panel.PitchDegrees,
                             ["Roll"] = panel.RollDegrees,
                             ["Depth"] = panel.StereoDepthOffset,
+                            ["Curve"] = panel.CurveAmount,
                         };
                 s.OverlayPanelPlacement = placement;
                 _settingsSvc.Save(s);
@@ -1159,6 +1260,7 @@ namespace BeltTensionTest.WPF.Views
             _host.PerWindowOverlays = on;
             SaveLayout();
             Log(on ? "One overlay per window: on." : "One overlay per window: off (single canvas).");
+            SyncEditPanel();
         }
 
         private void StereoCheck_Changed(object sender, RoutedEventArgs e)
@@ -1170,6 +1272,7 @@ namespace BeltTensionTest.WPF.Views
             _host.Stereo3D = on;
             SaveLayout();
             Log(on ? "3D: on (an overlay per eye)." : "3D: off.");
+            SyncEditPanel();
         }
 
         private void StereoDepthSlider_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -1394,6 +1497,7 @@ namespace BeltTensionTest.WPF.Views
             bool allow = supported != false;
             _shapeBoxTip ??= ShapeBox.ToolTip;
             ((System.Windows.Controls.ComboBoxItem)ShapeBox.Items[1]).IsEnabled = allow;
+            _displayPanel?.SetShapeEnabled(1, allow);
             CurveSlider.IsEnabled = allow;
             ShapeBox.ToolTip = allow ? _shapeBoxTip
                 : "Curved needs cylinder layers, and the headset's OpenXR runtime (SteamVR has none) doesn't have them.";
@@ -1404,7 +1508,7 @@ namespace BeltTensionTest.WPF.Views
         private void ShapeBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
             if (_host == null || _syncingEditUi || ShapeBox.SelectedIndex < 0) return;
-            SetShape(ShapeBox.SelectedIndex);
+            SetShapeChoice(ShapeBox.SelectedIndex);
         }
 
         /// <summary>0 flat, 1 curved, 2 triple, 3 with top, 4 with bottom, 5 with both: what the overlay currently is.</summary>
@@ -1412,17 +1516,80 @@ namespace BeltTensionTest.WPF.Views
             : _host.Triple ? (_host.TripleTop ? (_host.TripleBottom ? 5 : 3) : _host.TripleBottom ? 4 : 2)
             : _host.Curved ? 1 : 0;
 
+        /// <summary>The 3D effect is switched off for now: no 3D choice in the shape lists or the toolbar, and a saved 3D setting is not applied. The code behind it stays.</summary>
+        private const bool Stereo3DAvailable = false;
+
+        /// <summary>The shape list's choice: <see cref="CurrentShape"/>, or 6 (flat, individual overlays) / 7 (3D) for a flat overlay with one overlay per window.</summary>
+        private int ShapeChoice => _host == null ? 0
+            : CurrentShape != 0 ? CurrentShape
+            : _host.Stereo3D ? 7
+            : _host.PerWindowOverlays ? 6 : 0;
+
+        /// <summary>
+        /// A pick from the shape list. 6 is a flat overlay with one overlay per window, 7 the whole
+        /// flat overlay as two overlays, one per eye (3D); Flat is the plain single canvas; any shape turns 3D off.
+        /// </summary>
+        private void SetShapeChoice(int choice)
+        {
+            if (_host == null || ShapeChoice == choice) return;
+            SetStereo(choice == 7);
+            if (choice == 6) SetPerWindow(true);
+            else if (choice == 0 || choice == 7) SetPerWindow(false);
+            SetShape(choice >= 6 ? 0 : choice);
+        }
+
+        /// <summary>Turn one overlay per window on or off, keeping the toolbar's box in step.</summary>
+        private void SetPerWindow(bool on)
+        {
+            if (_host == null) return;
+            if (_vm.AppSettings != null) _vm.AppSettings.OverlayPerWindow = on;
+            _host.PerWindowOverlays = on;
+            _syncingPerWindow = true;
+            PerWindowCheck.IsChecked = on;
+            _syncingPerWindow = false;
+            SaveLayout();
+            Log(on ? "One overlay per window: on." : "One overlay per window: off (single canvas).");
+            SyncEditPanel();
+        }
+
+        /// <summary>Turn 3D on or off, keeping the toolbar's box in step.</summary>
+        private void SetStereo(bool on)
+        {
+            if (_host == null) return;
+            var settings = _vm.AppSettings;
+            if (settings != null) settings.OverlayStereo = on;
+            _host.Stereo3D = on && Stereo3DAvailable;
+            _syncingPerWindow = true;
+            StereoCheck.IsChecked = on;
+            _syncingPerWindow = false;
+            SaveLayout();
+            Log(on ? "3D: on (an overlay per eye)." : "3D: off.");
+            SyncEditPanel();
+        }
+
+#if DEBUG
+        private void SetCornerRadius(float radius)
+        {
+            int value = (int)Math.Round(radius);
+            if (value == Services.Overlays.OverlayStyle.CornerRadius) return;
+            Services.Overlays.OverlayStyle.CornerRadius = value;
+            foreach (var p in AllPanels()) p.Invalidate(); // every window draws its corners again
+            _host?.InvalidateCanvas();
+            SaveLayout();
+        }
+#endif
+
         private static readonly string[] ColorBlindModeNames = { "Off", "Deuteranopia", "Tritanomaly" };
         private static readonly string[] ShapeKeys = { "Flat", "Curved", "Triple", "TripleTop", "TripleBottom", "TripleTopBottom" };
 
         /// <summary>Each live panel with the settings prefix its position, scale and opacity are saved under.</summary>
         private (string Prefix, OverlayRenderTarget? Panel)[] PanelPrefixes() => new (string, OverlayRenderTarget?)[]
         {
-            ("OverlayPanel", _beltPanel), ("OverlayRacePanel", _relativePanel), ("OverlayStandingsPanel", _standingsPanel),
+            ("OverlayPanel", _beltPanel), ("OverlayWindPanel", _windPanel), ("OverlayRacePanel", _relativePanel), ("OverlayStandingsPanel", _standingsPanel),
             ("OverlayHudSettingsPanel", _hudSettingsPanel), ("OverlayWarningPanel", _warningPanel),
             ("OverlayNearbyPanel", _nearbyPanel), ("OverlaySlowCarPanel", _slowCarPanel),
             ("OverlayCarBehindPanel", _carBehindPanel), ("OverlayYouTubePanel", _youtubePanel),
-            ("OverlayGpuPanel", _gpuPanel), ("OverlayIncidentPanel", _incidentPanel), ("OverlayDisplayPanel", _displayPanel),
+            ("OverlayGpuPanel", _gpuPanel), ("OverlayCatchPanel", _catchPanel), ("OverlayIncidentPanel", _incidentPanel), ("OverlayDisplayPanel", _displayPanel),
         };
 
         /// <summary>Move the live panels to the positions, sizes and row counts in the settings.</summary>
@@ -1543,7 +1710,7 @@ namespace BeltTensionTest.WPF.Views
             SizeXSlider.Value = _host.DisplaySize.X;
             SizeYSlider.Value = _host.DisplaySize.Y;
             DistanceSlider.Value = _host.Distance;
-            ShapeBox.SelectedIndex = CurrentShape;
+            ShapeBox.SelectedIndex = ShapeChoice;
             CurveSlider.Value = _host.CurveAmount * 100;
             TripleCenterSlider.Value = _host.TripleCenterPercent;
             TripleAngleSlider.Value = _host.TripleSideAngle;

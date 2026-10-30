@@ -54,6 +54,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         private const int PanelWidth = 720;
         private const int TitleBarHeight = 48;
+        public override int TitleBarSourceHeight => TitleBarHeight;
         private const int LineHeight = 34;
         private const int Pad = 10;
 
@@ -464,14 +465,14 @@ namespace BeltTensionTest.WPF.Services.Overlays
             }
 
             var panel = new XnaRectangle(0, 0, Width, Height);
-            MonoXRDraw.RoundedRect(_sb, panel, 16, PanelBg);
+            MonoXRDraw.RoundedRect(_sb, panel, OverlayStyle.CornerRadius, PanelBg);
 
             // Title bar, same anatomy as the other panels but YouTube-red.
-            MonoXRDraw.RoundedRect(_sb, new XnaRectangle(0, 0, Width, TitleBarHeight), 16,
+            MonoXRDraw.RoundedRect(_sb, new XnaRectangle(0, 0, Width, TitleBarHeight), OverlayStyle.CornerRadius,
                                    TitleBg, roundBottom: false);
             MonoXRDraw.VerticalFade(_sb, new XnaRectangle(0, 0, Width, TitleBarHeight / 2), XnaColor.White * 0.05f);
-            _sb.DrawString(_font, Name, new XnaVector2(20, 10), XnaColor.Black * 0.45f);
-            _sb.DrawString(_font, Name, new XnaVector2(20, 8), TitleText);
+            _sb.DrawString(_font, Name, new XnaVector2(20, OverlayStyle.TitleY(_font, TitleBarHeight) + 2), XnaColor.Black * 0.45f);
+            _sb.DrawString(_font, Name, new XnaVector2(20, OverlayStyle.TitleY(_font, TitleBarHeight)), TitleText);
             _sb.Draw(_white, new XnaRectangle(0, TitleBarHeight - 3, Width, 3), Accent);
             MonoXRDraw.VerticalFade(_sb, new XnaRectangle(0, TitleBarHeight, Width, 12), Accent * 0.25f);
 
@@ -523,7 +524,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 }
             }
 
-            MonoXRDraw.RoundedRectOutline(_sb, panel, 16, 2, Border);
+            MonoXRDraw.RoundedRectOutline(_sb, panel, OverlayStyle.CornerRadius, 2, Border);
             _sb.End();
         }
 

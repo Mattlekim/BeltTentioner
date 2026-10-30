@@ -35,9 +35,10 @@ namespace BeltTensionTest.WPF.Services.Overlays
         public const int DefaultCarsToDisplay = 7;
 
         protected const int TitleBarHeight = 48;
+        public override int TitleBarSourceHeight => TitleBarHeight;
         protected const int HeaderRowHeight = 34; // column labels above the rows
         protected const int RowHeight = 44;
-        protected const int RowSpacing = 3;
+        protected const int RowSpacing = 1;
         /// <summary>Panel width the relative boxes use; a box can ask for another.</summary>
         public const int DefaultPanelWidth = 1200;
         protected const int Pad = 8;
@@ -54,22 +55,27 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private Col[] _colOrder;
         private int _dragCol = -1; // index into _colOrder being dragged in edit mode
 
-        private const int ColGapX = 8;          // horizontal gap between cells
+        private const int ColGapX = 2;          // horizontal gap between cells (narrow, like the in-game relative)
         private const int ColContentLeft = Pad + 8;
         private int ColContentRight => Width - Pad - 10;
 
-        private static int FixedWidth(Col c) => c switch
+        // The status column is only as wide as its longest word ("OUT LAP", the header, or the checkered flag + FIN).
+        private int StatusWidth =>
+            (int)Math.Ceiling(Math.Max(FontHead.MeasureString("OUT LAP").X,
+                              Math.Max(FontHead.MeasureString("STATUS").X, FontHead.MeasureString("FIN").X + 38))) + 6;
+
+        private int FixedWidth(Col c) => c switch
         {
             Col.Pos => 58,
             Col.License => 92,
             Col.IRating => 72,
-            Col.Status => 100,
+            Col.Status => StatusWidth,
             Col.LastLap => 125,
             Col.BestLap => 125,
             Col.CurLap => 135,
             Col.Rel => 90,
             Col.Gap => 100,
-            Col.Tire => 30,
+            Col.Tire => 84, // the tire icon, then the laps on it
             Col.Gained => 52,
             Col.Stint => 60,
             Col.Sectors => 100,
@@ -89,7 +95,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             Col.CurLap => "CURRENT",
             Col.Rel => "REL",
             Col.Gap => "GAP",
-            Col.Tire => "T",
+            Col.Tire => "TIRE",
             Col.Gained => "+/-",
             Col.Stint => "STINT",
             Col.Sectors => "SECTORS",
@@ -98,7 +104,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         };
 
         private static bool RightAligned(Col c) =>
-            c is Col.IRating or Col.LastLap or Col.BestLap or Col.CurLap or Col.Rel or Col.Gap
+            c is Col.IRating or Col.BestLap or Col.CurLap or Col.Gap
               or Col.Stint or Col.Sectors or Col.LiveSectors;
 
         /// <summary>
@@ -123,18 +129,36 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private (Col Col, int Left, int Width)[] ColumnCells()
         {
             var cols = VisibleColumns();
-            int flex = ColContentRight - ColContentLeft - ColGapX * (cols.Count - 1);
-            foreach (var c in cols) flex -= FixedWidth(c);
-
             var cells = new (Col, int, int)[cols.Count];
             int x = ColContentLeft;
             for (int i = 0; i < cols.Count; i++)
             {
-                int w = cols[i] == Col.Driver ? Math.Max(80, flex) : FixedWidth(cols[i]);
+                int w = cols[i] == Col.Driver ? DriverWidth : FixedWidth(cols[i]);
                 cells[i] = (cols[i], x, w);
                 x += w + ColGapX;
             }
             return cells;
+        }
+
+        // The name column is only as wide as a typical name in the chosen format; a longer name is cut
+        // off with "..", which keeps the numbers close to the position instead of far across the panel.
+        private int DriverWidth => _nameFormat switch
+        {
+            RelativeNameFormat.Initial => 215,
+            RelativeNameFormat.Surname => 190,
+            _ => 280,
+        };
+
+        // Narrowest the panel gets, so the title bar and info bar still fit with few columns showing.
+        private const int MinPanelWidth = 640;
+
+        /// <summary>Panel width that holds exactly the columns on screen.</summary>
+        private int WidthForColumns()
+        {
+            var cols = VisibleColumns();
+            int w = ColContentLeft + ColGapX * Math.Max(0, cols.Count - 1) + Pad + 10;
+            foreach (var c in cols) w += c == Col.Driver ? DriverWidth : FixedWidth(c);
+            return Math.Max(MinPanelWidth, w);
         }
 
         // App palette (Resources/Styles.xaml), matching BeltSettingsOverlay.
@@ -154,12 +178,12 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private static XnaColor PlayerBg => ColorBlind.Map(CbRole.Good, new XnaColor(0x1E, 0x5C, 0x38, 235), 0.4f);   // green
         private static XnaColor LapAheadBg => ColorBlind.Map(CbRole.Bad, new XnaColor(0x6E, 0x1A, 0x1A, 235), 0.45f); // red
         private static XnaColor LapBehindBg => ColorBlind.Map(CbRole.Info, new XnaColor(0x1A, 0x30, 0x6E, 235), 0.45f);// blue
+        // Plain rows alternate between near-black and a clearly lighter grey, by the row's place on the
+        // screen (not the driver's position: the relative boxes list cars by where they are on the track).
         private static readonly XnaColor[] RowShades =
         {
-            new XnaColor(0x1A, 0x1A, 0x28, 235),
-            new XnaColor(0x22, 0x22, 0x32, 235),
-            new XnaColor(0x1C, 0x24, 0x32, 235),
-            new XnaColor(0x24, 0x1C, 0x32, 235),
+            new XnaColor(0x0C, 0x0C, 0x12, 240),
+            new XnaColor(0x3A, 0x3A, 0x4E, 240),
         };
 
         // Sector / lap-time colors, mirroring the RelativeBox rules.
@@ -233,6 +257,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         protected SpriteFont Font = null!;     // title
         protected SpriteFont FontBody = null!; // rows
         protected SpriteFont FontHead = null!; // column headers / small labels
+        protected SpriteFont FontDelta = null!; // the delta (Rel / Gap) column: bigger and bold, the number to read at a glance
         private int _fontVersion = -1;
         protected int CarsToDisplay { get; private set; }
         private readonly int _infoBarHeight;
@@ -265,8 +290,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
         protected Texture2D White => _white;
 
         /// <summary>Panel height that holds <paramref name="rows"/> car rows plus the chrome.</summary>
-        private static int PanelHeightFor(int rows, int infoBarHeight, int footerHeight) =>
-            TitleBarHeight + infoBarHeight + Pad + HeaderRowHeight
+        private static int PanelHeightFor(int rows, int infoBarHeight, int footerHeight, int headerHeight = HeaderRowHeight) =>
+            TitleBarHeight + infoBarHeight + Pad + headerHeight
             + Math.Max(1, rows) * (RowHeight + RowSpacing) + Pad + footerHeight;
 
         protected StandingsOverlayBase(GraphicsDevice device, string name, int x, int y,
@@ -282,6 +307,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _sb = new SpriteBatch(device);
             _white = new Texture2D(device, 1, 1);
             _white.SetData(new[] { XnaColor.White });
+            _fastestLapIcon = LoadIcon(device, "fastest-lap.png");
+            _tireIcon = LoadIcon(device, "tire.png");
             BakeFonts();
 
             // Sector timing runs at full telemetry rate (60 Hz) so boundary
@@ -298,11 +325,14 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private void BakeFonts()
         {
             var old = (Font, FontBody, FontHead);
+            var oldDelta = FontDelta;
             string family = OverlayFonts.Family;
             Font = RuntimeSpriteFont.Bake(GraphicsDevice, family, OverlayFonts.Scaled(30f));
             FontBody = RuntimeSpriteFont.Bake(GraphicsDevice, family, OverlayFonts.Scaled(24f));
             FontHead = RuntimeSpriteFont.Bake(GraphicsDevice, family, OverlayFonts.Scaled(18f), System.Drawing.FontStyle.Bold);
+            FontDelta = RuntimeSpriteFont.Bake(GraphicsDevice, family, OverlayFonts.Scaled(27f), System.Drawing.FontStyle.Bold);
             _fontVersion = OverlayFonts.Version;
+            oldDelta?.Texture.Dispose();
             old.Item1?.Texture.Dispose();
             old.Item2?.Texture.Dispose();
             old.Item3?.Texture.Dispose();
@@ -319,7 +349,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             rows = Math.Max(1, rows);
             if (rows == CarsToDisplay) return;
             CarsToDisplay = rows;
-            Resize(Width, PanelHeightFor(rows, _infoBarHeight, _footerHeight));
+            Resize(Width, PanelHeightFor(rows, _infoBarHeight, _footerHeight, HeaderH));
         }
 
         /// <summary>
@@ -331,8 +361,30 @@ namespace BeltTensionTest.WPF.Services.Overlays
             height = Math.Max(0, height);
             if (height == _footerHeight) return;
             _footerHeight = height;
-            Resize(Width, PanelHeightFor(CarsToDisplay, _infoBarHeight, _footerHeight));
+            Resize(Width, PanelHeightFor(CarsToDisplay, _infoBarHeight, _footerHeight, HeaderH));
         }
+
+        private bool _headingsHidden;
+
+        public override bool HasHeadings => true;
+
+        /// <summary>The column labels row (POS, LIC, ...) is left out and the rows start right under the info bar.</summary>
+        public override bool HeadingsHidden
+        {
+            get => _headingsHidden;
+            set
+            {
+                if (_headingsHidden == value) return;
+                _headingsHidden = value;
+                CloseHeaderMenu();
+                Resize(Width, PanelHeightFor(CarsToDisplay, _infoBarHeight, _footerHeight, HeaderH));
+                _lastSnapshot = string.Empty;
+                Invalidate();
+            }
+        }
+
+        /// <summary>Height of the headings row right now (0 while hidden).</summary>
+        protected int HeaderH => _headingsHidden ? 0 : HeaderRowHeight;
 
         /// <summary>Fewest and most rows a box can be dragged to.</summary>
         public const int MinPanelRows = 3, MaxPanelRows = 40;
@@ -352,6 +404,62 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         /// <summary>Fill <see cref="Rows"/> for this frame (player is valid, cars non-empty).</summary>
         protected abstract void BuildRows(IReadOnlyList<Car> all, Car player);
+
+        // ----- Finishers ----------------------------------------------------------
+        // Finished = crossed the line after the checkered came out: the lap count each car had when
+        // the session went checkered is remembered, and a car has finished once it completes another
+        // lap. The car that triggered the flag (the overall leader) has finished immediately. A
+        // finisher's position is final from that moment: it is kept here and shown from then on, so
+        // the cars still racing cannot change it.
+
+        private readonly Dictionary<int, int> _lapAtCheckered = new();
+        private bool _checkeredSeen;
+
+        /// <summary>Cars that have taken the checkered flag in the race on screen.</summary>
+        protected readonly HashSet<int> FinishedCars = new();
+
+        /// <summary>Overall and class position each finished car had as it crossed the line.</summary>
+        protected readonly Dictionary<int, (int Overall, int Class)> FinalPositions = new();
+
+        protected void ResetFinishTracking()
+        {
+            _lapAtCheckered.Clear();
+            FinishedCars.Clear();
+            FinalPositions.Clear();
+            _checkeredSeen = false;
+        }
+
+        private void UpdateFinishTracking(IReadOnlyList<Car> all, int state)
+        {
+            bool race = CurrentSessionType.IndexOf("Race", StringComparison.OrdinalIgnoreCase) >= 0;
+            if (!race || state < IracingService.SessionStateCheckered)
+            {
+                if (_checkeredSeen || FinishedCars.Count > 0) ResetFinishTracking();
+                return;
+            }
+
+            void Finish(Car c)
+            {
+                if (FinishedCars.Add(c.CarIdx) && (c.Position > 0 || c.ClassPosition > 0))
+                    FinalPositions[c.CarIdx] = (c.Position, c.ClassPosition);
+            }
+
+            if (!_checkeredSeen)
+            {
+                _checkeredSeen = true;
+                foreach (var c in all)
+                {
+                    _lapAtCheckered[c.CarIdx] = c.LapCompleted;
+                    if (c.Position == 1) Finish(c);
+                }
+            }
+            foreach (var c in all)
+            {
+                if (!_lapAtCheckered.TryGetValue(c.CarIdx, out int lap))
+                    _lapAtCheckered[c.CarIdx] = lap = c.LapCompleted;
+                if (c.LapCompleted > lap) Finish(c);
+            }
+        }
 
         /// <summary>Append any extra visible state (info bar / footer) so changes trigger a repaint.</summary>
         protected virtual void AppendSnapshot(StringBuilder sb) { }
@@ -686,7 +794,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         protected int HeaderTop => TitleBarHeight + _infoBarHeight + Pad;
 
         /// <summary>Top of the first car row, in panel pixels.</summary>
-        protected int RowsTop => HeaderTop + HeaderRowHeight;
+        protected int RowsTop => HeaderTop + HeaderH;
 
         /// <summary>Connected and inside one of this box's session types.</summary>
         protected bool IsActive => _active;
@@ -725,7 +833,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 return true;
             }
             int top = HeaderTop;
-            if (y < top || y >= top + HeaderRowHeight) return false;
+            if (y < top || y >= top + HeaderH) return false;
             var cells = ColumnCells();
             for (int i = 0; i < cells.Length; i++)
             {
@@ -935,7 +1043,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         {
             if (IsCollapsed || !_active && !EditMode) return false;
             if (HeaderMenuOpen) { CloseHeaderMenu(); return true; }
-            if (y < HeaderTop || y >= HeaderTop + HeaderRowHeight) return false;
+            if (y < HeaderTop || y >= HeaderTop + HeaderH) return false;
             foreach (var (col, left, width) in ColumnCells())
             {
                 if (x < left - ColGapX / 2 || x >= left + width + ColGapX / 2) continue;
@@ -972,6 +1080,13 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public override void Update(GameTime gameTime)
         {
+            int wanted = WidthForColumns();
+            if (wanted != Width)
+            {
+                Resize(wanted, Height);
+                _lastSnapshot = string.Empty;
+                Invalidate();
+            }
             if (_fontVersion != OverlayFonts.Version)
             {
                 BakeFonts();
@@ -997,7 +1112,10 @@ namespace BeltTensionTest.WPF.Services.Overlays
             Multiclass = all.Select(c => c.CarClassId).Distinct().Count() > 1;
 
             if (_active && player.CarIdx >= 0 && all.Count > 0)
+            {
+                UpdateFinishTracking(all, svc.SessionState);
                 BuildRows(all, player);
+            }
 
             // Only redraw/republish when something visible actually changed.
             var sb = new StringBuilder(_sessionLabel);
@@ -1103,6 +1221,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 // (the original's S/W); -1 = series doesn't report it.
                 Tire = car.TireCompound < 0 ? string.Empty : car.TireCompound == 0 ? "S" : "W",
                 Stint = string.Empty,
+                Finished = FinishedCars.Contains(car.CarIdx),
             };
         }
 
@@ -1176,6 +1295,126 @@ namespace BeltTensionTest.WPF.Services.Overlays
             new XnaColor((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF, alpha);
 
         /// <summary>Dark or light text, whichever reads on the given background.</summary>
+        /// <summary>
+        /// iRacing's license class colors, from the class letter of "A 3.45" (the session
+        /// info's own color is the fallback for anything else, such as Pro).
+        /// </summary>
+        private static int LicenseColor(string license, int sessionColor)
+        {
+            switch (string.IsNullOrEmpty(license) ? '\0' : char.ToUpperInvariant(license[0]))
+            {
+                case 'R': return 0xFC0706; // Rookie: red
+                case 'D': return 0xFC8A27; // D: orange
+                case 'C': return 0xFEEC04; // C: yellow
+                case 'B': return 0x00C702; // B: green
+                case 'A': return 0x0153DB; // A: blue
+                default: return sessionColor >= 0 ? sessionColor : 0x505068;
+            }
+        }
+
+        /// <summary>
+        /// What is left of the session while it is running, whichever of time and laps will end it first:
+        /// "12:34" / "1:02:03" or "8 laps". Empty when neither is limited, or the session is not under way.
+        /// With both limits the laps are turned into time at the class's lap time to see which comes first.
+        /// </summary>
+        protected static string RemainingText(IracingService svc, Car player, out bool urgent)
+        {
+            urgent = false;
+            if (svc.SessionState != IracingService.SessionStateRacing) return string.Empty;
+
+            double time = svc.SessionTimeRemain;
+            int laps = svc.SessionLapsRemain;
+            bool timed = time > 0 && time < 600000;     // iRacing reports 604800 when there is no time limit
+            bool lapped = laps > 0 && laps < 32000;     // and 32767 when there is no lap limit
+            if (timed && lapped)
+            {
+                float lapTime = player.ClassEstLapTime > 0 ? player.ClassEstLapTime : player.LastLapTime;
+                // Laps that take longer than the clock has left mean the clock ends it.
+                if (lapTime > 0 && time < laps * (double)lapTime) lapped = false; else timed = false;
+            }
+
+            if (timed)
+            {
+                int t = (int)Math.Ceiling(time);
+                urgent = t <= 60;
+                return t >= 3600 ? $"{t / 3600}:{t / 60 % 60:00}:{t % 60:00}" : $"{t / 60}:{t % 60:00}";
+            }
+            if (lapped)
+            {
+                urgent = laps <= 1;
+                return laps == 1 ? "1 lap" : $"{laps} laps";
+            }
+            return string.Empty;
+        }
+
+        /// <summary>Draw the time / laps left centered in the info bar, in yellow for the last minute or lap.</summary>
+        protected void DrawRemaining(XnaRectangle area, string text, bool urgent)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+            float y = area.Y + (area.Height - FontBody.LineSpacing) / 2f;
+            var size = FontBody.MeasureString(text);
+            _sb.DrawString(FontBody, text, new XnaVector2(area.X + (area.Width - size.X) / 2f, y), urgent ? SecYellow : XnaColor.White);
+        }
+
+        /// <summary>The player's brake bias for the info bar: "BB 56.0%", or "BB --" in a car with no adjustable bias.</summary>
+        protected static string BrakeBiasText(IracingService svc) =>
+            float.IsNaN(svc.BrakeBias) || svc.BrakeBias <= 0 ? "BB --" : $"BB {svc.BrakeBias:0.0}%";
+
+        /// <summary>Draw the brake bias right-aligned to <paramref name="rightEdge"/> in the info bar; returns where its text starts.</summary>
+        protected float DrawBrakeBias(string text, XnaRectangle area, float rightEdge)
+        {
+            float y = area.Y + (area.Height - FontBody.LineSpacing) / 2f;
+            float x = rightEdge - FontBody.MeasureString(text).X;
+            _sb.DrawString(FontBody, text, new XnaVector2(x, y), text.EndsWith("--") ? RowTextDim : RowText);
+            return x;
+        }
+
+        /// <summary>
+        /// The info bar's fastest-lap readout: the fastest-lap icon on a purple square, then the
+        /// driver and time (<paramref name="text"/>), or NA while no fastest lap exists yet.
+        /// </summary>
+        protected void DrawFastestLapInfo(XnaRectangle area, string text)
+        {
+            float y = area.Y + (area.Height - FontBody.LineSpacing) / 2f;
+            var chip = new XnaRectangle(area.X, area.Y + 9, 36, area.Height - 18);
+            _sb.Draw(_white, chip, SecPurple);
+            if (_fastestLapIcon != null)
+            {
+                int s = Math.Min(chip.Height - 2, 24);
+                _sb.Draw(_fastestLapIcon, new XnaRectangle(chip.X + (chip.Width - s) / 2, chip.Y + (chip.Height - s) / 2, s, s), XnaColor.White);
+            }
+            else
+            {
+                var fl = FontHead.MeasureString("FL");
+                _sb.DrawString(FontHead, "FL", new XnaVector2(chip.X + (chip.Width - fl.X) / 2f, area.Y + (area.Height - FontHead.LineSpacing) / 2f), XnaColor.White);
+            }
+            bool none = string.IsNullOrEmpty(text);
+            _sb.DrawString(FontBody, none ? "NA" : text, new XnaVector2(chip.Right + 10, y), none ? RowTextDim : RowText);
+        }
+
+        // The fastest-lap icon (white on transparent, tinted by the draw); null when the file is missing.
+        private Texture2D? _fastestLapIcon;
+        private Texture2D? _tireIcon; // white tire ring, tinted by the compound
+
+        private static Texture2D? LoadIcon(GraphicsDevice device, string fileName)
+        {
+            try
+            {
+                string path = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", fileName);
+                if (!System.IO.File.Exists(path)) path = System.IO.Path.Combine(AppContext.BaseDirectory, fileName);
+                if (!System.IO.File.Exists(path)) return null;
+                using var stream = System.IO.File.OpenRead(path);
+                var tex = Texture2D.FromStream(device, stream);
+                // The sprite batch blends premultiplied: scale each pixel by its alpha.
+                var px = new XnaColor[tex.Width * tex.Height];
+                tex.GetData(px);
+                for (int i = 0; i < px.Length; i++) px[i] = XnaColor.FromNonPremultiplied(px[i].R, px[i].G, px[i].B, px[i].A);
+                tex.SetData(px);
+                return tex;
+            }
+            catch (Exception) { return null; }
+        }
+
         protected static XnaColor TextOn(int rgb)
         {
             double lum = 0.299 * ((rgb >> 16) & 0xFF) + 0.587 * ((rgb >> 8) & 0xFF) + 0.114 * (rgb & 0xFF);
@@ -1186,8 +1425,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public override void Render(GameTime gameTime)
         {
-            const int Radius = 16;
-            const int RowRadius = 8;
+            int Radius = OverlayStyle.CornerRadius;
+            const int RowRadius = 0; // square rows
 
             GraphicsDevice.Clear(XnaColor.Transparent);
 
@@ -1227,8 +1466,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
             string title = boxName.StartsWith(_sessionLabel, StringComparison.OrdinalIgnoreCase)
                         || _sessionLabel.StartsWith(boxName, StringComparison.OrdinalIgnoreCase)
                 ? boxName : $"{boxName} - {_sessionLabel}";
-            _sb.DrawString(Font, title, new XnaVector2(20, 10), XnaColor.Black * 0.45f);
-            _sb.DrawString(Font, title, new XnaVector2(20, 8), TitleText);
+            _sb.DrawString(Font, title, new XnaVector2(20, OverlayStyle.TitleY(Font, TitleBarHeight) + 2), XnaColor.Black * 0.45f);
+            _sb.DrawString(Font, title, new XnaVector2(20, OverlayStyle.TitleY(Font, TitleBarHeight)), TitleText);
             _sb.Draw(_white, new XnaRectangle(0, TitleBarHeight - 3, Width, 3), Accent);
             MonoXRDraw.VerticalFade(_sb, new XnaRectangle(0, TitleBarHeight, Width, 12), Accent * 0.25f);
 
@@ -1242,9 +1481,9 @@ namespace BeltTensionTest.WPF.Services.Overlays
             var cells = ColumnCells();
             int headTop = HeaderTop;
             int headY = headTop + (HeaderRowHeight - FontHead.LineSpacing) / 2;
-            int rowsBottom = headTop + HeaderRowHeight + (RowOffset + Rows.Count) * (RowHeight + RowSpacing);
+            int rowsBottom = headTop + HeaderH + (RowOffset + Rows.Count) * (RowHeight + RowSpacing);
 
-            for (int i = 0; i < cells.Length; i++)
+            for (int i = 0; i < cells.Length && HeaderH > 0; i++)
             {
                 var (col, cl, cw) = cells[i];
                 bool dragging = EditMode && i == _dragCol;
@@ -1254,28 +1493,30 @@ namespace BeltTensionTest.WPF.Services.Overlays
                     var handle = new XnaRectangle(cl - 3, headTop, cw + 6, HeaderRowHeight - 4);
                     MonoXRDraw.RoundedRect(_sb, handle, 6, dragging ? Accent * 0.35f : XnaColor.White * 0.06f);
                     if (dragging) // shade the whole column while it is being moved
-                        _sb.Draw(_white, new XnaRectangle(cl - 3, headTop + HeaderRowHeight,
-                            cw + 6, Math.Max(0, rowsBottom - headTop - HeaderRowHeight)), Accent * 0.12f);
+                        _sb.Draw(_white, new XnaRectangle(cl - 3, headTop + HeaderH,
+                            cw + 6, Math.Max(0, rowsBottom - headTop - HeaderH)), Accent * 0.12f);
                 }
 
                 string label = HeaderOf(col);
                 float lx = RightAligned(col) ? cl + cw - FontHead.MeasureString(label).X : cl;
                 _sb.DrawString(FontHead, label, new XnaVector2(lx, headY), dragging ? Accent : RowTextDim);
             }
-            MonoXRDraw.HorizontalFade(_sb,
-                new XnaRectangle(Pad + 4, headTop + HeaderRowHeight - 4, Width - (Pad + 4) * 2, 2), Border);
+            if (HeaderH > 0)
+                MonoXRDraw.HorizontalFade(_sb,
+                    new XnaRectangle(Pad + 4, headTop + HeaderRowHeight - 4, Width - (Pad + 4) * 2, 2), Border);
 
             if (Rows.Count == 0)
             {
                 string msg = _active ? "Waiting for iRacing..." : EmptyMessage;
                 _sb.DrawString(FontBody, msg,
-                    new XnaVector2(ColContentLeft + 10, headTop + HeaderRowHeight + 10), RowTextDim);
+                    new XnaVector2(ColContentLeft + 10, headTop + HeaderH + 10), RowTextDim);
             }
 
-            int y = headTop + HeaderRowHeight + RowOffset * (RowHeight + RowSpacing);
+            int y = headTop + HeaderH + RowOffset * (RowHeight + RowSpacing);
+            int shown = RowOffset; // which row on screen this is, to alternate the shades
             foreach (var row in Rows)
             {
-                DrawRow(row, y, cells, RowRadius);
+                DrawRow(row, y, cells, RowRadius, shown++);
                 y += RowHeight + RowSpacing;
             }
 
@@ -1300,7 +1541,20 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _sb.End();
         }
 
-        private void DrawRow(Row row, int y, (Col Col, int Left, int Width)[] cells, int rowRadius)
+        /// <summary>
+        /// A coloured row in its dark or light shade, by the row's place on screen, so rows of the same
+        /// colour (a run of cars a lap down, say) still alternate and are easy to follow across the panel.
+        /// </summary>
+        private static XnaColor Alternate(XnaColor color, int index)
+        {
+            var shade = (index & 1) == 0
+                ? XnaColor.Lerp(color, XnaColor.Black, 0.5f)
+                : XnaColor.Lerp(color, XnaColor.White, 0.18f);
+            shade.A = color.A;
+            return shade;
+        }
+
+        private void DrawRow(Row row, int y, (Col Col, int Left, int Width)[] cells, int rowRadius, int index)
         {
             if (row.Divider)
             {
@@ -1314,10 +1568,15 @@ namespace BeltTensionTest.WPF.Services.Overlays
             }
 
             XnaColor bg, badge;
-            if (row.IsPlayer) { bg = PlayerBg; badge = ColorBlind.Map(CbRole.Good, new XnaColor(0x2E, 0x8C, 0x57), 0.6f); }
-            else if (row.LapDelta >= 1) { bg = LapAheadBg; badge = ColorBlind.Map(CbRole.Bad, new XnaColor(0xA8, 0x30, 0x30), 0.65f); }
-            else if (row.LapDelta <= -1) { bg = LapBehindBg; badge = ColorBlind.Map(CbRole.Info, new XnaColor(0x30, 0x50, 0xA8), 0.65f); }
-            else { bg = RowShades[Math.Abs(row.Pos) % RowShades.Length]; badge = new XnaColor(0x32, 0x32, 0x48); }
+            if (row.IsPlayer) { bg = Alternate(PlayerBg, index); badge = ColorBlind.Map(CbRole.Good, new XnaColor(0x2E, 0x8C, 0x57), 0.6f); }
+            else if (row.LapDelta >= 1) { bg = Alternate(LapAheadBg, index); badge = ColorBlind.Map(CbRole.Bad, new XnaColor(0xA8, 0x30, 0x30), 0.65f); }
+            else if (row.LapDelta <= -1) { bg = Alternate(LapBehindBg, index); badge = ColorBlind.Map(CbRole.Info, new XnaColor(0x30, 0x50, 0xA8), 0.65f); }
+            else
+            {
+                bg = RowShades[index & 1];
+                // The position badge is the opposite shade, so it stands out on either row.
+                badge = (index & 1) == 0 ? new XnaColor(0x3A, 0x3A, 0x50) : new XnaColor(0x14, 0x14, 0x1E);
+            }
 
             // A tagged driver's color replaces the plain row shade, mixed in
             // by the strength set in HUD settings, so a friend or a rival is
@@ -1356,7 +1615,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
                         var badgeRect = new XnaRectangle(cl, y + 5, Math.Min(42, cw), RowHeight - 10);
                         XnaColor fill = row.ClassColor >= 0 ? FromRgb(row.ClassColor) : badge;
                         XnaColor fg = row.ClassColor >= 0 ? TextOn(row.ClassColor) : RowText;
-                        MonoXRDraw.RoundedRect(_sb, badgeRect, 6, fill);
+                        _sb.Draw(_white, badgeRect, fill);
                         if (row.Pos > 0)
                         {
                             string pos = row.Pos.ToString();
@@ -1370,8 +1629,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
                     {
                         if (string.IsNullOrEmpty(row.License)) break;
                         var r = new XnaRectangle(cl, y + 7, cw, RowHeight - 14);
-                        int lic = row.LicColor >= 0 ? row.LicColor : 0x505068;
-                        MonoXRDraw.RoundedRect(_sb, r, 5, FromRgb(lic));
+                        int lic = LicenseColor(row.License, row.LicColor);
+                        _sb.Draw(_white, r, FromRgb(lic));
                         var size = FontHead.MeasureString(row.License);
                         _sb.DrawString(FontHead, row.License,
                             new XnaVector2(r.X + (r.Width - size.X) / 2f, smallY), TextOn(lic));
@@ -1419,7 +1678,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
                             MonoXRDraw.RoundedRect(_sb, chip, 6,
                                 row.LastCmp < 0 ? SecRed : XnaColor.Lerp(SecGreen, XnaColor.Black, 0.35f));
                         }
-                        DrawRight(FontBody, row.LastLap, cl + cw, textY, row.LastCmp != 0 ? XnaColor.White : RowTextDim);
+                        _sb.DrawString(FontBody, row.LastLap, new XnaVector2(cl, textY), row.LastCmp != 0 ? XnaColor.White : RowTextDim);
                         break;
                     }
                     case Col.BestLap:
@@ -1454,21 +1713,41 @@ namespace BeltTensionTest.WPF.Services.Overlays
                         break;
                     }
                     case Col.Rel:
-                        if (!string.IsNullOrEmpty(row.Rel))
-                            DrawRight(FontBody, row.Rel, cl + cw, textY, RowText);
-                        break;
                     case Col.Gap:
-                        if (!string.IsNullOrEmpty(row.Gap))
-                            DrawRight(FontBody, row.Gap, cl + cw, textY,
-                                row.GapCmp < 0 ? SecGreen : row.GapCmp > 0 ? SecYellow : RowText);
+                    {
+                        // The delta is what matters at a glance: a dark inset with an accent
+                        // edge behind it, and the number in the bigger bold font.
+                        _sb.Draw(_white, new XnaRectangle(cl - 1, y, cw + 2, RowHeight), XnaColor.Black * 0.5f);
+                        _sb.Draw(_white, new XnaRectangle(cl - 1, y, 2, RowHeight), Accent);
+                        string delta = col == Col.Rel ? row.Rel : row.Gap;
+                        if (string.IsNullOrEmpty(delta)) break;
+                        XnaColor deltaColor = col == Col.Gap
+                            ? (row.GapCmp < 0 ? SecGreen : row.GapCmp > 0 ? SecYellow : XnaColor.White)
+                            : XnaColor.White;
+                        float deltaY = y + (RowHeight - FontDelta.LineSpacing) / 2f;
+                        if (col == Col.Rel) _sb.DrawString(FontDelta, delta, new XnaVector2(cl + 6, deltaY), deltaColor); // Rel reads from the left
+                        else DrawRight(FontDelta, delta, cl + cw - 4, deltaY, deltaColor);
                         break;
+                    }
                     case Col.Tire:
+                        // The tire on the left: its icon in the compound's colour with the compound
+                        // letter in the middle; the laps run on it (the stint) on the right.
                         if (!string.IsNullOrEmpty(row.Tire))
                         {
                             var c = row.Tire == "W" ? new XnaColor(0x8C, 0xC8, 0xFF) : SecRed;
-                            var size = FontBody.MeasureString(row.Tire);
-                            _sb.DrawString(FontBody, row.Tire, new XnaVector2(cl + (cw - size.X) / 2f, textY), c);
+                            if (_tireIcon != null)
+                            {
+                                int s = RowHeight - 6;
+                                _sb.Draw(_tireIcon, new XnaRectangle(cl, y + (RowHeight - s) / 2, s, s), c);
+                                var letter = FontHead.MeasureString(row.Tire);
+                                _sb.DrawString(FontHead, row.Tire,
+                                    new XnaVector2(cl + (s - letter.X) / 2f, y + (RowHeight - FontHead.LineSpacing) / 2f), c);
+                            }
+                            else
+                                _sb.DrawString(FontBody, row.Tire, new XnaVector2(cl, textY), c);
                         }
+                        if (!string.IsNullOrEmpty(row.Stint))
+                            DrawRight(FontBody, row.Stint, cl + cw, textY, RowText);
                         break;
                     case Col.Gained:
                         if (row.Gained is int g)
@@ -1494,11 +1773,24 @@ namespace BeltTensionTest.WPF.Services.Overlays
         /// </summary>
         private void DrawStatusCell(Row row, int cl, int cw, int y, float smallY)
         {
-            bool boxOn = row.Hazard && Flasher > 1f;
+            // A driver who has taken the checkered flag is marked with it whatever else they are doing
+            // (in the pits, say): the race is over for them.
+            bool boxOn = row.Hazard && !row.Finished && Flasher > 1f;
             if (boxOn)
                 MonoXRDraw.RoundedRect(_sb, new XnaRectangle(cl - 2, y + 5, cw + 4, RowHeight - 10), 6, SecYellow);
 
-            if (!string.IsNullOrEmpty(row.Status))
+            if (row.Finished)
+            {
+                // Small checkered flag: 4x3 alternating squares.
+                const int Sq = 7;
+                int fx = cl + 4, fy = y + (RowHeight - Sq * 3) / 2;
+                for (int r = 0; r < 3; r++)
+                    for (int c = 0; c < 4; c++)
+                        _sb.Draw(_white, new XnaRectangle(fx + c * Sq, fy + r * Sq, Sq, Sq),
+                                 (r + c) % 2 == 0 ? XnaColor.White : XnaColor.Black);
+                _sb.DrawString(FontHead, "FIN", new XnaVector2(fx + Sq * 4 + 6, smallY), RowText);
+            }
+            else if (!string.IsNullOrEmpty(row.Status))
             {
                 XnaColor c = boxOn ? DarkText
                     : row.Status == "PIT OUT" ? SecGreen
@@ -1511,23 +1803,20 @@ namespace BeltTensionTest.WPF.Services.Overlays
             {
                 _sb.DrawString(FontHead, "SLOW", new XnaVector2(cl + 4, smallY), boxOn ? DarkText : SlowAmber);
             }
-            else if (row.Finished)
-            {
-                // Small checkered flag: 4x3 alternating squares.
-                const int Sq = 7;
-                int fx = cl + 4, fy = y + (RowHeight - Sq * 3) / 2;
-                for (int r = 0; r < 3; r++)
-                    for (int c = 0; c < 4; c++)
-                        _sb.Draw(_white, new XnaRectangle(fx + c * Sq, fy + r * Sq, Sq, Sq),
-                                 (r + c) % 2 == 0 ? XnaColor.White : XnaColor.Black);
-                _sb.DrawString(FontHead, "FIN", new XnaVector2(fx + Sq * 4 + 6, smallY), RowText);
-            }
             else if (row.BestIsFastest)
             {
                 var r = new XnaRectangle(cl, y + 9, 36, RowHeight - 18);
-                MonoXRDraw.RoundedRect(_sb, r, 5, SecPurple);
-                var size = FontHead.MeasureString("FL");
-                _sb.DrawString(FontHead, "FL", new XnaVector2(r.X + (r.Width - size.X) / 2f, smallY), XnaColor.White);
+                _sb.Draw(_white, r, SecPurple);
+                if (_fastestLapIcon != null)
+                {
+                    int s = Math.Min(r.Height - 2, 24);
+                    _sb.Draw(_fastestLapIcon, new XnaRectangle(r.X + (r.Width - s) / 2, r.Y + (r.Height - s) / 2, s, s), XnaColor.White);
+                }
+                else
+                {
+                    var size = FontHead.MeasureString("FL");
+                    _sb.DrawString(FontHead, "FL", new XnaVector2(r.X + (r.Width - size.X) / 2f, smallY), XnaColor.White);
+                }
             }
         }
 
@@ -1556,8 +1845,11 @@ namespace BeltTensionTest.WPF.Services.Overlays
             IracingService.Instance.Disconnected -= OnIracingDisconnected;
             FontHead.Texture.Dispose();
             FontBody.Texture.Dispose();
+            FontDelta.Texture.Dispose();
             Font.Texture.Dispose();
             _white.Dispose();
+            _fastestLapIcon?.Dispose();
+            _tireIcon?.Dispose();
             _sb.Dispose();
             base.Dispose();
         }

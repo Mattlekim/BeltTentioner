@@ -19,6 +19,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private const int PanelWidth = 440;
         private const int PanelHeight = 250;
         private const int TitleBarHeight = 56;
+        public override int TitleBarSourceHeight => TitleBarHeight;
         private const int RowHeight = 56;
 
         // App palette (Resources/Styles.xaml), same as the Belt Settings panel.
@@ -69,7 +70,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public override void Render(GameTime gameTime)
         {
-            const int Radius = 18;
+            int Radius = OverlayStyle.CornerRadius;
             GraphicsDevice.Clear(XnaColor.Transparent);
             _sb.Begin();
 
@@ -93,8 +94,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
             // Title bar: "GPU" plus the card's name, right-aligned and dimmer.
             MonoXRDraw.RoundedRect(_sb, new XnaRectangle(0, 0, Width, TitleBarHeight), Radius, TitleBg, roundBottom: false);
             MonoXRDraw.VerticalFade(_sb, new XnaRectangle(0, 0, Width, TitleBarHeight / 2), XnaColor.White * 0.05f);
-            _sb.DrawString(_fontTitle, "GPU", new XnaVector2(20, 12), XnaColor.Black * 0.45f);
-            _sb.DrawString(_fontTitle, "GPU", new XnaVector2(20, 10), TitleText);
+            _sb.DrawString(_fontTitle, "GPU", new XnaVector2(20, OverlayStyle.TitleY(_fontTitle, TitleBarHeight) + 2), XnaColor.Black * 0.45f);
+            _sb.DrawString(_fontTitle, "GPU", new XnaVector2(20, OverlayStyle.TitleY(_fontTitle, TitleBarHeight)), TitleText);
             string name = g.Name;
             var nameSize = _fontSmall.MeasureString(name);
             _sb.DrawString(_fontSmall, name,

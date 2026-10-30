@@ -66,15 +66,15 @@
                               Margin="0,0,14,0" Foreground="#A0A0BE"
                               Checked="PerWindowCheck_Changed" Unchecked="PerWindowCheck_Changed"
                               ToolTip="Publish every window as its own VR overlay instead of one shared canvas. Uses less GPU memory, and a window that did not change is not copied again. Edit mode, the triple layout and the mouse calibration still use the canvas while they are open."/>
-                    <CheckBox x:Name="StereoCheck" Content="3D" VerticalAlignment="Center"
+                    <CheckBox x:Name="StereoCheck" Content="3D" VerticalAlignment="Center" Visibility="Collapsed"
                               Margin="0,0,6,0" Foreground="#A0A0BE"
                               Checked="StereoCheck_Changed" Unchecked="StereoCheck_Changed"
-                              ToolTip="Show every window as a pair of overlays, one for each eye, so its picture can stand out of (or sink behind) its frame. Needs One overlay per window; costs about double per window."/>
-                    <Slider x:Name="StereoDepthSlider" Width="90" Minimum="-0.5" Maximum="1" TickFrequency="0.05"
+                              ToolTip="Show the whole overlay as a pair of overlays, one for each eye, with every window shifted a little for each eye so it can stand out of (or sink behind) the overlay. Costs about double. With One overlay per window it is a pair per window instead. Not used in edit mode or with the triple layout."/>
+                    <Slider x:Name="StereoDepthSlider" Visibility="Collapsed" Width="90" Minimum="-0.5" Maximum="1" TickFrequency="0.05"
                             IsSnapToTickEnabled="True" VerticalAlignment="Center" Margin="0,0,4,0"
                             ValueChanged="StereoDepthSlider_Changed"
                             ToolTip="How far every window's picture stands out of its frame toward you, in meters (negative: behind it)"/>
-                    <TextBlock x:Name="StereoDepthValue" VerticalAlignment="Center" Width="48" Margin="0,0,10,0"/>
+                    <TextBlock x:Name="StereoDepthValue" Visibility="Collapsed" VerticalAlignment="Center" Width="48" Margin="0,0,10,0"/>
                     <Button x:Name="PlacementButton" Content="Window placement..." Width="140" Height="24" Margin="0,0,8,0"
                             Click="PlacementButton_Click"
                             ToolTip="Set each window's distance and rotation (needs One overlay per window)"/>
@@ -196,6 +196,7 @@
                                 <ComboBoxItem Content="Triple + top"/>
                                 <ComboBoxItem Content="Triple + bottom"/>
                                 <ComboBoxItem Content="Triple + top + bottom"/>
+                                <ComboBoxItem Content="Flat - Individual Overlays"/>
                             </ComboBox>
                         </StackPanel>
 

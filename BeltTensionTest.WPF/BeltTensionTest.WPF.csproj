@@ -24,6 +24,8 @@
 
   <ItemGroup>
     <Content Include="Assets\Icon.ico" />
+    <Content Include="Assets\fastest-lap.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="Assets\tire.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!-- SimHub plugin (built from Sim_Hub_Plugin, which needs a local SimHub SDK so
@@ -67,6 +69,11 @@
   <ItemGroup>
     <None Update="Hex\belt-tentioner.ino.hex">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <!-- Look of the overlay windows (corner radius). Edited by a Debug build, committed to git, shipped next to the exe. -->
+    <None Update="overlaystyle.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>
     <!-- Google OAuth client for the YouTube overlay (git-ignored). Shipped next
          to the exe; enabling the overlay copies it to %AppData%\BeltTensioner. -->

@@ -45,6 +45,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
     public sealed class HudSettingsOverlay : OverlayRenderTarget
     {
         private const int TitleBarHeight = 56;
+        public override int TitleBarSourceHeight => TitleBarHeight;
         private const int PanelWidth = 760;
         private const int RowHeight = 48;
         private const int RowSpacing = 6;
@@ -363,7 +364,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public override void Render(GameTime gameTime)
         {
-            const int Radius = 18;
+            int Radius = OverlayStyle.CornerRadius;
 
             GraphicsDevice.Clear(XnaColor.Transparent);
 
@@ -389,8 +390,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
             MonoXRDraw.RoundedRect(_sb, new XnaRectangle(0, 0, Width, TitleBarHeight), Radius,
                                    TitleBg, roundBottom: false);
             MonoXRDraw.VerticalFade(_sb, new XnaRectangle(0, 0, Width, TitleBarHeight / 2), XnaColor.White * 0.05f);
-            _sb.DrawString(_font, Name, new XnaVector2(20, 12), XnaColor.Black * 0.45f);
-            _sb.DrawString(_font, Name, new XnaVector2(20, 10), TitleText);
+            _sb.DrawString(_font, Name, new XnaVector2(20, OverlayStyle.TitleY(_font, TitleBarHeight) + 2), XnaColor.Black * 0.45f);
+            _sb.DrawString(_font, Name, new XnaVector2(20, OverlayStyle.TitleY(_font, TitleBarHeight)), TitleText);
 
             // Hint that the title bar puts the panel away again.
             const string Close = "click title to close";

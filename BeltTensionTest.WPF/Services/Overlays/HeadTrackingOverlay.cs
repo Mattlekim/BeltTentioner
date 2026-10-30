@@ -19,6 +19,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
     public sealed class HeadTrackingOverlay : OverlayRenderTarget
     {
         private const int TitleBarHeight = 56;
+        public override int TitleBarSourceHeight => TitleBarHeight;
         private const int PanelWidth = 700;
         private const int RowHeight = 48;
         private const int RowSpacing = 6;
@@ -155,7 +156,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public override void Render(GameTime gameTime)
         {
-            const int Radius = 18;
+            int Radius = OverlayStyle.CornerRadius;
             GraphicsDevice.Clear(XnaColor.Transparent);
             _sb.Begin();
 
@@ -163,8 +164,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
             MonoXRDraw.RoundedRect(_sb, panel, Radius, PanelBg);
             MonoXRDraw.RoundedRect(_sb, new XnaRectangle(0, 0, Width, TitleBarHeight), Radius, TitleBg, roundBottom: false);
             MonoXRDraw.VerticalFade(_sb, new XnaRectangle(0, 0, Width, TitleBarHeight / 2), XnaColor.White * 0.05f);
-            _sb.DrawString(_font, Name + " (experimental)", new XnaVector2(20, 12), XnaColor.Black * 0.45f);
-            _sb.DrawString(_font, Name + " (experimental)", new XnaVector2(20, 10), TitleText);
+            _sb.DrawString(_font, Name + " (experimental)", new XnaVector2(20, OverlayStyle.TitleY(_font, TitleBarHeight) + 2), XnaColor.Black * 0.45f);
+            _sb.DrawString(_font, Name + " (experimental)", new XnaVector2(20, OverlayStyle.TitleY(_font, TitleBarHeight)), TitleText);
             _sb.Draw(_white, new XnaRectangle(0, TitleBarHeight - 3, Width, 3), Accent);
             MonoXRDraw.VerticalFade(_sb, new XnaRectangle(0, TitleBarHeight, Width, 14), Accent * 0.25f);
 

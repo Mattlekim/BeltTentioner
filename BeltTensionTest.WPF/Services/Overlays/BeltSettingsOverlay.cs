@@ -34,6 +34,9 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         /// <summary>Slider fill color, matching the row's FillBrush in MainWindow.xaml.</summary>
         public XnaColor? Fill { get; }
+
+        /// <summary>For the Display panel: the overlay shapes this row applies to (null = every shape). A row that does not apply to the current shape is left out.</summary>
+        public Func<int, bool>? VisibleFor { get; init; }
     }
 
     /// <summary>
@@ -82,6 +85,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
     public sealed class BeltSettingsOverlay : OverlayRenderTarget
     {
         private const int TitleBarHeight = 56;
+        public override int TitleBarSourceHeight => TitleBarHeight;
 
         // App palette (Resources/Styles.xaml).
         private static readonly XnaColor PanelBg = new XnaColor(0x12, 0x12, 0x1E, 235);   // BgBrush
@@ -105,10 +109,10 @@ namespace BeltTensionTest.WPF.Services.Overlays
         public override int CollapsedHeight => TitleBarHeight;
 
         public BeltSettingsOverlay(GraphicsDevice device, int width, int height, int x, int y,
-                                   IReadOnlyList<BeltSettingGroup> groups)
+                                   IReadOnlyList<BeltSettingGroup> groups, string name = "Belt Settings")
             : base(device, width, height, x, y)
         {
-            Name = "Belt Settings";
+            Name = name;
             _sb = new SpriteBatch(device);
             _white = new Texture2D(device, 1, 1);
             _white.SetData(new[] { XnaColor.White });
@@ -204,7 +208,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public override void Render(GameTime gameTime)
         {
-            const int Radius = 18;
+            int Radius = OverlayStyle.CornerRadius;
 
             if (IsCollapsed)
             {
@@ -237,8 +241,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
             MonoXRDraw.RoundedRect(_sb, new XnaRectangle(0, 0, Width, TitleBarHeight), Radius,
                                    TitleBg, roundBottom: false);
             MonoXRDraw.VerticalFade(_sb, new XnaRectangle(0, 0, Width, TitleBarHeight / 2), XnaColor.White * 0.05f);
-            _sb.DrawString(_font, "Belt Settings", new XnaVector2(20, 12), XnaColor.Black * 0.45f);
-            _sb.DrawString(_font, "Belt Settings", new XnaVector2(20, 10), TitleText);
+            _sb.DrawString(_font, Name, new XnaVector2(20, OverlayStyle.TitleY(_font, TitleBarHeight) + 2), XnaColor.Black * 0.45f);
+            _sb.DrawString(_font, Name, new XnaVector2(20, OverlayStyle.TitleY(_font, TitleBarHeight)), TitleText);
             _sb.Draw(_white, new XnaRectangle(0, TitleBarHeight - 3, Width, 3), Accent);
             MonoXRDraw.VerticalFade(_sb, new XnaRectangle(0, TitleBarHeight, Width, 14), Accent * 0.25f);
 

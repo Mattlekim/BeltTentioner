@@ -46,6 +46,11 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private readonly Texture2D _pixel;
         private readonly int _collapsedWidth;
 
+        // The driver behind's blame counts ("Dive bomb x3"), shown under the delta. They make the box taller (and wider if need be).
+        private string[] _blameLines = Array.Empty<string>();
+        private const int MaxBlameLines = 4;
+        private const int BlameLineHeight = 22;
+
         private bool _show;
         private bool _close;
         private float _gap;               // negative seconds to the car behind
@@ -85,7 +90,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             var s = _settings();
             double showGap = s != null && s.OverlayCarBehindShowGap > 0 ? s.OverlayCarBehindShowGap : DefaultShowGap;
             double closeGap = s != null && s.OverlayCarBehindCloseGap > 0 ? s.OverlayCarBehindCloseGap : DefaultCloseGap;
-            bool flashClose = s?.OverlayCarBehindFlashClose ?? false;
+            bool flashClose = s?.OverlayCarBehindFlashClose ?? true;
 
             var svc = IracingService.Instance;
             bool loneQual = svc.SessionType.IndexOf("Lone Qual", StringComparison.OrdinalIgnoreCase) >= 0;
@@ -95,6 +100,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _gap = gap;
             _lap = lap;
             _close = gap >= -closeGap;
+            UpdateBlameLines(_show ? Data.CarStatusMonitor.Instance.BehindCarIdx : -1);
 
             // Steady unless the car is inside the close gap with flashing on.
             if (!_close || !flashClose)
@@ -104,6 +110,34 @@ namespace BeltTensionTest.WPF.Services.Overlays
             // when the car drops out of range, one more redraw wipes the box.
             if (_show && (lastGap != _gap || (_close && flashClose)) || _show != wasShowing)
                 Invalidate();
+        }
+
+        // Look up what the car behind has been blamed for; the box is resized to fit and redrawn when it changes.
+        private void UpdateBlameLines(int carIdx)
+        {
+            var lines = Array.Empty<string>();
+            if (carIdx >= 0)
+                foreach (var car in IracingService.Instance.Cars)
+                {
+                    if (car.CarIdx != carIdx) continue;
+                    var reasons = Data.DriverBlame.Instance.For(car);
+                    if (reasons.Count == 0) break;
+                    var list = new System.Collections.Generic.List<string>();
+                    for (int i = 0; i < reasons.Count && i < MaxBlameLines; i++)
+                        list.Add($"{reasons[i].Reason} x{reasons[i].Count}");
+                    if (reasons.Count > MaxBlameLines) list[^1] = $"+{reasons.Count - MaxBlameLines + 1} more";
+                    lines = list.ToArray();
+                    break;
+                }
+
+            if (lines.AsSpan().SequenceEqual(_blameLines)) return;
+            _blameLines = lines;
+
+            int width = BoxWidth;
+            foreach (string line in lines)
+                width = Math.Max(width, (int)_fontLabel.MeasureString(line).X + 20);
+            Resize(width, BoxHeight + (lines.Length > 0 ? lines.Length * BlameLineHeight + 8 : 0));
+            Invalidate();
         }
 
         public override void Render(GameTime gameTime)
@@ -158,8 +192,17 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 string readout = $"{_gap:0.00}";
                 var size = _fontBig.MeasureString(readout);
                 _sb.DrawString(_fontBig, readout,
-                    new XnaVector2((Width - size.X) / 2f, (Height - size.Y) / 2f),
+                    new XnaVector2((Width - size.X) / 2f, (BoxHeight - size.Y) / 2f),
                     _close ? ColorBlind.Map(CbRole.Bad, XnaColor.Red) : XnaColor.White);
+            }
+
+            // What the driver behind has been blamed for, a line each under the delta.
+            for (int i = 0; i < _blameLines.Length; i++)
+            {
+                var size = _fontLabel.MeasureString(_blameLines[i]);
+                _sb.DrawString(_fontLabel, _blameLines[i],
+                    new XnaVector2((Width - size.X) / 2f, BoxHeight - 4 + i * BlameLineHeight),
+                    ColorBlind.Map(CbRole.Warn, new XnaColor(0xFF, 0xD5, 0x2E)));
             }
 
             _sb.End();
