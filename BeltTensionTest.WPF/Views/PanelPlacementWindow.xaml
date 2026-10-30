@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="Window placement"
-        Width="460" Height="360"
+        Width="460" Height="400"
         ResizeMode="NoResize"
         WindowStyle="None"
         WindowStartupLocation="CenterOwner"
@@ -51,6 +51,7 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
                 <TextBlock Grid.Row="0" Text="Distance (m)" VerticalAlignment="Center" Margin="0,0,0,6"
@@ -76,6 +77,12 @@
                 <Slider Grid.Row="3" Grid.Column="1" x:Name="sld_Roll" Minimum="-180" Maximum="180" TickFrequency="1"
                         IsSnapToTickEnabled="True" Margin="0,0,8,6" ValueChanged="Slider_Changed"/>
                 <TextBlock Grid.Row="3" Grid.Column="2" x:Name="RollValue" VerticalAlignment="Center" Margin="0,0,0,6"/>
+
+                <TextBlock Grid.Row="4" Text="3D depth (m)" VerticalAlignment="Center" Margin="0,0,0,6"
+                           ToolTip="With 3D on: how far this window's picture stands out of its frame toward you (negative: behind it), added to the overlay window's 3D depth"/>
+                <Slider Grid.Row="4" Grid.Column="1" x:Name="sld_Depth" Minimum="-1" Maximum="1" TickFrequency="0.05"
+                        IsSnapToTickEnabled="True" Margin="0,0,8,6" ValueChanged="Slider_Changed"/>
+                <TextBlock Grid.Row="4" Grid.Column="2" x:Name="DepthValue" VerticalAlignment="Center" Margin="0,0,0,6"/>
             </Grid>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">

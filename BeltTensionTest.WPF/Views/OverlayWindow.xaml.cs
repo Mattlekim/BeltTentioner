@@ -248,8 +248,12 @@ namespace BeltTensionTest.WPF.Views
                 : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xDC, 0x3C, 0x3C));
             EditButton.IsEnabled = PreviewButton.IsEnabled = RecenterButton.IsEnabled = running;
             PerWindowCheck.IsEnabled = PlacementButton.IsEnabled = BenchmarkButton.IsEnabled = running;
+            StereoCheck.IsEnabled = StereoDepthSlider.IsEnabled = running;
             _syncingPerWindow = true;
             PerWindowCheck.IsChecked = _vm.AppSettings?.OverlayPerWindow ?? false;
+            StereoCheck.IsChecked = _vm.AppSettings?.OverlayStereo ?? false;
+            StereoDepthSlider.Value = Math.Clamp(_vm.AppSettings?.OverlayStereoDepth ?? 0.2, StereoDepthSlider.Minimum, StereoDepthSlider.Maximum);
+            StereoDepthValue.Text = $"{StereoDepthSlider.Value:+0.00;-0.00;0.00} m";
             _syncingPerWindow = false;
             if (!running)
                 StatusLabel.Text = "OpenXR overlay is off — turn on Settings → Preferences → OpenXR → Enable OpenXR overlay.";
@@ -655,6 +659,7 @@ namespace BeltTensionTest.WPF.Views
                 panel.YawDegrees = (float)p.GetValueOrDefault("Yaw");
                 panel.PitchDegrees = (float)p.GetValueOrDefault("Pitch");
                 panel.RollDegrees = (float)p.GetValueOrDefault("Roll");
+                panel.StereoDepthOffset = (float)p.GetValueOrDefault("Depth");
             }
         }
 
@@ -696,6 +701,8 @@ namespace BeltTensionTest.WPF.Views
                 _host.CurveAmount = (float)s.OverlayCurveAmount;
                 _host.Curved = s.OverlayCurved;
                 _host.PerWindowOverlays = s.OverlayPerWindow;
+                _host.StereoDepth = (float)s.OverlayStereoDepth;
+                _host.Stereo3D = s.OverlayStereo;
                 _host.TripleCenterPercent = (float)s.OverlayTripleCenter;
                 _host.TripleSideAngle = (float)s.OverlayTripleAngle;
                 _host.TripleTopHeight = (float)s.OverlayTopHeight;
@@ -981,13 +988,14 @@ namespace BeltTensionTest.WPF.Views
                 // benchmark flips the host's mode temporarily.)
                 var placement = new Dictionary<string, Dictionary<string, double>>();
                 foreach (var panel in _host.RenderTargets)
-                    if (panel.HasPlacementOverride)
+                    if (panel.HasPlacementOverride || panel.StereoDepthOffset != 0)
                         placement[panel.Name] = new Dictionary<string, double>
                         {
                             ["Distance"] = panel.DistanceOffset,
                             ["Yaw"] = panel.YawDegrees,
                             ["Pitch"] = panel.PitchDegrees,
                             ["Roll"] = panel.RollDegrees,
+                            ["Depth"] = panel.StereoDepthOffset,
                         };
                 s.OverlayPanelPlacement = placement;
                 _settingsSvc.Save(s);
@@ -1151,6 +1159,28 @@ namespace BeltTensionTest.WPF.Views
             _host.PerWindowOverlays = on;
             SaveLayout();
             Log(on ? "One overlay per window: on." : "One overlay per window: off (single canvas).");
+        }
+
+        private void StereoCheck_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_syncingPerWindow) return;
+            bool on = StereoCheck.IsChecked == true;
+            if (_vm.AppSettings != null) _vm.AppSettings.OverlayStereo = on;
+            if (_host == null) return;
+            _host.Stereo3D = on;
+            SaveLayout();
+            Log(on ? "3D: on (an overlay per eye)." : "3D: off.");
+        }
+
+        private void StereoDepthSlider_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            // Raised while the XAML loads, before the value label exists.
+            if (_syncingPerWindow || StereoDepthValue == null) return;
+            StereoDepthValue.Text = $"{StereoDepthSlider.Value:+0.00;-0.00;0.00} m";
+            if (_vm.AppSettings != null) _vm.AppSettings.OverlayStereoDepth = StereoDepthSlider.Value;
+            if (_host == null) return;
+            _host.StereoDepth = (float)StereoDepthSlider.Value;
+            SaveLayout();
         }
 
         private void PlacementButton_Click(object sender, RoutedEventArgs e)
