@@ -41,6 +41,7 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
@@ -59,8 +60,22 @@
                                Text="Initialising…"/>
                 </DockPanel>
 
+                <!-- One overlay per window, per-window placement and the benchmark -->
+                <WrapPanel Grid.Row="1" Margin="0,0,0,8">
+                    <CheckBox x:Name="PerWindowCheck" Content="One overlay per window" VerticalAlignment="Center"
+                              Margin="0,0,14,0" Foreground="#A0A0BE"
+                              Checked="PerWindowCheck_Changed" Unchecked="PerWindowCheck_Changed"
+                              ToolTip="Publish every window as its own VR overlay instead of one shared canvas. Uses less GPU memory, and a window that did not change is not copied again. Edit mode, the triple layout and the mouse calibration still use the canvas while they are open."/>
+                    <Button x:Name="PlacementButton" Content="Window placement..." Width="140" Height="24" Margin="0,0,8,0"
+                            Click="PlacementButton_Click"
+                            ToolTip="Set each window's distance and rotation (needs One overlay per window)"/>
+                    <Button x:Name="BenchmarkButton" Content="Benchmark..." Width="100" Height="24"
+                            Click="BenchmarkButton_Click"
+                            ToolTip="Measure GPU use and GPU memory for 2 minutes with the single canvas, then 2 minutes with one overlay per window, and compare"/>
+                </WrapPanel>
+
                 <!-- Edit-mode panel: VR display size/distance + canvas DPI -->
-                <Border Grid.Row="1" x:Name="EditPanel" Visibility="Collapsed"
+                <Border Grid.Row="2" x:Name="EditPanel" Visibility="Collapsed"
                         Background="#0E0E1A" BorderBrush="#46466A" BorderThickness="1"
                         CornerRadius="4" Padding="10" Margin="0,0,0,8">
                     <Grid>
@@ -238,7 +253,7 @@
                     </Grid>
                 </Border>
 
-                <TextBox Grid.Row="2" x:Name="LogBox" IsReadOnly="True" TextWrapping="Wrap"
+                <TextBox Grid.Row="3" x:Name="LogBox" IsReadOnly="True" TextWrapping="Wrap"
                          VerticalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="11"
                          Background="#0E0E1A" Foreground="#A0A0BE" BorderBrush="#46466A" BorderThickness="1"/>
             </Grid>

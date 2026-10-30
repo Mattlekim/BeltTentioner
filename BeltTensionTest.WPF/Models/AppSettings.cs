@@ -218,6 +218,13 @@ namespace BeltTensionTest.WPF.Models
         // Curved = the overlay wraps around the viewer on a cylinder (needs a runtime with
         // cylinder layers; flat otherwise). X offset then slides it around the viewer.
         public bool OverlayCurved { get; set; } = false;
+        // One OpenXR overlay per window instead of one shared canvas: less GPU memory, and a
+        // window that did not change is not copied. The canvas is still used while editing.
+        public bool OverlayPerWindow { get; set; } = false;
+        // Where each window sits in 3D when OverlayPerWindow is on, keyed by panel name:
+        // "Distance" (meters further from the viewer), "Yaw", "Pitch", "Roll" (degrees).
+        // A panel with no entry stays where its canvas position puts it.
+        public Dictionary<string, Dictionary<string, double>> OverlayPanelPlacement { get; set; } = new();
         // Colour-blind mode for the overlay colours: "Off", "Deuteranopia" or "Tritanomaly".
         public string ColorBlindMode { get; set; } = "Off";
         // Panels grouped in edit mode (right-click > Group): each entry is a list of panel names that move together.

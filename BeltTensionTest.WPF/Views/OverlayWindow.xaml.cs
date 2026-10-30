@@ -33,6 +33,8 @@ namespace BeltTensionTest.WPF.Views
         private double _dpi = DefaultDpi;
 
         private MonoGameOverlayHost? _host;
+        private OverlayBenchmark? _benchmark;
+        private bool _syncingPerWindow;
         private readonly MainViewModel _vm;
         private readonly Services.SettingsService _settingsSvc = new();
         private BeltSettingsOverlay? _beltPanel;
@@ -228,6 +230,8 @@ namespace BeltTensionTest.WPF.Views
             _hudSettingsPanel = null; _headPanel = null; _warningPanel = null; _nearbyPanel = null; _slowCarPanel = null; _carBehindPanel = null;
             _youtubePanel = null; _gpuPanel = null; _incidentPanel = null; _displayPanel = null;
             bool wasRunning = _host != null;
+            _benchmark?.Dispose(); // puts the host's mode back before it goes
+            _benchmark = null;
             _host?.Dispose();
             _host = null;
             if (wasRunning) Log("Overlay stopped.");
@@ -243,6 +247,10 @@ namespace BeltTensionTest.WPF.Views
                 ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x50, 0xC8, 0x78))
                 : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xDC, 0x3C, 0x3C));
             EditButton.IsEnabled = PreviewButton.IsEnabled = RecenterButton.IsEnabled = running;
+            PerWindowCheck.IsEnabled = PlacementButton.IsEnabled = BenchmarkButton.IsEnabled = running;
+            _syncingPerWindow = true;
+            PerWindowCheck.IsChecked = _vm.AppSettings?.OverlayPerWindow ?? false;
+            _syncingPerWindow = false;
             if (!running)
                 StatusLabel.Text = "OpenXR overlay is off — turn on Settings → Preferences → OpenXR → Enable OpenXR overlay.";
         }
@@ -632,6 +640,21 @@ namespace BeltTensionTest.WPF.Views
                 RestoreOpacity(_incidentPanel, s.OverlayIncidentPanelOpacity);
                 RestoreOpacity(_displayPanel, s.OverlayDisplayPanelOpacity);
                 ClampPanelsToCanvas();
+                ApplySavedPlacement(s);
+            }
+        }
+
+        // Each window's saved 3D placement (used while one overlay per window is on).
+        private void ApplySavedPlacement(Models.AppSettings s)
+        {
+            if (_host == null) return;
+            foreach (var panel in _host.RenderTargets)
+            {
+                if (!s.OverlayPanelPlacement.TryGetValue(panel.Name, out var p)) continue;
+                panel.DistanceOffset = (float)p.GetValueOrDefault("Distance");
+                panel.YawDegrees = (float)p.GetValueOrDefault("Yaw");
+                panel.PitchDegrees = (float)p.GetValueOrDefault("Pitch");
+                panel.RollDegrees = (float)p.GetValueOrDefault("Roll");
             }
         }
 
@@ -672,6 +695,7 @@ namespace BeltTensionTest.WPF.Views
                     _host.Distance = (float)s.OverlayDistance;
                 _host.CurveAmount = (float)s.OverlayCurveAmount;
                 _host.Curved = s.OverlayCurved;
+                _host.PerWindowOverlays = s.OverlayPerWindow;
                 _host.TripleCenterPercent = (float)s.OverlayTripleCenter;
                 _host.TripleSideAngle = (float)s.OverlayTripleAngle;
                 _host.TripleTopHeight = (float)s.OverlayTopHeight;
@@ -953,6 +977,19 @@ namespace BeltTensionTest.WPF.Views
                     s.OverlayOriginYaw = _host.OriginYaw;
                     s.OverlayOriginPitch = _host.OriginPitch;
                 }
+                // (OverlayPerWindow is not written here: the checkbox owns it, and the
+                // benchmark flips the host's mode temporarily.)
+                var placement = new Dictionary<string, Dictionary<string, double>>();
+                foreach (var panel in _host.RenderTargets)
+                    if (panel.HasPlacementOverride)
+                        placement[panel.Name] = new Dictionary<string, double>
+                        {
+                            ["Distance"] = panel.DistanceOffset,
+                            ["Yaw"] = panel.YawDegrees,
+                            ["Pitch"] = panel.PitchDegrees,
+                            ["Roll"] = panel.RollDegrees,
+                        };
+                s.OverlayPanelPlacement = placement;
                 _settingsSvc.Save(s);
             }
             catch (Exception ex)
@@ -1024,7 +1061,10 @@ namespace BeltTensionTest.WPF.Views
 
             try
             {
-                _host.RenderFrame((float)_clock.Elapsed.TotalSeconds);
+                var host = _host;
+                float now = (float)_clock.Elapsed.TotalSeconds;
+                if (_benchmark is { IsRunning: true } bench) bench.RunFrame(() => host.RenderFrame(now));
+                else host.RenderFrame(now);
             }
             catch (Exception ex)
             {
@@ -1101,6 +1141,57 @@ namespace BeltTensionTest.WPF.Views
         }
 
         private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
+
+        private void PerWindowCheck_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_syncingPerWindow) return;
+            bool on = PerWindowCheck.IsChecked == true;
+            if (_vm.AppSettings != null) _vm.AppSettings.OverlayPerWindow = on;
+            if (_host == null) return;
+            _host.PerWindowOverlays = on;
+            SaveLayout();
+            Log(on ? "One overlay per window: on." : "One overlay per window: off (single canvas).");
+        }
+
+        private void PlacementButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_host == null) return;
+            new PanelPlacementWindow { Owner = this }.Show();
+        }
+
+        private void BenchmarkButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_host == null) return;
+            EditButton.IsChecked = false; // edit mode is canvas-only, which would make both runs the same
+            _benchmark?.Dispose();
+            _benchmark = new OverlayBenchmark(_host)
+            {
+                OutputDirectory = System.IO.Path.Combine(Services.AppPaths.UserDataDir, "Benchmarks"),
+                // Whole-GPU numbers from NVML when there is an NVIDIA GPU, the counters otherwise.
+                SystemGpuSampler = () =>
+                {
+                    var g = Services.GpuMonitorService.Instance.Latest;
+                    if (!g.Available) return null;
+                    return (g.UsagePercent, g.MemoryUsedBytes / 1048576.0);
+                },
+            };
+            Log("Benchmark started.");
+            // Modal: nothing else in the app can change the overlay while it runs.
+            new BenchmarkWindow(_benchmark) { Owner = this }.ShowDialog();
+            Log(_benchmark.State == BenchmarkState.Finished ? "Benchmark finished." : "Benchmark ended: " + _benchmark.Status);
+        }
+
+        /// <summary>The overlay's windows, for the placement dialog; null while the overlay is off.</summary>
+        public static IReadOnlyList<OverlayRenderTarget>? ActivePanels => s_active?._host?.RenderTargets;
+
+        /// <summary>True while the windows really are separate overlays right now (the option is on and nothing forces the canvas).</summary>
+        public static bool PerWindowActive => s_active?._host?.PerWindowActive ?? false;
+
+        /// <summary>Whether the one-overlay-per-window option is switched on.</summary>
+        public static bool PerWindowRequested => s_active?._host?.PerWindowOverlays ?? false;
+
+        /// <summary>A window's 3D placement was changed: save it.</summary>
+        public static void PlacementChanged() => s_active?.SaveLayout();
 
         private static OverlayWindow? s_active;
 
