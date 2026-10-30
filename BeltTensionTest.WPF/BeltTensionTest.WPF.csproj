@@ -25,6 +25,7 @@
   <ItemGroup>
     <Content Include="Assets\Icon.ico" />
     <Content Include="Assets\fastest-lap.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="Assets\tire.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!-- SimHub plugin (built from Sim_Hub_Plugin, which needs a local SimHub SDK so

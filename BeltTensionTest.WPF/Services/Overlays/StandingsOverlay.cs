@@ -87,6 +87,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private static readonly XnaColor MenuBg = new XnaColor(0x22, 0x22, 0x34, 250);
 
         private string _fastestText = string.Empty;
+        private string _brakeBias = "BB --";
         private string _fieldText = string.Empty;
         private string _temps = string.Empty;
 
@@ -156,6 +157,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _fastestText = classFastest < float.PositiveInfinity
                 ? $"{FormatName(fastestDriver)}  {FormatLapTime(classFastest)}" : string.Empty;
             _fieldText = ordered.Count == 1 ? "1 driver" : $"{ordered.Count} drivers";
+            _brakeBias = BrakeBiasText(svc);
             _temps = float.IsNaN(svc.TrackTempC) ? string.Empty
                 : $"Track {svc.TrackTempC:0}C  Air {svc.AirTempC:0}C";
         }
@@ -444,7 +446,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         protected override void AppendSnapshot(StringBuilder sb)
         {
-            sb.Append('#').Append(_fastestText).Append(_fieldText).Append(_temps);
+            sb.Append('#').Append(_fastestText).Append(_fieldText).Append(_temps).Append(_brakeBias);
         }
 
         protected override void DrawInfoBar(XnaRectangle area)
@@ -456,6 +458,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             Batch.DrawString(FontBody, _fieldText,
                 new XnaVector2(area.X + (area.Width - size.X) / 2f, y), RowTextDim);
             DrawRight(FontBody, _temps, area.Right, y, RowTextDim);
+            DrawBrakeBias(_brakeBias, area, area.Right - FontBody.MeasureString(_temps).X - 30);
             MonoXRDraw.HorizontalFade(Batch, new XnaRectangle(area.X - 4, area.Bottom - 2, area.Width + 8, 2), Border);
         }
     }

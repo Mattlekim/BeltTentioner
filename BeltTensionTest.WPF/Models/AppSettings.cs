@@ -94,6 +94,9 @@ namespace BeltTensionTest.WPF.Models
         // ("name:<driver>" for AI): "Friend" or "Rival" (Services.Data.DriverTag).
         // Set by clicking a row on the in-VR standings board.
         public Dictionary<string, string> OverlayDriverTags { get; set; } = new();
+        // How often each driver has been blamed, and for what (customer id or "name:<driver>" ->
+        // reason -> count), from the in-VR incident list. Shown under the car-behind delta.
+        public Dictionary<string, Dictionary<string, int>> OverlayDriverBlame { get; set; } = new();
         // Row colours those tags paint (0xRRGGBB), how strongly the colour
         // fills the row (0..0.8), and whether the Race / Qualifying relative
         // boxes use them too. All set from the in-VR HUD Settings panel.
@@ -160,7 +163,7 @@ namespace BeltTensionTest.WPF.Models
         // flashes, if enabled) inside CloseGap seconds. 0 = default.
         public double OverlayCarBehindShowGap { get; set; } = 2.0;
         public double OverlayCarBehindCloseGap { get; set; } = 0.2;
-        public bool OverlayCarBehindFlashClose { get; set; } = false;
+        public bool OverlayCarBehindFlashClose { get; set; } = true;
         public int OverlayYouTubePanelX { get; set; } = -1;
         public int OverlayYouTubePanelY { get; set; } = -1;
         public int OverlayGpuPanelX { get; set; } = -1;
@@ -240,6 +243,8 @@ namespace BeltTensionTest.WPF.Models
         public List<List<string>> OverlayPanelGroups { get; set; } = new();
         // Windows whose title bar is hidden (right-click > Hide title bar in edit mode), by panel name.
         public List<string> OverlayHiddenTitleBars { get; set; } = new();
+        // Windows whose column headings row is hidden (right-click > Hide headings in edit mode), by panel name.
+        public List<string> OverlayHiddenHeadings { get; set; } = new();
         // How strongly it bends, 0.1..1.5 (1 = every point equally far from the viewer).
         public double OverlayCurveAmount { get; set; } = 1;
         // Triple = three flat screens like a triple monitor setup: the centre one takes

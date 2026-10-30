@@ -50,6 +50,17 @@ namespace BeltTensionTest.WPF.Services.Data
         /// </summary>
         public int[] NearbyCars { get; }
 
+        /// <summary>
+        /// Cars that did not score but were probably in it: within a car length of a car that
+        /// did, at some point in the seconds before it scored (see
+        /// <see cref="IncidentTracker.InvolvedGapMeters"/>), closest first. An estimate from
+        /// track position alone, so a car in the next lane over can turn up here too.
+        /// </summary>
+        public int[] InvolvedCars { get; internal set; } = Array.Empty<int>();
+
+        /// <summary>Closest approach in meters, around the lap, for each of <see cref="InvolvedCars"/>.</summary>
+        public float[] InvolvedGaps { get; internal set; } = Array.Empty<float>();
+
         /// <summary>Who the driver held responsible: CarIdx, or -1 for nobody yet.</summary>
         public int BlameCarIdx { get; internal set; } = -1;
 
@@ -59,8 +70,15 @@ namespace BeltTensionTest.WPF.Services.Data
         /// <summary>Why, e.g. "Reckless"; empty when no reason was picked.</summary>
         public string BlameReason { get; internal set; } = string.Empty;
 
-        /// <summary>True once blame has been assigned either way.</summary>
-        public bool HasBlame => BlameIsMine || BlameCarIdx >= 0;
+        // The driver key and reason this incident has added to the driver's blame count (see DriverBlame), if any.
+        internal string CountedKey = string.Empty;
+        internal string CountedReason = string.Empty;
+
+        /// <summary>True when the driver flagged it as a racing incident: nobody's fault.</summary>
+        public bool BlameIsRacing { get; internal set; }
+
+        /// <summary>True once the incident has been judged: blame taken, given to another driver, or called a racing incident.</summary>
+        public bool HasBlame => BlameIsMine || BlameIsRacing || BlameCarIdx >= 0;
 
         internal Incident(int carIdx, int points, int lap, double time, int frame,
                           float trackPosition, IncidentType type, int[] nearbyCars)
@@ -107,6 +125,28 @@ namespace BeltTensionTest.WPF.Services.Data
         /// </summary>
         public const float NearbyRangeMeters = 50f;
 
+        /// <summary>A car this close (around the lap, in meters) to a car that scored, shortly before it did, was probably in the incident: about a car length.</summary>
+        public const float InvolvedGapMeters = 6f;
+
+        /// <summary>How far back before an incident is scored to look for cars that touched.</summary>
+        public const double InvolvedWindowSeconds = 3.0;
+
+        /// <summary>Most cars named as probably involved.</summary>
+        private const int MaxInvolved = 3;
+
+        // Where every car was, a few times a second, for the last few seconds: the car that
+        // caused an incident has often moved on by the time it is scored.
+        private const double HistorySeconds = 6.0;
+        private const double SampleIntervalSeconds = 0.1;
+
+        private sealed class Sample
+        {
+            public double Time;
+            public float[] Meters = Array.Empty<float>(); // by CarIdx; NaN = not on the track
+        }
+
+        private readonly List<Sample> _history = new();
+
         /// <summary>iRacing keeps an incident "active" for ten seconds after it scores.</summary>
         private const double ActiveIncidentSeconds = 10;
 
@@ -138,10 +178,11 @@ namespace BeltTensionTest.WPF.Services.Data
         {
             lock (_lock)
             {
-                if (_incidents.Count == 0 && _lastPoints.Count == 0) return;
+                if (_incidents.Count == 0 && _lastPoints.Count == 0 && _history.Count == 0) return;
                 _incidents.Clear();
                 _lastPoints.Clear();
                 _activeUntil.Clear();
+                _history.Clear();
                 Version++;
             }
             Changed?.Invoke();
@@ -159,6 +200,8 @@ namespace BeltTensionTest.WPF.Services.Data
             bool changed = false;
             lock (_lock)
             {
+                RecordSample(cars, time, trackLen);
+
                 foreach (var car in cars)
                 {
                     if (car.CarIdx < 0) continue;
@@ -181,9 +224,15 @@ namespace BeltTensionTest.WPF.Services.Data
                     if (meters < 0) continue;
 
                     if (!TryMerge(car, scored, time, meters))
-                        _incidents.Add(new Incident(car.CarIdx, scored, car.Lap, time, frame, meters,
-                                                    TypeOf(car, scored, time),
-                                                    NearbyTo(cars, meters, trackLen)));
+                    {
+                        var created = new Incident(car.CarIdx, scored, car.Lap, time, frame, meters,
+                                                   TypeOf(car, scored, time),
+                                                   NearbyTo(cars, meters, trackLen));
+                        var (involved, gaps) = InvolvedWith(car.CarIdx, time, trackLen);
+                        created.InvolvedCars = involved;
+                        created.InvolvedGaps = gaps;
+                        _incidents.Add(created);
+                    }
 
                     _activeUntil[car.CarIdx] = time + ActiveIncidentSeconds;
                     changed = true;
@@ -217,9 +266,74 @@ namespace BeltTensionTest.WPF.Services.Data
                 grown[inc.Cars.Length] = car.CarIdx;
                 inc.Cars = grown;
                 inc.Type = IncidentType.CarContact;
+
+                // It scored itself, so it is no longer a guess.
+                int at = Array.IndexOf(inc.InvolvedCars, car.CarIdx);
+                if (at >= 0)
+                {
+                    var cars = new List<int>(inc.InvolvedCars);
+                    var gaps = new List<float>(inc.InvolvedGaps);
+                    cars.RemoveAt(at);
+                    gaps.RemoveAt(at);
+                    inc.InvolvedCars = cars.ToArray();
+                    inc.InvolvedGaps = gaps.ToArray();
+                }
                 return true;
             }
             return false;
+        }
+
+        // Keep this moment's positions, a few times a second, and drop what is older than the window.
+        private void RecordSample(IReadOnlyList<Car> cars, double time, float trackLen)
+        {
+            // Time going backwards is a replay scrub or a reset: what was recorded no longer leads up to now.
+            if (_history.Count > 0 && time < _history[^1].Time - 0.5) _history.Clear();
+            if (_history.Count > 0 && time - _history[^1].Time < SampleIntervalSeconds) return;
+
+            int size = 0;
+            foreach (var car in cars) if (car.CarIdx >= size) size = car.CarIdx + 1;
+            var sample = new Sample { Time = time, Meters = new float[size] };
+            Array.Fill(sample.Meters, float.NaN);
+            foreach (var car in cars)
+            {
+                if (car.CarIdx < 0 || !car.IsOnTrack || car.OnPitRoad || car.LapDistPct < 0) continue;
+                sample.Meters[car.CarIdx] = Math.Clamp(car.LapDistPct, 0f, 1f) * trackLen;
+            }
+            _history.Add(sample);
+            _history.RemoveAll(s => s.Time < time - HistorySeconds);
+        }
+
+        /// <summary>
+        /// The cars that came within <see cref="InvolvedGapMeters"/> of the scoring car in the
+        /// <see cref="InvolvedWindowSeconds"/> before it scored, closest first, with how close.
+        /// Compares positions around the lap at the same instant, so a car that has carried on
+        /// since still shows. Cars already in the incident are left out.
+        /// </summary>
+        private (int[] Cars, float[] Gaps) InvolvedWith(int scorer, double time, float trackLen)
+        {
+            var closest = new Dictionary<int, float>();
+            foreach (var sample in _history)
+            {
+                if (sample.Time < time - InvolvedWindowSeconds || sample.Time > time) continue;
+                if (scorer >= sample.Meters.Length || float.IsNaN(sample.Meters[scorer])) continue;
+                float mine = sample.Meters[scorer];
+                for (int other = 0; other < sample.Meters.Length; other++)
+                {
+                    if (other == scorer || float.IsNaN(sample.Meters[other])) continue;
+                    float d = Math.Abs(sample.Meters[other] - mine);
+                    d = Math.Min(d, trackLen - d); // across the start/finish line
+                    if (d > InvolvedGapMeters) continue;
+                    if (!closest.TryGetValue(other, out float best) || d < best) closest[other] = d;
+                }
+            }
+
+            var list = new List<KeyValuePair<int, float>>(closest);
+            list.Sort((a, b) => a.Value.CompareTo(b.Value));
+            if (list.Count > MaxInvolved) list.RemoveRange(MaxInvolved, list.Count - MaxInvolved);
+            var cars = new int[list.Count];
+            var gaps = new float[list.Count];
+            for (int i = 0; i < list.Count; i++) { cars[i] = list[i].Key; gaps[i] = list[i].Value; }
+            return (cars, gaps);
         }
 
         /// <summary>
@@ -251,8 +365,16 @@ namespace BeltTensionTest.WPF.Services.Data
         /// <summary>Record who was to blame for an incident, and why.</summary>
         public void SetBlame(Incident incident, bool mine, int carIdx, string reason)
         {
+            // Another driver blamed with a reason adds to that driver's count (and a blame it replaces comes off theirs).
+            string key = string.Empty;
+            if (!mine && carIdx >= 0)
+                foreach (var car in IracingService.Instance.Cars)
+                    if (car.CarIdx == carIdx) { key = DriverTags.KeyFor(car); break; }
+            Recount(incident, key, reason ?? string.Empty);
+
             lock (_lock)
             {
+                incident.BlameIsRacing = false;
                 incident.BlameIsMine = mine;
                 incident.BlameCarIdx = mine ? -1 : carIdx;
                 incident.BlameReason = reason ?? string.Empty;
@@ -261,11 +383,42 @@ namespace BeltTensionTest.WPF.Services.Data
             Changed?.Invoke();
         }
 
+        // Take back what this incident added to a driver's blame count, then add the new blame (if any).
+        private static void Recount(Incident incident, string key, string reason)
+        {
+            var blame = DriverBlame.Instance;
+            if (incident.CountedKey.Length > 0)
+                blame.Remove(incident.CountedKey, incident.CountedReason);
+            incident.CountedKey = string.Empty;
+            incident.CountedReason = string.Empty;
+            if (key.Length == 0 || reason.Length == 0) return;
+            blame.Add(key, reason);
+            incident.CountedKey = key;
+            incident.CountedReason = reason;
+        }
+
+        /// <summary>Flag an incident as a racing incident: nobody to blame.</summary>
+        public void SetRacingIncident(Incident incident)
+        {
+            Recount(incident, string.Empty, string.Empty);
+            lock (_lock)
+            {
+                incident.BlameIsRacing = true;
+                incident.BlameIsMine = false;
+                incident.BlameCarIdx = -1;
+                incident.BlameReason = string.Empty;
+                Version++;
+            }
+            Changed?.Invoke();
+        }
+
         /// <summary>Take a blame assignment back off an incident.</summary>
         public void ClearBlame(Incident incident)
         {
+            Recount(incident, string.Empty, string.Empty);
             lock (_lock)
             {
+                incident.BlameIsRacing = false;
                 incident.BlameIsMine = false;
                 incident.BlameCarIdx = -1;
                 incident.BlameReason = string.Empty;

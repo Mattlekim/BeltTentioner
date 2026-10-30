@@ -64,8 +64,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
         /// <summary>What a driver can be held to have done (the original's incident tags).</summary>
         private static readonly string[] Reasons =
         {
-            "Racing incident", "Mistake", "Careless", "Reckless",
-            "Deliberate", "Divebomb", "Unsafe rejoin",
+            "Overly aggressive", "Dive bomb", "Driving slow", "Doesn't hold brakes",
+            "Unsafe rejoin", "Deliberate wrecking", "Reckless", "No awareness",
         };
 
         // App palette (Resources/Styles.xaml), matching the other panels.
@@ -102,6 +102,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             public string Blame;
             public XnaColor BlameColor;
             public string CarLine;    // "#7 - Some Driver" for a car line
+            public bool Likely;       // a car line for a car that probably was in it, not one that scored
         }
 
         private readonly List<Entry> _entries = new();
@@ -140,8 +141,28 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _collapsedWidth = (int)_font.MeasureString(Name).X + 60;
         }
 
+        private bool _headingsHidden;
+
+        public override bool HasHeadings => true;
+
+        /// <summary>The column labels row (INC, LAP, ...) is left out and the rows start right under the title bar.</summary>
+        public override bool HeadingsHidden
+        {
+            get => _headingsHidden;
+            set
+            {
+                if (_headingsHidden == value) return;
+                _headingsHidden = value;
+                CloseMenu();
+                Resize(Width, TitleBarHeight + Pad + HeaderH + MaxRows * (RowHeight + RowSpacing) + Pad);
+                Invalidate();
+            }
+        }
+
+        private int HeaderH => _headingsHidden ? 0 : HeaderRowHeight;
+
         /// <summary>Top of the first row, in panel pixels.</summary>
-        private static int RowsTop => TitleBarHeight + Pad + HeaderRowHeight;
+        private int RowsTop => TitleBarHeight + Pad + HeaderH;
 
         /// <summary>The entry at a panel-local point, or -1.</summary>
         private int RowAt(int x, int y)
@@ -189,7 +210,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             while (first > 0)
             {
                 var inc = incidents[first - 1];
-                int need = 1 + (inc.Cars.Length > 1 ? inc.Cars.Length : 0);
+                int need = 1 + (inc.Cars.Length > 1 ? inc.Cars.Length : 0) + inc.InvolvedCars.Length;
                 if (rows + need > MaxRows) break;
                 rows += need;
                 first--;
@@ -207,14 +228,22 @@ namespace BeltTensionTest.WPF.Services.Overlays
                     Lap = inc.Lap > 0 ? inc.Lap.ToString() : "-",
                     Type = TypeLabel(inc.Type),
                     TypeColor = TypeColor(inc.Type),
-                    Cars = inc.Cars.Length.ToString(),
+                    // The cars that scored, plus "+n?" for the cars that were probably in it too.
+                    Cars = inc.InvolvedCars.Length > 0 ? $"{inc.Cars.Length}+{inc.InvolvedCars.Length}?" : inc.Cars.Length.ToString(),
                     Blame = BlameLabel(cars, inc),
-                    BlameColor = inc.BlameIsMine ? RowTextDim : TypeContact,
+                    BlameColor = inc.BlameIsMine || inc.BlameIsRacing ? RowTextDim : TypeContact,
                 });
 
-                if (inc.Cars.Length <= 1) continue;
-                foreach (int carIdx in inc.Cars)
-                    _entries.Add(new Entry { CarLine = Describe(cars, carIdx) });
+                if (inc.Cars.Length > 1)
+                    foreach (int carIdx in inc.Cars)
+                        _entries.Add(new Entry { CarLine = Describe(cars, carIdx) });
+                // Probably involved: nearest to a scoring car just before it scored.
+                for (int k = 0; k < inc.InvolvedCars.Length; k++)
+                    _entries.Add(new Entry
+                    {
+                        CarLine = $"{Describe(cars, inc.InvolvedCars[k])}  (probably, {inc.InvolvedGaps[k]:0.0} m)",
+                        Likely = true,
+                    });
             }
         }
 
@@ -234,6 +263,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         private static string BlameLabel(IReadOnlyList<Car> cars, Incident inc)
         {
+            if (inc.BlameIsRacing) return "Racing incident";
             if (inc.BlameIsMine)
                 return inc.BlameReason.Length > 0 ? "Mine - " + inc.BlameReason : "Mine";
             if (inc.BlameCarIdx < 0) return string.Empty;
@@ -300,6 +330,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 case MenuMode.Blame:
                     _menuLabels.Add("Accept blame");
                     _menuLabels.Add("Blame other driver");
+                    _menuLabels.Add("Racing incident");
                     if (incident.HasBlame) _menuLabels.Add("Clear blame");
                     _menuLabels.Add("Cancel");
                     for (int i = 0; i < _menuLabels.Count; i++) _menuValues.Add(-1);
@@ -307,8 +338,15 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
                 case MenuMode.Driver:
                     var cars = IracingService.Instance.Cars;
+                    // The cars that probably touched come first.
+                    foreach (int carIdx in incident.InvolvedCars)
+                    {
+                        _menuLabels.Add(Describe(cars, carIdx) + " *");
+                        _menuValues.Add(carIdx);
+                    }
                     foreach (int carIdx in incident.NearbyCars)
                     {
+                        if (Array.IndexOf(incident.InvolvedCars, carIdx) >= 0) continue;
                         _menuLabels.Add(Describe(cars, carIdx));
                         _menuValues.Add(carIdx);
                     }
@@ -362,6 +400,11 @@ namespace BeltTensionTest.WPF.Services.Overlays
                     if (label == "Accept blame")
                     {
                         tracker.SetBlame(inc, mine: true, carIdx: -1, reason: string.Empty);
+                        CloseMenu();
+                    }
+                    else if (label == "Racing incident")
+                    {
+                        tracker.SetRacingIncident(inc);
                         CloseMenu();
                     }
                     else if (label == "Clear blame")
@@ -517,14 +560,17 @@ namespace BeltTensionTest.WPF.Services.Overlays
             MonoXRDraw.VerticalFade(_sb, new XnaRectangle(0, TitleBarHeight, Width, 12), Accent * 0.25f);
 
             // Column headers, the original's "Inc  Lap  Inc Type  Cars Involved".
-            int headY = TitleBarHeight + Pad + (HeaderRowHeight - _fontHead.LineSpacing) / 2;
-            _sb.DrawString(_fontHead, "INC", new XnaVector2(ColPoints, headY), RowTextDim);
-            _sb.DrawString(_fontHead, "LAP", new XnaVector2(ColLap, headY), RowTextDim);
-            _sb.DrawString(_fontHead, "INC TYPE", new XnaVector2(ColType, headY), RowTextDim);
-            _sb.DrawString(_fontHead, "CARS", new XnaVector2(ColCars, headY), RowTextDim);
-            _sb.DrawString(_fontHead, "BLAME", new XnaVector2(ColBlame, headY), RowTextDim);
-            _sb.Draw(_white, new XnaRectangle(Pad + 4, TitleBarHeight + Pad + HeaderRowHeight - 4,
-                                              Width - (Pad + 4) * 2, 2), Border);
+            if (!_headingsHidden)
+            {
+                int headY = TitleBarHeight + Pad + (HeaderRowHeight - _fontHead.LineSpacing) / 2;
+                _sb.DrawString(_fontHead, "INC", new XnaVector2(ColPoints, headY), RowTextDim);
+                _sb.DrawString(_fontHead, "LAP", new XnaVector2(ColLap, headY), RowTextDim);
+                _sb.DrawString(_fontHead, "INC TYPE", new XnaVector2(ColType, headY), RowTextDim);
+                _sb.DrawString(_fontHead, "CARS", new XnaVector2(ColCars, headY), RowTextDim);
+                _sb.DrawString(_fontHead, "BLAME", new XnaVector2(ColBlame, headY), RowTextDim);
+                _sb.Draw(_white, new XnaRectangle(Pad + 4, TitleBarHeight + Pad + HeaderRowHeight - 4,
+                                                  Width - (Pad + 4) * 2, 2), Border);
+            }
 
             if (_entries.Count == 0)
             {
@@ -544,8 +590,10 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 if (e.Incident == null)
                 {
                     // Car involved in the row above.
-                    _sb.DrawString(_fontBody, Fit(_fontBody, e.CarLine, ColBlame - ColCarLine - 12),
-                                   new XnaVector2(ColCarLine, textY), RowTextDim);
+                    // A guess (no points of its own) is drawn in the contact color and gets the room of the blame column too.
+                    int room = e.Likely ? Width - Pad * 2 - ColCarLine : ColBlame - ColCarLine - 12;
+                    _sb.DrawString(_fontBody, Fit(_fontBody, e.CarLine, room),
+                                   new XnaVector2(ColCarLine, textY), e.Likely ? TypeContact : RowTextDim);
                     y += RowHeight + RowSpacing;
                     continue;
                 }

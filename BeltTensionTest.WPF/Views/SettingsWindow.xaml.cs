@@ -72,7 +72,7 @@ namespace BeltTensionTest.WPF.Views
             double behindClose = _vm.AppSettings?.OverlayCarBehindCloseGap ?? 0;
             sld_CarBehindShow.Value = behindShow > 0 ? behindShow : Services.Overlays.CarBehindOverlay.DefaultShowGap;
             sld_CarBehindClose.Value = behindClose > 0 ? behindClose : Services.Overlays.CarBehindOverlay.DefaultCloseGap;
-            chk_CarBehindFlash.IsChecked = _vm.AppSettings?.OverlayCarBehindFlashClose ?? false;
+            chk_CarBehindFlash.IsChecked = _vm.AppSettings?.OverlayCarBehindFlashClose ?? true;
 
             var a = _vm.AppSettings;
             chk_HeadSmooth.IsChecked = a?.HeadSmoothEnabled ?? false;

@@ -51,7 +51,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private static readonly Col[] Columns =
         {
             Col.Pos, Col.License, Col.IRating, Col.Driver, Col.Status, Col.BestLap, Col.LastLap,
-            Col.Rel, Col.Gap, Col.Tire, Col.Gained, Col.Stint, Col.Sectors,
+            Col.Rel, Col.Gap, Col.Tire, Col.Gained, Col.Sectors,
         };
         protected override Col[] DefaultColumns => Columns;
 
@@ -64,7 +64,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
         protected override bool ColumnApplies(Col c) => c switch
         {
             Col.BestLap => !IsRace,
-            Col.Tire or Col.Gained or Col.Stint => IsRace,
+            Col.Tire or Col.Gained => IsRace,
+            Col.Stint => false, // the laps on the tire are part of the Tire column now
             _ => true,
         };
 
@@ -184,6 +185,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
             var svc = IracingService.Instance;
             _fastestText = fastest < float.PositiveInfinity ? $"{FormatName(fastestDriver)}  {FormatLapTime(fastest)}" : string.Empty;
+            _brakeBias = BrakeBiasText(svc);
             _temps = float.IsNaN(svc.TrackTempC) ? string.Empty
                 : $"Track {svc.TrackTempC:0}C  Air {svc.AirTempC:0}C";
         }
@@ -255,7 +257,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             int playerPos = racing ? player.ClassPosition : (grid.TryGetValue(player.CarIdx, out var pg) ? pg.ClassPos : 0);
             _irDelta = player.IsAi || player.IRating <= 0 || playerPos <= 0 ? null
                 : EstimateIRatingChange(classCars, player, playerPos);
-            _brakeBias = float.IsNaN(svc.BrakeBias) || svc.BrakeBias <= 0 ? string.Empty : $"BB {svc.BrakeBias:0.0}%";
+            _brakeBias = BrakeBiasText(svc);
             float perLap = _fuelPerLap.Count > 0 ? _fuelPerLap.Average() : 0f;
             _fuel = perLap > 0.01f
                 ? $"Fuel {svc.FuelLevel:0.0} L  {svc.FuelLevel / perLap:0.0} laps"
@@ -264,13 +266,18 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 : $"Track {svc.TrackTempC:0}C  Air {svc.AirTempC:0}C";
         }
 
-        /// <summary>Laps since each car last left pit road (the original's stint counter).</summary>
+        /// <summary>
+        /// The stint: laps since each car last left pit road, or since the start of the race.
+        /// Whether a stop changed the tires is not something the sim tells us, so every visit
+        /// to pit road starts a new stint (the count holds at 0 while the car is in the pits).
+        /// </summary>
         private void UpdateStints(IReadOnlyList<Car> all)
         {
             foreach (var c in all)
             {
                 if (c.Lap < 0) continue;
-                if (c.OnPitRoad || c.IsInGarage || !_stintStartLap.ContainsKey(c.CarIdx))
+                // In the pits (or the garage), first seen, or the replay was scrubbed back before the stint began.
+                if (c.OnPitRoad || c.IsInGarage || !_stintStartLap.TryGetValue(c.CarIdx, out int start) || c.Lap < start)
                     _stintStartLap[c.CarIdx] = c.Lap;
             }
         }
@@ -379,7 +386,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         protected override void AppendSnapshot(StringBuilder sb)
         {
-            sb.Append('#').Append(IsRace ? 'R' : 'r').Append(_fastestText).Append(_temps);
+            sb.Append('#').Append(IsRace ? 'R' : 'r').Append(_fastestText).Append(_temps).Append(_brakeBias);
             if (IsRace)
             {
                 sb.Append(_preRace ? 'P' : 'p').Append(_startType).Append(_waitingToGrid)
@@ -422,11 +429,14 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 var size = FontBody.MeasureString(grid);
                 Batch.DrawString(FontBody, grid, new XnaVector2(area.X + (area.Width - size.X) / 2f, y),
                     _waitingToGrid <= 0 ? SecGreen : SecRed);
-                DrawRight(FontBody, $"Clutch {_clutchPct}%", area.Right, y, RowText);
+                string clutch = $"Clutch {_clutchPct}%";
+                DrawRight(FontBody, clutch, area.Right, y, RowText);
+                DrawBrakeBias(_brakeBias, area, area.Right - FontBody.MeasureString(clutch).X - 30);
             }
             else
             {
                 DrawFastestLapInfo(area, _fastestText);
+                DrawBrakeBias(_brakeBias, area, area.Right);
             }
             MonoXRDraw.HorizontalFade(Batch, new XnaRectangle(area.X - 4, area.Bottom - 2, area.Width + 8, 2), Border);
         }
@@ -437,6 +447,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             float y = area.Y + (area.Height - FontBody.LineSpacing) / 2f;
             DrawFastestLapInfo(area, _fastestText);
             DrawRight(FontBody, _temps, area.Right, y, RowTextDim);
+            DrawBrakeBias(_brakeBias, area, area.Right - FontBody.MeasureString(_temps).X - 30);
             MonoXRDraw.HorizontalFade(Batch, new XnaRectangle(area.X - 4, area.Bottom - 2, area.Width + 8, 2), Border);
         }
 
@@ -456,7 +467,6 @@ namespace BeltTensionTest.WPF.Services.Overlays
             Item(_sof, RowText);
             if (_irDelta is int d)
                 Item(d >= 0 ? $"iR +{d}" : $"iR {d}", d >= 0 ? SecGreen : SecRed);
-            Item(_brakeBias, RowText);
             Item(_fuel, RowText);
             DrawRight(FontBody, _temps, area.Right, y, RowTextDim);
         }

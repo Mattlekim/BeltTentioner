@@ -89,6 +89,7 @@ namespace BeltTensionTest.WPF.Services.Data
         private bool _yellowActive, _slowActive;
         private float _yellowGap, _slowGap;
         private bool _behindActive;
+        private int _behindCarIdx = -1;
         private float _behindGap;
         private BehindLap _behindLap;
 
@@ -107,6 +108,12 @@ namespace BeltTensionTest.WPF.Services.Data
         public (bool Active, float Gap, BehindLap Lap) Behind
         {
             get { lock (_lock) return (_behindActive, _behindGap, _behindLap); }
+        }
+
+        /// <summary>CarIdx of the car <see cref="Behind"/> is measuring; -1 when there is none.</summary>
+        public int BehindCarIdx
+        {
+            get { lock (_lock) return _behindActive ? _behindCarIdx : -1; }
         }
 
         public CarStatus StatusOf(int carIdx)
@@ -223,6 +230,7 @@ namespace BeltTensionTest.WPF.Services.Data
                     {
                         float carMeters = dist * trackLen;
                         _behindActive = true;
+                        _behindCarIdx = car.CarIdx;
                         _behindGap = gap;
                         _behindLap = playerMeters - carMeters > 500f ? BehindLap.LappedBy
                                    : carMeters - playerMeters > 500f ? BehindLap.LapsUp

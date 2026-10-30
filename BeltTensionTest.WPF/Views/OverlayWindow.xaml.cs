@@ -140,6 +140,14 @@ namespace BeltTensionTest.WPF.Views
                 // the settings object when SaveLayout runs.
                 var settings = _vm.AppSettings;
                 if (settings != null)
+                {
+                    // Blame counts are kept by reference in the settings too; a change just needs saving.
+                    var blame = Services.Data.DriverBlame.Instance;
+                    blame.Load(settings.OverlayDriverBlame);
+                    blame.Changed -= SaveBlame;
+                    blame.Changed += SaveBlame;
+                }
+                if (settings != null)
                     Services.Data.DriverTags.Instance.Load(
                         settings.OverlayDriverTags, settings.OverlayFriendColor, settings.OverlayRivalColor,
                         settings.OverlayTagTint, settings.OverlayTagsInRelativeBoxes);
@@ -158,6 +166,7 @@ namespace BeltTensionTest.WPF.Views
                     .Select(names => names.Where(byName.ContainsKey).Select(n => byName[n]).ToList()));
                 _host.GroupsChanged += SaveLayout;
                 _host.TitleBarsChanged += SaveLayout;
+                _host.PanelOptionsChanged += SaveLayout;
                 _host.StateChanged += OnPanelStateChanged;
                 _host.DragCompleted += OnDragCompleted;
                 _host.ScaleChanged += OnScaleChanged;
@@ -693,7 +702,10 @@ namespace BeltTensionTest.WPF.Views
                 RestoreOpacity(_incidentPanel, s.OverlayIncidentPanelOpacity);
                 RestoreOpacity(_displayPanel, s.OverlayDisplayPanelOpacity);
                 foreach (var panel in _host.RenderTargets)
+                {
                     panel.TitleBarHidden = s.OverlayHiddenTitleBars.Contains(panel.Name);
+                    if (panel.HasHeadings) panel.HeadingsHidden = s.OverlayHiddenHeadings.Contains(panel.Name);
+                }
                 ClampPanelsToCanvas();
                 ApplySavedPlacement(s);
             }
@@ -872,6 +884,12 @@ namespace BeltTensionTest.WPF.Views
             SaveLayout();
         }
 
+        private void SaveBlame()
+        {
+            var s = _vm.AppSettings;
+            if (s != null) _settingsSvc.Save(s);
+        }
+
         /// <summary>Persist the current overlay layout (panel position, size, distance, DPI).</summary>
         private void SaveLayout()
         {
@@ -953,6 +971,7 @@ namespace BeltTensionTest.WPF.Views
                 }
                 s.OverlayPanelGroups = _host.Groups.Select(g => g.Select(m => m.Name).ToList()).ToList();
                 s.OverlayHiddenTitleBars = _host.RenderTargets.Where(p => p.TitleBarHidden).Select(p => p.Name).ToList();
+                s.OverlayHiddenHeadings = _host.RenderTargets.Where(p => p.HasHeadings && p.HeadingsHidden).Select(p => p.Name).ToList();
                 if (_warningPanel != null)
                 {
                     s.OverlayWarningPanelX = _warningPanel.X;
