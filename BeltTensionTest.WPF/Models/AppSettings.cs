@@ -47,8 +47,9 @@ namespace BeltTensionTest.WPF.Models
         // Recenter the VR overlay on the headset (same as the overlay window's Recenter button).
         // Always registered system-wide — it is only ever pressed while the sim has focus.
         public string RecenterOverlayKey { get; set; } = string.Empty;
-        // VR overlay layout (edit mode). Panel position is in canvas pixels,
-        // -1 = never dragged (use the coded default). Size/distance/DPI
+        // VR overlay layout (edit mode). Panel position is in canvas pixels measured
+        // from the centre screen's top-left corner (negative on the top screen or
+        // the left screen); both -1 = never dragged (use the coded default). Size/distance/DPI
         // 0 = unset (keep the host defaults).
         public int OverlayPanelX { get; set; } = -1;
         public int OverlayPanelY { get; set; } = -1;
@@ -71,6 +72,19 @@ namespace BeltTensionTest.WPF.Models
         public string OverlayRaceColumnOrder { get; set; } = "";
         public string OverlayQualifyingColumnOrder { get; set; } = "";
         public string OverlayStandingsColumnOrder { get; set; } = "";
+        // The Race panel entries are the combined relative box's (it replaced the
+        // separate Race and Qualifying boxes; the Qualifying ones are legacy and
+        // no longer read). Hidden columns (comma-separated names, right-click a
+        // header) and how driver names are written ("Full", "Initial" or
+        // "Surname") are kept per box.
+        public string OverlayRaceHiddenColumns { get; set; } = "";
+        public string OverlayRaceNameFormat { get; set; } = "Full";
+        public string OverlayStandingsHiddenColumns { get; set; } = "";
+        public string OverlayStandingsNameFormat { get; set; } = "Full";
+        // Font family and size (percent of default, 70..130) of the relative box and
+        // the standings board; set from the in-VR HUD Settings panel.
+        public string OverlayFontFamily { get; set; } = "Segoe UI";
+        public int OverlayFontPercent { get; set; } = 100;
         // Drivers marked as a friend or a rival, keyed by iRacing customer id
         // ("name:<driver>" for AI): "Friend" or "Rival" (Services.Data.DriverTag).
         // Set by clicking a row on the in-VR standings board.
@@ -82,8 +96,17 @@ namespace BeltTensionTest.WPF.Models
         public int OverlayRivalColor { get; set; } = 0xD8462E;
         public double OverlayTagTint { get; set; } = 0.35;
         public bool OverlayTagsInRelativeBoxes { get; set; } = true;
-        // Rows the standings board grows to before it starts leaving cars out.
+        // Rows each box holds, set by dragging its bottom edge in edit mode
+        // (the standings board leaves cars out beyond it; 0 = coded default).
         public int OverlayStandingsRows { get; set; } = 26;
+        public int OverlayRaceRows { get; set; } = 0;
+        // Controller / wheel button that recenters the overlay, bound from the
+        // in-VR HUD Settings panel (GamepadService control name, e.g. "Button5").
+        public string OverlayRecenterButton { get; set; } = string.Empty;
+        // The panel layout (positions, sizes, opacity, rows) of each overlay shape,
+        // keyed "Flat", "Curved", "Triple", "TripleTop", "TripleBottom" or "TripleTopBottom": saved when the shape is
+        // left and restored when it is chosen again.
+        public Dictionary<string, Dictionary<string, double>> OverlayShapeLayouts { get; set; } = new();
         // Gaze focus: what looking at a panel does to it (Services.GazeEffect),
         // where the look direction comes from (Services.GazeSource), the opacity
         // the other panels fade to (0.05..1) and how much the looked-at one grows
@@ -211,6 +234,11 @@ namespace BeltTensionTest.WPF.Models
         public bool OverlayTripleTop { get; set; } = false;
         public double OverlayTopHeight { get; set; } = 1;
         public double OverlayTopAngle { get; set; } = 30;
+        // Triple + bottom: a screen below the centre one, mirroring the top screen
+        // (OverlayBottomHeight meters tall, tipped back toward you by OverlayBottomAngle degrees).
+        public bool OverlayTripleBottom { get; set; } = false;
+        public double OverlayBottomHeight { get; set; } = 1;
+        public double OverlayBottomAngle { get; set; } = 30;
         public double OverlayOffsetX { get; set; } = 0;
         public double OverlayOffsetY { get; set; } = 0;
         // View origin captured by the overlay's Recenter button/binding: the

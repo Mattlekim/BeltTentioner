@@ -12,10 +12,13 @@ using XnaVector2 = Microsoft.Xna.Framework.Vector2;
 
 namespace BeltTensionTest.WPF.Services.Overlays
 {
+    /// <summary>How the Driver column writes a name.</summary>
+    public enum RelativeNameFormat { Full, Initial, Surname }
+
     /// <summary>
     /// Shared chrome and plumbing for the in-VR relative boxes ported from
-    /// IrachingHud's RelativeBox (<see cref="RaceOverlay"/> and
-    /// <see cref="QualifyingOverlay"/>): a titled panel with an optional info
+    /// IrachingHud's RelativeBox (<see cref="RelativeOverlay"/> and
+    /// <see cref="StandingsOverlay"/>): a titled panel with an optional info
     /// bar, a header row of user-reorderable columns, a window of cars around
     /// the player ordered by physical track location (farthest ahead at the
     /// top, player in the middle, nearest behind below — like the original),
@@ -98,18 +101,37 @@ namespace BeltTensionTest.WPF.Services.Overlays
             c is Col.IRating or Col.LastLap or Col.BestLap or Col.CurLap or Col.Rel or Col.Gap
               or Col.Stint or Col.Sectors or Col.LiveSectors;
 
-        /// <summary>Current cell layout: one (column, left, width) per column, in display order.</summary>
+        /// <summary>
+        /// Whether a column belongs in this box right now. A box that changes
+        /// what it shows with the session (the relative box) hides the columns
+        /// that make no sense for the session on screen.
+        /// </summary>
+        protected virtual bool ColumnApplies(Col c) => true;
+
+        private readonly HashSet<Col> _hidden = new();
+
+        /// <summary>Columns on screen right now, in display order.</summary>
+        private List<Col> VisibleColumns()
+        {
+            var list = new List<Col>(_colOrder.Length);
+            foreach (var c in _colOrder)
+                if (ColumnApplies(c) && !_hidden.Contains(c)) list.Add(c);
+            return list;
+        }
+
+        /// <summary>Current cell layout: one (column, left, width) per visible column, in display order.</summary>
         private (Col Col, int Left, int Width)[] ColumnCells()
         {
-            int flex = ColContentRight - ColContentLeft - ColGapX * (_colOrder.Length - 1);
-            foreach (var c in _colOrder) flex -= FixedWidth(c);
+            var cols = VisibleColumns();
+            int flex = ColContentRight - ColContentLeft - ColGapX * (cols.Count - 1);
+            foreach (var c in cols) flex -= FixedWidth(c);
 
-            var cells = new (Col, int, int)[_colOrder.Length];
+            var cells = new (Col, int, int)[cols.Count];
             int x = ColContentLeft;
-            for (int i = 0; i < _colOrder.Length; i++)
+            for (int i = 0; i < cols.Count; i++)
             {
-                int w = _colOrder[i] == Col.Driver ? Math.Max(80, flex) : FixedWidth(_colOrder[i]);
-                cells[i] = (_colOrder[i], x, w);
+                int w = cols[i] == Col.Driver ? Math.Max(80, flex) : FixedWidth(cols[i]);
+                cells[i] = (cols[i], x, w);
                 x += w + ColGapX;
             }
             return cells;
@@ -208,12 +230,13 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         private readonly SpriteBatch _sb;
         private readonly Texture2D _white;
-        protected readonly SpriteFont Font;     // title
-        protected readonly SpriteFont FontBody; // rows
-        protected readonly SpriteFont FontHead; // column headers / small labels
+        protected SpriteFont Font = null!;     // title
+        protected SpriteFont FontBody = null!; // rows
+        protected SpriteFont FontHead = null!; // column headers / small labels
+        private int _fontVersion = -1;
         protected int CarsToDisplay { get; private set; }
         private readonly int _infoBarHeight;
-        private readonly int _footerHeight;
+        private int _footerHeight;
 
         protected readonly List<Row> Rows = new();
         protected int RowOffset;       // empty rows above the first car (keeps the player centered)
@@ -259,9 +282,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _sb = new SpriteBatch(device);
             _white = new Texture2D(device, 1, 1);
             _white.SetData(new[] { XnaColor.White });
-            Font = RuntimeSpriteFont.Bake(device, "Segoe UI", 30f);
-            FontBody = RuntimeSpriteFont.Bake(device, "Segoe UI", 24f);
-            FontHead = RuntimeSpriteFont.Bake(device, "Segoe UI", 18f, System.Drawing.FontStyle.Bold);
+            BakeFonts();
 
             // Sector timing runs at full telemetry rate (60 Hz) so boundary
             // crossings land inside the validity windows; the overlay's own
@@ -271,6 +292,20 @@ namespace BeltTensionTest.WPF.Services.Overlays
             IracingService.Instance.CarsUpdated += OnCarsUpdated;
             IracingService.Instance.SessionTypeChanged += OnSessionTypeChanged;
             IracingService.Instance.Disconnected += OnIracingDisconnected;
+        }
+
+        // Bake the three fonts from the shared font choice (and again whenever it changes).
+        private void BakeFonts()
+        {
+            var old = (Font, FontBody, FontHead);
+            string family = OverlayFonts.Family;
+            Font = RuntimeSpriteFont.Bake(GraphicsDevice, family, OverlayFonts.Scaled(30f));
+            FontBody = RuntimeSpriteFont.Bake(GraphicsDevice, family, OverlayFonts.Scaled(24f));
+            FontHead = RuntimeSpriteFont.Bake(GraphicsDevice, family, OverlayFonts.Scaled(18f), System.Drawing.FontStyle.Bold);
+            _fontVersion = OverlayFonts.Version;
+            old.Item1?.Texture.Dispose();
+            old.Item2?.Texture.Dispose();
+            old.Item3?.Texture.Dispose();
         }
 
         /// <summary>
@@ -285,6 +320,31 @@ namespace BeltTensionTest.WPF.Services.Overlays
             if (rows == CarsToDisplay) return;
             CarsToDisplay = rows;
             Resize(Width, PanelHeightFor(rows, _infoBarHeight, _footerHeight));
+        }
+
+        /// <summary>
+        /// Change the footer's height and resize the panel to match. For a box
+        /// whose footer depends on the session it is showing.
+        /// </summary>
+        protected void SetFooterHeight(int height)
+        {
+            height = Math.Max(0, height);
+            if (height == _footerHeight) return;
+            _footerHeight = height;
+            Resize(Width, PanelHeightFor(CarsToDisplay, _infoBarHeight, _footerHeight));
+        }
+
+        /// <summary>Fewest and most rows a box can be dragged to.</summary>
+        public const int MinPanelRows = 3, MaxPanelRows = 40;
+
+        /// <summary>
+        /// Rows the panel holds. Dragging the bottom edge in edit mode sets
+        /// it, so the height of the box decides how many cars it shows.
+        /// </summary>
+        public int RowCapacity
+        {
+            get => CarsToDisplay;
+            set { SetRowCapacity(Math.Clamp(value, MinPanelRows, MaxPanelRows)); Invalidate(); }
         }
 
         /// <summary>True when this box belongs to the given iRacing session type.</summary>
@@ -566,8 +626,9 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         /// <summary>
         /// Comma-separated column order for persistence, e.g.
-        /// "Pos,Driver,LastLap,Rel". Setting anything that is not a full
-        /// permutation of this box's columns is ignored.
+        /// "Pos,Driver,LastLap,Rel". Unknown names are dropped and columns the
+        /// value leaves out keep their default place at the end, so an order
+        /// saved before a column existed still loads.
         /// </summary>
         public string ColumnOrder
         {
@@ -580,10 +641,46 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 foreach (var part in value.Split(','))
                     if (Enum.TryParse(part.Trim(), true, out Col c) && allowed.Contains(c) && !parsed.Contains(c))
                         parsed.Add(c);
-                if (parsed.Count != allowed.Length) return;
+                if (parsed.Count == 0) return;
+                foreach (var c in allowed)
+                    if (!parsed.Contains(c)) parsed.Add(c);
                 _colOrder = parsed.ToArray();
                 Invalidate();
             }
+        }
+
+        /// <summary>Comma-separated names of the columns the user hid, for persistence.</summary>
+        public string HiddenColumns
+        {
+            get => string.Join(",", _hidden);
+            set
+            {
+                _hidden.Clear();
+                if (!string.IsNullOrWhiteSpace(value))
+                    foreach (var part in value.Split(','))
+                        if (Enum.TryParse(part.Trim(), true, out Col c) && DefaultColumns.Contains(c))
+                            _hidden.Add(c);
+                Invalidate();
+            }
+        }
+
+        private RelativeNameFormat _nameFormat = RelativeNameFormat.Full;
+
+        /// <summary>How driver names are written in the Driver column.</summary>
+        public RelativeNameFormat NameFormat
+        {
+            get => _nameFormat;
+            set { if (_nameFormat == value) return; _nameFormat = value; Invalidate(); }
+        }
+
+        /// <summary>A driver's name in the format the user picked ("John Smith", "J. Smith" or "Smith").</summary>
+        protected string FormatName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name) || _nameFormat == RelativeNameFormat.Full) return name;
+            var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length < 2) return name;
+            string surname = string.Join(" ", parts.Skip(1));
+            return _nameFormat == RelativeNameFormat.Surname ? surname : $"{parts[0][0]}. {surname}";
         }
 
         protected int HeaderTop => TitleBarHeight + _infoBarHeight + Pad;
@@ -621,6 +718,12 @@ namespace BeltTensionTest.WPF.Services.Overlays
         public override bool OnEditPress(int x, int y)
         {
             if (IsCollapsed) return false;
+            if (OnResizeGrip(x, y))
+            {
+                _resizeRows = true;
+                Invalidate();
+                return true;
+            }
             int top = HeaderTop;
             if (y < top || y >= top + HeaderRowHeight) return false;
             var cells = ColumnCells();
@@ -638,8 +741,18 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         // Swap with a neighbor once the pointer crosses that neighbor's
         // center; loop so one fast drag event can jump several columns.
+        // _dragCol indexes the visible cells; the swap is made in the full
+        // order, so hidden columns keep their place.
         public override void OnEditDrag(int x, int y)
         {
+            if (_resizeRows)
+            {
+                // The bottom edge follows the pointer: whole rows only, from
+                // the first row down to just above the footer.
+                int rowsHeight = y - RowsTop - Pad - _footerHeight + (RowHeight + RowSpacing) / 2;
+                RowCapacity = rowsHeight / (RowHeight + RowSpacing);
+                return;
+            }
             if (_dragCol < 0) return;
             while (true)
             {
@@ -647,7 +760,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 if (_dragCol > 0 &&
                     x < cells[_dragCol - 1].Left + cells[_dragCol - 1].Width / 2)
                 {
-                    (_colOrder[_dragCol - 1], _colOrder[_dragCol]) = (_colOrder[_dragCol], _colOrder[_dragCol - 1]);
+                    SwapColumns(cells[_dragCol - 1].Col, cells[_dragCol].Col);
                     _dragCol--;
                     Invalidate();
                     continue;
@@ -655,7 +768,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 if (_dragCol < cells.Length - 1 &&
                     x > cells[_dragCol + 1].Left + cells[_dragCol + 1].Width / 2)
                 {
-                    (_colOrder[_dragCol + 1], _colOrder[_dragCol]) = (_colOrder[_dragCol], _colOrder[_dragCol + 1]);
+                    SwapColumns(cells[_dragCol + 1].Col, cells[_dragCol].Col);
                     _dragCol++;
                     Invalidate();
                     continue;
@@ -664,18 +777,208 @@ namespace BeltTensionTest.WPF.Services.Overlays
             }
         }
 
+        // Edit mode: the strip along the bottom edge (short of the host's own
+        // corner grip) stretches the panel vertically.
+        private bool _resizeRows;
+        private const int GripHeight = 22, GripCornerSkip = 90;
+
+        private bool OnResizeGrip(int x, int y) =>
+            y >= Height - GripHeight && x < Width - GripCornerSkip;
+
+        private void SwapColumns(Col a, Col b)
+        {
+            int ia = Array.IndexOf(_colOrder, a), ib = Array.IndexOf(_colOrder, b);
+            if (ia < 0 || ib < 0) return;
+            (_colOrder[ia], _colOrder[ib]) = (_colOrder[ib], _colOrder[ia]);
+        }
+
         public override void OnEditRelease(int x, int y)
         {
+            if (_resizeRows)
+            {
+                _resizeRows = false;
+                Invalidate();
+                ColumnOrderChanged?.Invoke(); // persists the layout, like a header drag
+                return;
+            }
             if (_dragCol < 0) return;
             _dragCol = -1;
             Invalidate();
             ColumnOrderChanged?.Invoke();
         }
 
+        // ----- Column header menu ---------------------------------------------
+        // Right-clicking a column header opens a small menu: hide that column,
+        // bring back any hidden one and, on the Driver header, pick how names
+        // are written. Boxes with their own pointer handling call these first.
+
+        private const int HMenuWidth = 320;
+        private const int HMenuItemHeight = 40;
+        private const int HMenuPad = 6;
+        private static readonly XnaColor HMenuBg = new XnaColor(0x22, 0x22, 0x34, 250);
+
+        private readonly List<(string Label, Action Act)> _hMenu = new();
+        private int _hMenuX, _hMenuY, _hMenuHover = -1;
+
+        /// <summary>True while the column header menu is up.</summary>
+        protected bool HeaderMenuOpen => _hMenu.Count > 0;
+        private int HMenuHeight => _hMenu.Count * HMenuItemHeight + HMenuPad * 2;
+
+        private static string ColumnTitle(Col c) => c switch
+        {
+            Col.Pos => "Position",
+            Col.License => "License",
+            Col.IRating => "iRating",
+            Col.Driver => "Driver",
+            Col.Status => "Status",
+            Col.LastLap => "Last lap",
+            Col.BestLap => "Best lap",
+            Col.CurLap => "Current lap",
+            Col.Rel => "Relative",
+            Col.Gap => "Gap",
+            Col.Tire => "Tire",
+            Col.Gained => "Positions gained",
+            Col.Stint => "Stint",
+            Col.Sectors => "Sectors",
+            Col.LiveSectors => "Sector times",
+            _ => c.ToString(),
+        };
+
+        private void CloseHeaderMenu()
+        {
+            if (!HeaderMenuOpen) return;
+            _hMenu.Clear();
+            _hMenuHover = -1;
+            Invalidate();
+        }
+
+        private int HeaderMenuItemAt(int x, int y)
+        {
+            if (!HeaderMenuOpen || x < _hMenuX || x >= _hMenuX + HMenuWidth) return -1;
+            int rel = y - _hMenuY - HMenuPad;
+            if (rel < 0) return -1;
+            int item = rel / HMenuItemHeight;
+            return item < _hMenu.Count ? item : -1;
+        }
+
+        private void OpenHeaderMenu(Col col, int x, int y)
+        {
+            _hMenu.Clear();
+            _hMenuHover = -1;
+
+            if (VisibleColumns().Count > 1)
+                _hMenu.Add(($"Hide {ColumnTitle(col)}", () => { _hidden.Add(col); Changed(); }));
+
+            if (col == Col.Driver)
+            {
+                foreach (var (fmt, label) in new[]
+                {
+                    (RelativeNameFormat.Full, "Name: John Smith"),
+                    (RelativeNameFormat.Initial, "Name: J. Smith"),
+                    (RelativeNameFormat.Surname, "Name: Smith"),
+                })
+                {
+                    var f = fmt;
+                    _hMenu.Add(((_nameFormat == f ? "> " : "  ") + label, () => { _nameFormat = f; Changed(); }));
+                }
+            }
+
+            foreach (var c in _colOrder)
+            {
+                if (!_hidden.Contains(c) || !ColumnApplies(c)) continue;
+                var shown = c;
+                _hMenu.Add(($"Show {ColumnTitle(c)}", () => { _hidden.Remove(shown); Changed(); }));
+            }
+
+            if (_hMenu.Count == 0) return;
+            _hMenu.Add(("Cancel", () => { }));
+            _hMenuX = Math.Clamp(x, Pad, Math.Max(Pad, Width - HMenuWidth - Pad));
+            _hMenuY = Math.Clamp(y, HeaderTop, Math.Max(HeaderTop, Height - HMenuHeight - Pad));
+            Invalidate();
+
+            void Changed() => ColumnOrderChanged?.Invoke(); // persists the layout, like a header drag
+        }
+
+        /// <summary>Pointer moved: tracks the hover on an open header menu. True when the menu took it.</summary>
+        protected bool HeaderMenuPointerMove(int x, int y)
+        {
+            if (!HeaderMenuOpen) return false;
+            int item = HeaderMenuItemAt(x, y);
+            if (item != _hMenuHover) { _hMenuHover = item; Invalidate(); }
+            return true;
+        }
+
+        /// <summary>Pointer left the panel: clears the menu hover.</summary>
+        protected void HeaderMenuPointerExit()
+        {
+            if (_hMenuHover < 0) return;
+            _hMenuHover = -1;
+            Invalidate();
+        }
+
+        /// <summary>A left press while the header menu is up picks an item or dismisses it. True when taken.</summary>
+        protected bool HeaderMenuPress(int x, int y)
+        {
+            if (!HeaderMenuOpen) return false;
+            int item = HeaderMenuItemAt(x, y);
+            var act = item >= 0 ? _hMenu[item].Act : null;
+            CloseHeaderMenu();
+            act?.Invoke();
+            return true;
+        }
+
+        /// <summary>
+        /// A right press: dismisses an open menu, or opens one when it landed
+        /// on a column header. True when taken.
+        /// </summary>
+        protected bool HeaderMenuRightPress(int x, int y)
+        {
+            if (IsCollapsed || !_active && !EditMode) return false;
+            if (HeaderMenuOpen) { CloseHeaderMenu(); return true; }
+            if (y < HeaderTop || y >= HeaderTop + HeaderRowHeight) return false;
+            foreach (var (col, left, width) in ColumnCells())
+            {
+                if (x < left - ColGapX / 2 || x >= left + width + ColGapX / 2) continue;
+                OpenHeaderMenu(col, x, y);
+                return true;
+            }
+            return false;
+        }
+
+        public override void OnPointerMove(int x, int y) => HeaderMenuPointerMove(x, y);
+        public override void OnPointerExit() => HeaderMenuPointerExit();
+        public override bool OnPointerPress(int x, int y) => HeaderMenuPress(x, y);
+        public override bool OnPointerRightPress(int x, int y) => HeaderMenuRightPress(x, y);
+
+        private void DrawHeaderMenu()
+        {
+            if (!HeaderMenuOpen) return;
+            var rect = new XnaRectangle(_hMenuX, _hMenuY, HMenuWidth, HMenuHeight);
+            MonoXRDraw.RoundedRect(_sb, rect, 10, HMenuBg);
+            MonoXRDraw.RoundedRectOutline(_sb, rect, 10, 2, Accent);
+            for (int i = 0; i < _hMenu.Count; i++)
+            {
+                var item = new XnaRectangle(rect.X + HMenuPad, rect.Y + HMenuPad + i * HMenuItemHeight,
+                                            HMenuWidth - HMenuPad * 2, HMenuItemHeight);
+                if (i == _hMenuHover) MonoXRDraw.RoundedRect(_sb, item, 7, Accent * 0.3f);
+                string label = _hMenu[i].Label;
+                _sb.DrawString(FontBody, label,
+                    new XnaVector2(item.X + 14, item.Y + (HMenuItemHeight - FontBody.LineSpacing) / 2f),
+                    label == "Cancel" ? RowTextDim : RowText);
+            }
+        }
+
         // ----- Update ----------------------------------------------------------
 
         public override void Update(GameTime gameTime)
         {
+            if (_fontVersion != OverlayFonts.Version)
+            {
+                BakeFonts();
+                _lastSnapshot = string.Empty; // repaint with the new font
+                Invalidate();
+            }
+
             Flasher += (float)gameTime.ElapsedGameTime.TotalSeconds * 15f;
             if (Flasher > 2f) Flasher -= 2f;
 
@@ -774,7 +1077,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 CarIdx = car.CarIdx,
                 TagColor = isPlayer || !ShowsDriverTags ? -1 : tags.ColorOf(tags.TagOf(car)),
                 ClassColor = Multiclass ? car.ClassColor : -1,
-                Name = car.DriverName,
+                Name = FormatName(car.DriverName),
                 License = car.IsAi ? string.Empty : car.LicString,
                 LicColor = car.IsAi ? -1 : car.LicColor,
                 LowSafety = !car.IsAi && car.LicSubLevel > 0 && car.LicSubLevel < 200,
@@ -979,9 +1282,17 @@ namespace BeltTensionTest.WPF.Services.Overlays
             if (_footerHeight > 0 && _active)
                 DrawFooter(new XnaRectangle(Pad + 10, Height - _footerHeight, Width - (Pad + 10) * 2, _footerHeight));
 
+            // Edit mode: a handle on the bottom edge to drag the box taller or shorter.
+            if (EditMode)
+            {
+                var grip = new XnaRectangle(Width / 2 - 60, Height - GripHeight + 6, 120, 8);
+                MonoXRDraw.RoundedRect(_sb, grip, 4, _resizeRows ? Accent : XnaColor.White * 0.35f);
+            }
+
             // Anything that has to sit above the rows (the standings board's
             // driver-tag menu) draws last.
             DrawPopups();
+            DrawHeaderMenu();
 
             // Rounded panel outline.
             MonoXRDraw.RoundedRectOutline(_sb, panel, Radius, 2, Border);
@@ -1099,9 +1410,16 @@ namespace BeltTensionTest.WPF.Services.Overlays
                     case Col.LastLap:
                     {
                         // Faster last lap than yours = red (threat), slower =
-                        // green, no comparison = dim.
-                        XnaColor c = row.LastCmp < 0 ? SecRed : row.LastCmp > 0 ? SecGreen : RowTextDim;
-                        DrawRight(FontBody, row.LastLap, cl + cw, textY, c);
+                        // green, no comparison = dim text, no chip.
+                        // The verdict is the cell's background, not the text:
+                        // red text vanished on the red lap-ahead row.
+                        if (row.LastCmp != 0)
+                        {
+                            var chip = new XnaRectangle(cl - 4, y + 5, cw + 8, RowHeight - 10);
+                            MonoXRDraw.RoundedRect(_sb, chip, 6,
+                                row.LastCmp < 0 ? SecRed : XnaColor.Lerp(SecGreen, XnaColor.Black, 0.35f));
+                        }
+                        DrawRight(FontBody, row.LastLap, cl + cw, textY, row.LastCmp != 0 ? XnaColor.White : RowTextDim);
                         break;
                     }
                     case Col.BestLap:

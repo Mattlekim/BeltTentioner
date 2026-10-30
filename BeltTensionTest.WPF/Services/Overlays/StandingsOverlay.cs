@@ -35,7 +35,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
     /// in <see cref="DriverTags"/>, so they survive into the next session, and
     /// every standings panel paints a tagged driver's row in their color.
     ///
-    /// The panel grows to the size of the field up to <see cref="MaxRows"/>
+    /// The panel is as tall as the user dragged it, <see cref="MaxRows"/>
     /// rows; a field bigger than that shows the leaders, a break, then the
     /// block around you.
     /// </summary>
@@ -46,20 +46,24 @@ namespace BeltTensionTest.WPF.Services.Overlays
         /// <summary>Panel width in canvas pixels (wider than the relative boxes).</summary>
         public const int BoardWidth = 1500;
 
-        /// <summary>Range the rows-on-the-board setting can be set to.</summary>
-        public const int MinRowSetting = 6, MaxRowSetting = 40;
+        /// <summary>Range the board can be dragged to.</summary>
+        public const int MinRowSetting = MinPanelRows, MaxRowSetting = MaxPanelRows;
 
         private int _maxRows = 26;
 
         /// <summary>
-        /// Rows the board grows to before it starts leaving cars out, set
-        /// from the HUD settings panel. Clamped to
+        /// Rows the board holds before it starts leaving cars out, set by
+        /// dragging its bottom edge in edit mode. Clamped to
         /// <see cref="MinRowSetting"/>..<see cref="MaxRowSetting"/>.
         /// </summary>
         public int MaxRows
         {
             get => _maxRows;
-            set => _maxRows = Math.Clamp(value, MinRowSetting, MaxRowSetting);
+            set
+            {
+                _maxRows = Math.Clamp(value, MinRowSetting, MaxRowSetting);
+                RowCapacity = _maxRows;
+            }
         }
 
         /// <summary>Leaders always kept on the board when the field does not fit.</summary>
@@ -100,6 +104,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         public StandingsOverlay(GraphicsDevice device, int x, int y, int carsToDisplay = 12)
             : base(device, "Standings", x, y, carsToDisplay, InfoBarH, FooterH, BoardWidth)
         {
+            SetRowCapacity(_maxRows);
         }
 
         // The board is useful in practice, qualifying and the race alike.
@@ -120,7 +125,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
             var ordered = RunningOrder(all, player, racing);
             var window = Window(ordered, player);
-            SetRowCapacity(window.Count);
+            SetRowCapacity(MaxRows); // the box is as tall as the user dragged it
 
             foreach (var car in window)
             {
@@ -149,7 +154,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             if (MenuOpen && !ordered.Any(c => c.CarIdx == _menuCar)) CloseMenu();
 
             _fastestText = classFastest < float.PositiveInfinity
-                ? $"{fastestDriver}  {FormatLapTime(classFastest)}" : string.Empty;
+                ? $"{FormatName(fastestDriver)}  {FormatLapTime(classFastest)}" : string.Empty;
             _fieldText = ordered.Count == 1 ? "1 driver" : $"{ordered.Count} drivers";
             _temps = float.IsNaN(svc.TrackTempC) ? string.Empty
                 : $"Track {svc.TrackTempC:0}C  Air {svc.AirTempC:0}C";
@@ -261,6 +266,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public override void OnPointerMove(int x, int y)
         {
+            if (HeaderMenuPointerMove(x, y)) return;
             if (MenuOpen)
             {
                 int item = MenuItemAt(x, y);
@@ -283,6 +289,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public override void OnPointerExit()
         {
+            HeaderMenuPointerExit();
             if (_hoverCar < 0 && _menuHover < 0) return;
             _hoverCar = -1;
             _menuHover = -1;
@@ -291,6 +298,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public override bool OnPointerPress(int x, int y)
         {
+            if (HeaderMenuPress(x, y)) return true;
             if (!IsActive || IsCollapsed) return false;
 
             // With the menu up it takes the click wherever it lands, so a
@@ -314,6 +322,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         // pointer sends reaches the menu.
         public override bool OnPointerRightPress(int x, int y)
         {
+            if (HeaderMenuRightPress(x, y)) return true;
             if (MenuOpen) { CloseMenu(); return true; }
             return OnPointerPress(x, y);
         }

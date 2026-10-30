@@ -63,7 +63,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         /// <param name="editViewOptions">Choices for which state (current / in car / replay) the layout is arranged for.</param>
         /// <param name="getEditView">Selected choice, polled every frame so the desktop window's box stays in step.</param>
         /// <param name="setEditView">Called when the choice is changed here.</param>
-        /// <param name="getShape">The overlay's shape (0 flat, 1 curved, 2 triple, 3 triple with a top screen), polled every frame like <paramref name="getEditView"/>.</param>
+        /// <param name="getShape">The overlay's shape (0 flat, 1 curved, 2 triple, 3 triple with a top screen, 4 with a bottom screen, 5 with both), polled every frame like <paramref name="getEditView"/>.</param>
         /// <param name="setShape">Called when the shape is changed here.</param>
         public DisplaySettingsOverlay(GraphicsDevice device, int x, int y,
                                       IReadOnlyList<BeltSettingRow> rows, Func<string> resolutionText,
@@ -101,7 +101,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
             // Flat quad, wrapped around the viewer on a cylinder, or three screens.
             _getShape = getShape;
-            _shape = new OverlayChoiceRow("Shape", new[] { "Flat", "Curved", "Triple", "Triple + top" }, getShape());
+            _shape = new OverlayChoiceRow("Shape", new[] { "Flat", "Curved", "Triple", "Triple + top", "Triple + bottom", "Triple + top + bottom" }, getShape());
             _shape.SelectedIndexChanged += i => { setShape(i); Invalidate(); };
             _menu.Add(_shape);
 

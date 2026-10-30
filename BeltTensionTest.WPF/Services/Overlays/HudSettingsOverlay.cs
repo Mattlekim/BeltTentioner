@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using BeltTensionTest.WPF.Services.Data;
 using Microsoft.Xna.Framework.Graphics;
 using GameTime = Microsoft.Xna.Framework.GameTime;
@@ -11,11 +12,24 @@ using XnaVector2 = Microsoft.Xna.Framework.Vector2;
 
 namespace BeltTensionTest.WPF.Services.Overlays
 {
+    /// <summary>The overlay-wide switches the HUD Settings panel can change, owned by the overlay window.</summary>
+    public sealed class HudOptions
+    {
+        public bool EyeTracking => GetEyeTracking();
+        public int ColorBlindIndex => GetColorBlindIndex();
+        public Action<bool> SetEyeTracking { get; init; } = _ => { };
+        public Action<int> SetColorBlindIndex { get; init; } = _ => { };
+        public RecenterBinding Recenter { get; init; } = null!;
+        public Func<bool> GetEyeTracking { get; init; } = () => true;
+        public Func<int> GetColorBlindIndex { get; init; } = () => 0;
+    }
+
     /// <summary>
     /// In-VR settings for the HUD panels themselves: the colors a friend and
     /// a rival are painted in, how strongly that color fills their row,
-    /// whether the relative boxes use it too, how many rows the standings
-    /// board grows to, and what looking at a panel does to it. Built from the
+    /// whether the relative boxes use it too, the overlay-wide switches (eye
+    /// tracking, colour-blind mode, the controller button that recenters) and
+    /// what looking at a panel does to it. Built from the
     /// same MonoXR controls as <see cref="BeltSettingsOverlay"/>, so
     /// navigation input works the same.
     ///
@@ -54,7 +68,13 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private readonly OverlayColorRow _rivalColor;
         private readonly MonoXRSliderControl _tint;
         private readonly MonoXRCheckbox _inRelative;
-        private readonly MonoXRSliderControl _rows;
+        private readonly MonoXRCheckbox _eyeTracking;
+        private readonly OverlayChoiceRow _fontChoice;
+        private readonly MonoXRSliderControl _fontSize;
+        private readonly OverlayChoiceRow _colorBlind;
+        private readonly OverlayButtonRow _recenterBtn;
+        private readonly HudOptions _options;
+        private string _recenterText = string.Empty;
         private readonly OverlayButtonRow _clearTags;
         private readonly Func<int> _taggedCount;
         private string _tagSummary = string.Empty;
@@ -90,8 +110,13 @@ namespace BeltTensionTest.WPF.Services.Overlays
             + RowHeight + RowSpacing     // tint
             + RowHeight + RowSpacing     // show in relative boxes
             + RowHeight + RowSpacing     // clear all
-            + 36 + RowSpacing            // "Standings" header
-            + RowHeight + RowSpacing     // rows on the board
+            + 36 + RowSpacing            // "Overlay" header
+            + RowHeight + RowSpacing     // eye tracking
+            + RowHeight + RowSpacing     // colour blind mode
+            + RowHeight + RowSpacing     // recenter button
+            + 36 + RowSpacing            // "Text" header
+            + RowHeight + RowSpacing     // font
+            + RowHeight + RowSpacing     // font size
             + 36 + RowSpacing            // "Look at a panel" header
             + RowHeight + RowSpacing     // gaze effect
             + RowHeight + RowSpacing     // gaze source
@@ -99,11 +124,11 @@ namespace BeltTensionTest.WPF.Services.Overlays
             + RowHeight + RowSpacing     // enlarge by
             + 34;                        // footer line + padding
 
-        /// <param name="standingsRows">Rows-on-the-board setting of the standings board.</param>
+        /// <param name="options">Overlay-wide switches the Overlay rows drive.</param>
         /// <param name="saved">Called after any change, to persist it.</param>
         /// <param name="gaze">Gaze-focus service the gaze rows drive.</param>
         public HudSettingsOverlay(GraphicsDevice device, int x, int y,
-                                  BeltSettingRow standingsRows, GazeFocus gaze, Action saved)
+                                  HudOptions options, GazeFocus gaze, Action saved)
             : base(device, PanelWidth, HeightFor(), x, y)
         {
             Name = "HUD Settings";
@@ -149,13 +174,39 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _clearTags.Click += () => { tags.ClearAll(); Invalidate(); };
             _menu.Add(_clearTags);
 
-            _menu.Add(new MonoXRLabel("Standings"));
+            _options = options;
+            _menu.Add(new MonoXRLabel("Overlay"));
 
-            _rows = new MonoXRSliderControl(standingsRows.Name, standingsRows.Min, standingsRows.Max,
-                                            standingsRows.Get(), standingsRows.Step, standingsRows.Format);
-            _rows.ValueChanged += standingsRows.Set;
-            _rows.ValueChanged += _ => Invalidate();
-            _menu.Add(_rows);
+            _eyeTracking = new MonoXRCheckbox("Enable eye tracking", options.EyeTracking);
+            _eyeTracking.Checked += () => { options.SetEyeTracking(true); saved(); Invalidate(); };
+            _eyeTracking.Unchecked += () => { options.SetEyeTracking(false); saved(); Invalidate(); };
+            _menu.Add(_eyeTracking);
+
+            _colorBlind = new OverlayChoiceRow("Colour blind mode", ColorBlindModes, options.ColorBlindIndex);
+            _colorBlind.SelectedIndexChanged += i => { options.SetColorBlindIndex(i); saved(); Invalidate(); };
+            _menu.Add(_colorBlind);
+
+            // Click to bind: the next controller button pressed recenters the
+            // overlay from then on. Clicking again while it waits clears it.
+            _recenterBtn = new OverlayButtonRow(RecenterText());
+            _recenterBtn.Click += () =>
+            {
+                if (options.Recenter.Capturing || options.Recenter.Binding.Length > 0) options.Recenter.Clear();
+                else options.Recenter.BeginCapture();
+                Invalidate();
+            };
+            _menu.Add(_recenterBtn);
+
+            // Font and size of the relative box and the standings board.
+            _menu.Add(new MonoXRLabel("Text (relative box and standings)"));
+            var fonts = OverlayFonts.Available.ToArray();
+            _fontChoice = new OverlayChoiceRow("Font", fonts, Math.Max(0, Array.IndexOf(fonts, OverlayFonts.Family)));
+            _fontChoice.SelectedIndexChanged += i => { OverlayFonts.Family = fonts[i]; saved(); Invalidate(); };
+            _menu.Add(_fontChoice);
+            _fontSize = new MonoXRSliderControl("Text size (%)", OverlayFonts.MinPercent, OverlayFonts.MaxPercent,
+                                                OverlayFonts.Percent, 5f, "0");
+            _fontSize.ValueChanged += v => { OverlayFonts.Percent = (int)v; saved(); Invalidate(); };
+            _menu.Add(_fontSize);
 
             _gaze = gaze;
             _menu.Add(new MonoXRLabel("Look at a panel"));
@@ -180,12 +231,20 @@ namespace BeltTensionTest.WPF.Services.Overlays
             // all report through DriverTags.Changed, the rows slider directly.
             _tagsChanged = saved;
             tags.Changed += _tagsChanged;
-            _rows.ValueChanged += _ => saved();
+            options.Recenter.Changed += saved;
 
             OverlayNavigation.Navigated += OnNavigated;
         }
 
         private readonly Action _tagsChanged;
+
+        private static readonly string[] ColorBlindModes = { "Off", "Deuteranopia", "Tritanomaly" };
+
+        private string RecenterText() =>
+            _options.Recenter.Capturing ? "Press a controller button... (click to cancel)"
+            : _options.Recenter.Binding.Length > 0
+                ? $"Recenter button: {RecenterBinding.Short(_options.Recenter.Binding)} (click to clear)"
+                : "Bind a controller button to recenter";
 
         private void OnNavigated(OverlayNavAction action)
         {
@@ -256,6 +315,15 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _rivalColor.Value = tags.RivalColor;
             _tint.Value = tags.TintStrength * 100f;
             _inRelative.IsChecked = tags.ShowInRelativeBoxes;
+            _eyeTracking.IsChecked = _options.EyeTracking;
+            _colorBlind.SelectedIndex = _options.ColorBlindIndex;
+            string recenterText = RecenterText();
+            if (recenterText != _recenterText)
+            {
+                _recenterText = recenterText;
+                _recenterBtn.Text = recenterText;
+                Invalidate();
+            }
 
             // Gaze rows follow the service, and the status line says why
             // nothing is happening when that is the case.
@@ -351,6 +419,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         {
             OverlayNavigation.Navigated -= OnNavigated;
             DriverTags.Instance.Changed -= _tagsChanged;
+            _options.Recenter.Changed -= _tagsChanged;
             _fontHead.Texture.Dispose();
             _fontBody.Texture.Dispose();
             _font.Texture.Dispose();
