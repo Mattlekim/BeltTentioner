@@ -166,6 +166,9 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private int PositionOf(Car car, bool racing)
         {
             int pos = Multiclass ? car.ClassPosition : car.Position;
+            // A finisher's position is final: it no longer follows the live order.
+            if (racing && FinalPositions.TryGetValue(car.CarIdx, out var final))
+                pos = Multiclass ? final.Class : final.Overall;
             // Outside the race iRacing only places a car once it has a time,
             // so an unplaced row keeps a blank badge rather than a fake "0".
             return pos > 0 && (racing || car.BestLapTime > 0) ? pos : 0;

@@ -387,6 +387,62 @@ namespace BeltTensionTest.WPF.Services.Overlays
         /// <summary>Fill <see cref="Rows"/> for this frame (player is valid, cars non-empty).</summary>
         protected abstract void BuildRows(IReadOnlyList<Car> all, Car player);
 
+        // ----- Finishers ----------------------------------------------------------
+        // Finished = crossed the line after the checkered came out: the lap count each car had when
+        // the session went checkered is remembered, and a car has finished once it completes another
+        // lap. The car that triggered the flag (the overall leader) has finished immediately. A
+        // finisher's position is final from that moment: it is kept here and shown from then on, so
+        // the cars still racing cannot change it.
+
+        private readonly Dictionary<int, int> _lapAtCheckered = new();
+        private bool _checkeredSeen;
+
+        /// <summary>Cars that have taken the checkered flag in the race on screen.</summary>
+        protected readonly HashSet<int> FinishedCars = new();
+
+        /// <summary>Overall and class position each finished car had as it crossed the line.</summary>
+        protected readonly Dictionary<int, (int Overall, int Class)> FinalPositions = new();
+
+        protected void ResetFinishTracking()
+        {
+            _lapAtCheckered.Clear();
+            FinishedCars.Clear();
+            FinalPositions.Clear();
+            _checkeredSeen = false;
+        }
+
+        private void UpdateFinishTracking(IReadOnlyList<Car> all, int state)
+        {
+            bool race = CurrentSessionType.IndexOf("Race", StringComparison.OrdinalIgnoreCase) >= 0;
+            if (!race || state < IracingService.SessionStateCheckered)
+            {
+                if (_checkeredSeen || FinishedCars.Count > 0) ResetFinishTracking();
+                return;
+            }
+
+            void Finish(Car c)
+            {
+                if (FinishedCars.Add(c.CarIdx) && (c.Position > 0 || c.ClassPosition > 0))
+                    FinalPositions[c.CarIdx] = (c.Position, c.ClassPosition);
+            }
+
+            if (!_checkeredSeen)
+            {
+                _checkeredSeen = true;
+                foreach (var c in all)
+                {
+                    _lapAtCheckered[c.CarIdx] = c.LapCompleted;
+                    if (c.Position == 1) Finish(c);
+                }
+            }
+            foreach (var c in all)
+            {
+                if (!_lapAtCheckered.TryGetValue(c.CarIdx, out int lap))
+                    _lapAtCheckered[c.CarIdx] = lap = c.LapCompleted;
+                if (c.LapCompleted > lap) Finish(c);
+            }
+        }
+
         /// <summary>Append any extra visible state (info bar / footer) so changes trigger a repaint.</summary>
         protected virtual void AppendSnapshot(StringBuilder sb) { }
 
@@ -1031,7 +1087,10 @@ namespace BeltTensionTest.WPF.Services.Overlays
             Multiclass = all.Select(c => c.CarClassId).Distinct().Count() > 1;
 
             if (_active && player.CarIdx >= 0 && all.Count > 0)
+            {
+                UpdateFinishTracking(all, svc.SessionState);
                 BuildRows(all, player);
+            }
 
             // Only redraw/republish when something visible actually changed.
             var sb = new StringBuilder(_sessionLabel);
@@ -1137,6 +1196,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 // (the original's S/W); -1 = series doesn't report it.
                 Tire = car.TireCompound < 0 ? string.Empty : car.TireCompound == 0 ? "S" : "W",
                 Stint = string.Empty,
+                Finished = FinishedCars.Contains(car.CarIdx),
             };
         }
 
@@ -1225,6 +1285,50 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 case 'A': return 0x0153DB; // A: blue
                 default: return sessionColor >= 0 ? sessionColor : 0x505068;
             }
+        }
+
+        /// <summary>
+        /// What is left of the session while it is running, whichever of time and laps will end it first:
+        /// "12:34" / "1:02:03" or "8 laps". Empty when neither is limited, or the session is not under way.
+        /// With both limits the laps are turned into time at the class's lap time to see which comes first.
+        /// </summary>
+        protected static string RemainingText(IracingService svc, Car player, out bool urgent)
+        {
+            urgent = false;
+            if (svc.SessionState != IracingService.SessionStateRacing) return string.Empty;
+
+            double time = svc.SessionTimeRemain;
+            int laps = svc.SessionLapsRemain;
+            bool timed = time > 0 && time < 600000;     // iRacing reports 604800 when there is no time limit
+            bool lapped = laps > 0 && laps < 32000;     // and 32767 when there is no lap limit
+            if (timed && lapped)
+            {
+                float lapTime = player.ClassEstLapTime > 0 ? player.ClassEstLapTime : player.LastLapTime;
+                // Laps that take longer than the clock has left mean the clock ends it.
+                if (lapTime > 0 && time < laps * (double)lapTime) lapped = false; else timed = false;
+            }
+
+            if (timed)
+            {
+                int t = (int)Math.Ceiling(time);
+                urgent = t <= 60;
+                return t >= 3600 ? $"{t / 3600}:{t / 60 % 60:00}:{t % 60:00}" : $"{t / 60}:{t % 60:00}";
+            }
+            if (lapped)
+            {
+                urgent = laps <= 1;
+                return laps == 1 ? "1 lap" : $"{laps} laps";
+            }
+            return string.Empty;
+        }
+
+        /// <summary>Draw the time / laps left centered in the info bar, in yellow for the last minute or lap.</summary>
+        protected void DrawRemaining(XnaRectangle area, string text, bool urgent)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+            float y = area.Y + (area.Height - FontBody.LineSpacing) / 2f;
+            var size = FontBody.MeasureString(text);
+            _sb.DrawString(FontBody, text, new XnaVector2(area.X + (area.Width - size.X) / 2f, y), urgent ? SecYellow : XnaColor.White);
         }
 
         /// <summary>The player's brake bias for the info bar: "BB 56.0%", or "BB --" in a car with no adjustable bias.</summary>
@@ -1337,8 +1441,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
             string title = boxName.StartsWith(_sessionLabel, StringComparison.OrdinalIgnoreCase)
                         || _sessionLabel.StartsWith(boxName, StringComparison.OrdinalIgnoreCase)
                 ? boxName : $"{boxName} - {_sessionLabel}";
-            _sb.DrawString(Font, title, new XnaVector2(20, 10), XnaColor.Black * 0.45f);
-            _sb.DrawString(Font, title, new XnaVector2(20, 8), TitleText);
+            _sb.DrawString(Font, title, new XnaVector2(20, OverlayStyle.TitleY(Font, TitleBarHeight) + 2), XnaColor.Black * 0.45f);
+            _sb.DrawString(Font, title, new XnaVector2(20, OverlayStyle.TitleY(Font, TitleBarHeight)), TitleText);
             _sb.Draw(_white, new XnaRectangle(0, TitleBarHeight - 3, Width, 3), Accent);
             MonoXRDraw.VerticalFade(_sb, new XnaRectangle(0, TitleBarHeight, Width, 12), Accent * 0.25f);
 
@@ -1625,11 +1729,24 @@ namespace BeltTensionTest.WPF.Services.Overlays
         /// </summary>
         private void DrawStatusCell(Row row, int cl, int cw, int y, float smallY)
         {
-            bool boxOn = row.Hazard && Flasher > 1f;
+            // A driver who has taken the checkered flag is marked with it whatever else they are doing
+            // (in the pits, say): the race is over for them.
+            bool boxOn = row.Hazard && !row.Finished && Flasher > 1f;
             if (boxOn)
                 MonoXRDraw.RoundedRect(_sb, new XnaRectangle(cl - 2, y + 5, cw + 4, RowHeight - 10), 6, SecYellow);
 
-            if (!string.IsNullOrEmpty(row.Status))
+            if (row.Finished)
+            {
+                // Small checkered flag: 4x3 alternating squares.
+                const int Sq = 7;
+                int fx = cl + 4, fy = y + (RowHeight - Sq * 3) / 2;
+                for (int r = 0; r < 3; r++)
+                    for (int c = 0; c < 4; c++)
+                        _sb.Draw(_white, new XnaRectangle(fx + c * Sq, fy + r * Sq, Sq, Sq),
+                                 (r + c) % 2 == 0 ? XnaColor.White : XnaColor.Black);
+                _sb.DrawString(FontHead, "FIN", new XnaVector2(fx + Sq * 4 + 6, smallY), RowText);
+            }
+            else if (!string.IsNullOrEmpty(row.Status))
             {
                 XnaColor c = boxOn ? DarkText
                     : row.Status == "PIT OUT" ? SecGreen
@@ -1641,17 +1758,6 @@ namespace BeltTensionTest.WPF.Services.Overlays
             else if (row.Slow)
             {
                 _sb.DrawString(FontHead, "SLOW", new XnaVector2(cl + 4, smallY), boxOn ? DarkText : SlowAmber);
-            }
-            else if (row.Finished)
-            {
-                // Small checkered flag: 4x3 alternating squares.
-                const int Sq = 7;
-                int fx = cl + 4, fy = y + (RowHeight - Sq * 3) / 2;
-                for (int r = 0; r < 3; r++)
-                    for (int c = 0; c < 4; c++)
-                        _sb.Draw(_white, new XnaRectangle(fx + c * Sq, fy + r * Sq, Sq, Sq),
-                                 (r + c) % 2 == 0 ? XnaColor.White : XnaColor.Black);
-                _sb.DrawString(FontHead, "FIN", new XnaVector2(fx + Sq * 4 + 6, smallY), RowText);
             }
             else if (row.BestIsFastest)
             {

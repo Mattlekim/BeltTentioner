@@ -390,8 +390,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
             MonoXRDraw.RoundedRect(_sb, new XnaRectangle(0, 0, Width, TitleBarHeight), Radius,
                                    TitleBg, roundBottom: false);
             MonoXRDraw.VerticalFade(_sb, new XnaRectangle(0, 0, Width, TitleBarHeight / 2), XnaColor.White * 0.05f);
-            _sb.DrawString(_font, Name, new XnaVector2(20, 12), XnaColor.Black * 0.45f);
-            _sb.DrawString(_font, Name, new XnaVector2(20, 10), TitleText);
+            _sb.DrawString(_font, Name, new XnaVector2(20, OverlayStyle.TitleY(_font, TitleBarHeight) + 2), XnaColor.Black * 0.45f);
+            _sb.DrawString(_font, Name, new XnaVector2(20, OverlayStyle.TitleY(_font, TitleBarHeight)), TitleText);
 
             // Hint that the title bar puts the panel away again.
             const string Close = "click title to close";

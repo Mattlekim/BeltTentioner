@@ -547,8 +547,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
             MonoXRDraw.RoundedRect(_sb, new XnaRectangle(0, 0, Width, TitleBarHeight), Radius,
                                    TitleBg, roundBottom: false);
             MonoXRDraw.VerticalFade(_sb, new XnaRectangle(0, 0, Width, TitleBarHeight / 2), XnaColor.White * 0.05f);
-            _sb.DrawString(_font, Name, new XnaVector2(Pad + 12, 10), XnaColor.Black * 0.45f);
-            _sb.DrawString(_font, Name, new XnaVector2(Pad + 12, 8), TitleText);
+            _sb.DrawString(_font, Name, new XnaVector2(Pad + 12, OverlayStyle.TitleY(_font, TitleBarHeight) + 2), XnaColor.Black * 0.45f);
+            _sb.DrawString(_font, Name, new XnaVector2(Pad + 12, OverlayStyle.TitleY(_font, TitleBarHeight)), TitleText);
 
             string count = _hidden > 0 ? $"{_total} total, {_hidden} earlier" : $"{_total} total";
             var countSize = _fontHead.MeasureString(count);

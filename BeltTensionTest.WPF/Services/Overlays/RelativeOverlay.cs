@@ -92,9 +92,6 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         // UI-thread state (Update/BuildRows/Render all run on the UI thread).
         private readonly Dictionary<int, int> _stintStartLap = new();
-        private readonly Dictionary<int, int> _lapAtCheckered = new();
-        private readonly HashSet<int> _finished = new();
-        private bool _checkeredSeen;
 
         private readonly List<float> _fuelPerLap = new();
         private int _fuelLap = -1;
@@ -105,6 +102,9 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private bool _preRace;
         private string _startType = string.Empty;
         private int _waitingToGrid;
+        private string _remaining = string.Empty; // time or laps left in the session
+        private bool _remainingUrgent;
+        private string _countdown = string.Empty; // "Start in 1:23" while the race is counting down to its start
         private int _clutchPct;
         private string _fastestText = string.Empty;
         private string _sof = string.Empty;
@@ -132,9 +132,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private void ResetState()
         {
             _stintStartLap.Clear();
-            _lapAtCheckered.Clear();
-            _finished.Clear();
-            _checkeredSeen = false;
+            ResetFinishTracking();
             _fuelPerLap.Clear();
             _fuelLap = -1;
             _fuelAtLapStart = -1f;
@@ -186,6 +184,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             var svc = IracingService.Instance;
             _fastestText = fastest < float.PositiveInfinity ? $"{FormatName(fastestDriver)}  {FormatLapTime(fastest)}" : string.Empty;
             _brakeBias = BrakeBiasText(svc);
+            _remaining = RemainingText(svc, player, out _remainingUrgent);
             _temps = float.IsNaN(svc.TrackTempC) ? string.Empty
                 : $"Track {svc.TrackTempC:0}C  Air {svc.AirTempC:0}C";
         }
@@ -199,7 +198,6 @@ namespace BeltTensionTest.WPF.Services.Overlays
             var grid = svc.GridPositions;
 
             UpdateStints(all);
-            UpdateFinished(all, state);
             UpdateFuel(player, svc);
 
             var (fastest, fastestDriver) = ClassFastestLap(all, player);
@@ -220,7 +218,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
                 // Class position; before the green (and for anyone iRacing
                 // hasn't classified yet) the class grid slot.
-                row.Pos = racing && car.ClassPosition > 0 ? car.ClassPosition : g.ClassPos;
+                int livePos = FinalPositions.TryGetValue(car.CarIdx, out var finalPos) ? finalPos.Class : car.ClassPosition;
+                row.Pos = racing && livePos > 0 ? livePos : g.ClassPos;
 
                 // Whole laps ahead/behind you in the race: total race
                 // distance difference minus the on-track separation.
@@ -233,19 +232,22 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 if (!isPlayer && racing && sameClass)
                     row.Gap = FormatGap(car, player, row.LapDelta);
 
-                if (racing && g.ClassPos > 0 && car.ClassPosition > 0)
-                    row.Gained = g.ClassPos - car.ClassPosition;
+                if (racing && g.ClassPos > 0 && livePos > 0)
+                    row.Gained = g.ClassPos - livePos;
 
                 if (racing && _stintStartLap.TryGetValue(car.CarIdx, out int start) && car.Lap >= start)
                     row.Stint = (car.Lap - start).ToString();
 
-                row.Finished = _finished.Contains(car.CarIdx);
                 Rows.Add(row);
             }
 
             // ----- Info bar -----
             _startType = svc.StandingStart ? "Standing Start" : "Rolling Start";
             _waitingToGrid = all.Count(c => !c.IsOnTrack);
+            // The clock counts down to the start while the field is getting in the cars and warming up.
+            double toStart = svc.SessionTimeRemain;
+            _countdown = _preRace && svc.SessionState <= IracingService.SessionStateWarmup && toStart > 0 && toStart < 3600
+                ? $"Start in {(int)toStart / 60}:{(int)toStart % 60:00}" : string.Empty;
             _clutchPct = (int)Math.Round(svc.ClutchPressed * 100f);
             _fastestText = racing && fastest < float.PositiveInfinity
                 ? $"{FormatName(fastestDriver)}  {FormatLapTime(fastest)}" : string.Empty;
@@ -254,10 +256,14 @@ namespace BeltTensionTest.WPF.Services.Overlays
             var classCars = all.Where(c => player.CarClassId < 0 || c.CarClassId == player.CarClassId).ToList();
             double sof = StrengthOfField(classCars);
             _sof = sof > 0 ? $"SOF {sof:0}" : "SOF --";
-            int playerPos = racing ? player.ClassPosition : (grid.TryGetValue(player.CarIdx, out var pg) ? pg.ClassPos : 0);
+            // Where each car is in its class: the race order, or the grid slot before the green.
+            int PosOf(Car c) => racing ? (FinalPositions.TryGetValue(c.CarIdx, out var fp) ? fp.Class : c.ClassPosition)
+                                       : (grid.TryGetValue(c.CarIdx, out var cg) ? cg.ClassPos : 0);
+            int playerPos = PosOf(player);
             _irDelta = player.IsAi || player.IRating <= 0 || playerPos <= 0 ? null
-                : EstimateIRatingChange(classCars, player, playerPos);
+                : EstimateIRatingChange(classCars, player, playerPos, PosOf);
             _brakeBias = BrakeBiasText(svc);
+            _remaining = RemainingText(svc, player, out _remainingUrgent);
             float perLap = _fuelPerLap.Count > 0 ? _fuelPerLap.Average() : 0f;
             _fuel = perLap > 0.01f
                 ? $"Fuel {svc.FuelLevel:0.0} L  {svc.FuelLevel / perLap:0.0} laps"
@@ -279,36 +285,6 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 // In the pits (or the garage), first seen, or the replay was scrubbed back before the stint began.
                 if (c.OnPitRoad || c.IsInGarage || !_stintStartLap.TryGetValue(c.CarIdx, out int start) || c.Lap < start)
                     _stintStartLap[c.CarIdx] = c.Lap;
-            }
-        }
-
-        /// <summary>
-        /// Finished = crossed the line after the checkered came out: the lap
-        /// count each car had when the session went checkered is remembered,
-        /// and a car has finished once it completes another lap. The car that
-        /// triggered the flag (the overall leader) has finished immediately.
-        /// </summary>
-        private void UpdateFinished(IReadOnlyList<Car> all, int state)
-        {
-            if (state < IracingService.SessionStateCheckered)
-            {
-                if (_checkeredSeen) { _lapAtCheckered.Clear(); _finished.Clear(); _checkeredSeen = false; }
-                return;
-            }
-            if (!_checkeredSeen)
-            {
-                _checkeredSeen = true;
-                foreach (var c in all)
-                {
-                    _lapAtCheckered[c.CarIdx] = c.LapCompleted;
-                    if (c.Position == 1) _finished.Add(c.CarIdx);
-                }
-            }
-            foreach (var c in all)
-            {
-                if (!_lapAtCheckered.TryGetValue(c.CarIdx, out int lap))
-                    _lapAtCheckered[c.CarIdx] = lap = c.LapCompleted;
-                if (c.LapCompleted > lap) _finished.Add(c.CarIdx);
             }
         }
 
@@ -358,16 +334,28 @@ namespace BeltTensionTest.WPF.Services.Overlays
         }
 
         /// <summary>
-        /// Estimated iRating change if the race finished now, using the
-        /// community-derived iRacing formula: expected score from pairwise win
-        /// chances against every rated driver in the class, a fudge term, and
-        /// scaling by field size. Only the player's class counts.
+        /// Estimated iRating change if the race finished now, using the community-derived iRacing
+        /// formula (iRacing has not published it; this is the widely used reverse-engineered one):
+        ///
+        ///   chance(a, b)  = (1 - e^(-a/br)) e^(-b/br) / ((1 - e^(-b/br)) e^(-a/br) + (1 - e^(-a/br)) e^(-b/br)),
+        ///                   with br = 1600 / ln 2: the odds that a driver rated a beats one rated b
+        ///   expected      = the sum of chance(you, d) over the other drivers: the finishes your rating
+        ///                   "should" be worth, counted from the front (the lower, the better)
+        ///   fudge         = ((N / 2) - rank) / 100
+        ///   change        = (N - rank - expected - fudge) * 200 / N
+        ///
+        /// N and rank count only the human drivers with an iRating in the player's class: AI cars
+        /// and unrated drivers are not part of the calculation, so they do not push your rank back.
         /// </summary>
-        private static int? EstimateIRatingChange(List<Car> classCars, Car player, int playerPos)
+        private static int? EstimateIRatingChange(List<Car> classCars, Car player, int playerPos, Func<Car, int> positionOf)
         {
             var field = classCars.Where(c => !c.IsAi && c.IRating > 0).ToList();
             int n = field.Count;
             if (n < 2) return null;
+
+            // Your place among those drivers only.
+            int rank = 1 + field.Count(c => c.CarIdx != player.CarIdx && positionOf(c) > 0 && positionOf(c) < playerPos);
+            playerPos = rank;
 
             static double Chance(double a, double b)
             {
@@ -386,10 +374,10 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         protected override void AppendSnapshot(StringBuilder sb)
         {
-            sb.Append('#').Append(IsRace ? 'R' : 'r').Append(_fastestText).Append(_temps).Append(_brakeBias);
+            sb.Append('#').Append(IsRace ? 'R' : 'r').Append(_fastestText).Append(_temps).Append(_brakeBias).Append(_remaining);
             if (IsRace)
             {
-                sb.Append(_preRace ? 'P' : 'p').Append(_startType).Append(_waitingToGrid)
+                sb.Append(_preRace ? 'P' : 'p').Append(_startType).Append(_waitingToGrid).Append(_countdown)
                   .Append(',').Append(_clutchPct).Append(_sof).Append(_irDelta?.ToString() ?? "~")
                   .Append(_brakeBias).Append(_fuel);
                 return;
@@ -426,9 +414,13 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 // grid, and clutch travel for launching a standing start.
                 Batch.DrawString(FontBody, _startType, new XnaVector2(area.X, y), TitleText);
                 string grid = _waitingToGrid <= 0 ? "Everyone gridded" : $"Waiting for {_waitingToGrid} to grid";
+                // The countdown to the start goes right after it, centered together.
                 var size = FontBody.MeasureString(grid);
-                Batch.DrawString(FontBody, grid, new XnaVector2(area.X + (area.Width - size.X) / 2f, y),
-                    _waitingToGrid <= 0 ? SecGreen : SecRed);
+                float countW = _countdown.Length > 0 ? FontBody.MeasureString(_countdown).X + 24 : 0f;
+                float gx = area.X + (area.Width - size.X - countW) / 2f;
+                Batch.DrawString(FontBody, grid, new XnaVector2(gx, y), _waitingToGrid <= 0 ? SecGreen : SecRed);
+                if (_countdown.Length > 0)
+                    Batch.DrawString(FontBody, _countdown, new XnaVector2(gx + size.X + 24, y), XnaColor.White);
                 string clutch = $"Clutch {_clutchPct}%";
                 DrawRight(FontBody, clutch, area.Right, y, RowText);
                 DrawBrakeBias(_brakeBias, area, area.Right - FontBody.MeasureString(clutch).X - 30);
@@ -436,6 +428,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             else
             {
                 DrawFastestLapInfo(area, _fastestText);
+                DrawRemaining(area, _remaining, _remainingUrgent);
                 DrawBrakeBias(_brakeBias, area, area.Right);
             }
             MonoXRDraw.HorizontalFade(Batch, new XnaRectangle(area.X - 4, area.Bottom - 2, area.Width + 8, 2), Border);
@@ -446,6 +439,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         {
             float y = area.Y + (area.Height - FontBody.LineSpacing) / 2f;
             DrawFastestLapInfo(area, _fastestText);
+            DrawRemaining(area, _remaining, _remainingUrgent);
             DrawRight(FontBody, _temps, area.Right, y, RowTextDim);
             DrawBrakeBias(_brakeBias, area, area.Right - FontBody.MeasureString(_temps).X - 30);
             MonoXRDraw.HorizontalFade(Batch, new XnaRectangle(area.X - 4, area.Bottom - 2, area.Width + 8, 2), Border);
@@ -465,8 +459,12 @@ namespace BeltTensionTest.WPF.Services.Overlays
             }
 
             Item(_sof, RowText);
+            // The estimated iRating change if the race ended now; "iR --" when it cannot be worked out
+            // (no rating, an AI driver, or fewer than two rated drivers in the class).
             if (_irDelta is int d)
                 Item(d >= 0 ? $"iR +{d}" : $"iR {d}", d >= 0 ? SecGreen : SecRed);
+            else
+                Item("iR --", RowTextDim);
             Item(_fuel, RowText);
             DrawRight(FontBody, _temps, area.Right, y, RowTextDim);
         }

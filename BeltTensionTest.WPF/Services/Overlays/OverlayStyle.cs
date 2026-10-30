@@ -21,6 +21,14 @@ namespace BeltTensionTest.WPF.Services.Overlays
         /// <summary>Corner radius of the overlay windows in pixels; 0 is square.</summary>
         public static int CornerRadius { get; set; } = DefaultCornerRadius;
 
+        /// <summary>
+        /// Top of a window's title text so that it sits in the middle of the bar (above the 3 px accent
+        /// strip at its bottom). A font's line box has room above the capitals for accents, so
+        /// centering the line box left the text low; this centers the letters instead.
+        /// </summary>
+        public static int TitleY(Microsoft.Xna.Framework.Graphics.SpriteFont font, int barHeight) =>
+            Math.Max(0, (int)Math.Round((barHeight - 3) / 2f - font.LineSpacing * 0.548f));
+
         /// <summary>True in a Debug build, where the style can be edited and saved.</summary>
         public static bool Editable =>
 #if DEBUG

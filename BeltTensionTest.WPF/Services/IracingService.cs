@@ -58,6 +58,8 @@ namespace BeltTensionTest.WPF.Services
 
         private IRacingSdkDatum? _datumSessionNum;
         private IRacingSdkDatum? _datumSessionTime;
+        private IRacingSdkDatum? _datumSessionTimeRemain;
+        private IRacingSdkDatum? _datumSessionLapsRemain;
         private IRacingSdkDatum? _datumCarLeftRight;
         private IRacingSdkDatum? _datumSessionState;
         private IRacingSdkDatum? _datumFuelLevel;
@@ -87,6 +89,15 @@ namespace BeltTensionTest.WPF.Services
 
         /// <summary>Session clock in seconds (SessionTime), refreshed every telemetry tick.</summary>
         public double SessionTime { get; private set; }
+
+        /// <summary>
+        /// Seconds left on the session's clock (SessionTimeRemain); before a race starts this counts down
+        /// to the start. Large (or negative) when the session has no time limit; 0 until connected.
+        /// </summary>
+        public double SessionTimeRemain { get; private set; }
+
+        /// <summary>Laps left in the session (SessionLapsRemainEx); 32767 when the session is not limited by laps, 0 until connected.</summary>
+        public int SessionLapsRemain { get; private set; }
 
         /// <summary>
         /// Spotter "car alongside" state (CarLeftRight telemetry var),
@@ -271,6 +282,8 @@ namespace BeltTensionTest.WPF.Services
             TrackLengthMeters = 0f;
             _trackLengthRaw = string.Empty;
             SessionTime = 0;
+            SessionTimeRemain = 0;
+            SessionLapsRemain = 0;
             SectorStartPcts = null;
             SessionState = 0;
             StandingStart = false;
@@ -312,6 +325,8 @@ namespace BeltTensionTest.WPF.Services
                 try { _datumRumbleFR = _sdk.Data.TelemetryDataProperties["TireRF_RumblePitch"]; } catch { _datumRumbleFR = null; }
                 try { _datumSessionNum = _sdk.Data.TelemetryDataProperties["SessionNum"]; } catch { _datumSessionNum = null; }
                 try { _datumSessionTime = _sdk.Data.TelemetryDataProperties["SessionTime"]; } catch { _datumSessionTime = null; }
+                try { _datumSessionTimeRemain = _sdk.Data.TelemetryDataProperties["SessionTimeRemain"]; } catch { _datumSessionTimeRemain = null; }
+                try { _datumSessionLapsRemain = _sdk.Data.TelemetryDataProperties["SessionLapsRemainEx"]; } catch { _datumSessionLapsRemain = null; }
                 try { _datumCarLeftRight = _sdk.Data.TelemetryDataProperties["CarLeftRight"]; } catch { _datumCarLeftRight = null; }
                 try { _datumSessionState = _sdk.Data.TelemetryDataProperties["SessionState"]; } catch { _datumSessionState = null; }
                 try { _datumFuelLevel = _sdk.Data.TelemetryDataProperties["FuelLevel"]; } catch { _datumFuelLevel = null; }
@@ -361,6 +376,10 @@ namespace BeltTensionTest.WPF.Services
             {
                 if (_datumSessionTime != null)
                     SessionTime = _sdk!.Data.GetDouble(_datumSessionTime);
+                if (_datumSessionTimeRemain != null)
+                    SessionTimeRemain = _sdk!.Data.GetDouble(_datumSessionTimeRemain);
+                if (_datumSessionLapsRemain != null)
+                    SessionLapsRemain = _sdk!.Data.GetInt(_datumSessionLapsRemain);
 
                 CarsAlongside = _datumCarLeftRight != null
                     ? (CarLeftRight)_sdk!.Data.GetInt(_datumCarLeftRight)
