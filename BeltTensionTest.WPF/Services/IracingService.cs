@@ -215,6 +215,46 @@ namespace BeltTensionTest.WPF.Services
         /// <summary>Raised after <see cref="PlayerCar"/> has been refreshed with a new telemetry frame.</summary>
         public event Action<Data.Car>? PlayerCarUpdated;
 
+        /// <summary>
+        /// CarIdx of the driver the overlays are being viewed from, or -1 for your own car. Set from
+        /// the standings menu; it lasts until cleared or iRacing disconnects.
+        /// </summary>
+        public int ViewCarIdx { get; private set; } = -1;
+
+        /// <summary>Raised (on the caller's thread) when <see cref="ViewCarIdx"/> changes.</summary>
+        public event Action? ViewCarChanged;
+
+        /// <summary>True while the overlays are showing another driver's point of view.</summary>
+        public bool IsViewingOther => ViewCarIdx >= 0 && ViewCarIdx != PlayerCar.CarIdx && ViewCar.CarIdx == ViewCarIdx;
+
+        /// <summary>
+        /// The car the overlays treat as "you": the driver picked with <see cref="SetViewCar"/> while
+        /// they are still in the session, otherwise <see cref="PlayerCar"/>.
+        /// </summary>
+        public Data.Car ViewCar
+        {
+            get
+            {
+                int idx = ViewCarIdx;
+                if (idx >= 0 && idx != PlayerCar.CarIdx)
+                {
+                    var cars = _cars; // replaced, never mutated
+                    foreach (var car in cars)
+                        if (car.CarIdx == idx) return car;
+                }
+                return PlayerCar;
+            }
+        }
+
+        /// <summary>View the overlays from <paramref name="carIdx"/>'s point of view; -1 (or your own car) goes back to yours.</summary>
+        public void SetViewCar(int carIdx)
+        {
+            if (carIdx < 0 || carIdx == PlayerCar.CarIdx) carIdx = -1;
+            if (carIdx == ViewCarIdx) return;
+            ViewCarIdx = carIdx;
+            ViewCarChanged?.Invoke();
+        }
+
         private readonly Dictionary<int, Data.Car> _carsByIdx = new();
         private List<Data.Car> _cars = new();
 
@@ -299,6 +339,7 @@ namespace BeltTensionTest.WPF.Services
             PlayerCar.Reset();
             _carsByIdx.Clear();
             _cars = new List<Data.Car>();
+            SetViewCar(-1);
             ConnectionChanged?.Invoke(false);
             Disconnected?.Invoke();
         }

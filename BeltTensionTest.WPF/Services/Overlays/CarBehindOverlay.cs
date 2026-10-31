@@ -46,7 +46,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private readonly Texture2D _pixel;
 
         // The driver behind's blame counts ("Dive bomb x3"), shown under the delta. They make the box taller (and wider if need be).
-        private string[] _blameLines = Array.Empty<string>();
+        private Data.DriverBlame.NoteLine[] _blameLines = Array.Empty<Data.DriverBlame.NoteLine>();
         private const int MaxBlameLines = 4;
         private const int BlameLineHeight = 22;
 
@@ -110,18 +110,12 @@ namespace BeltTensionTest.WPF.Services.Overlays
         // Look up what the car behind has been blamed for; the box is resized to fit and redrawn when it changes.
         private void UpdateBlameLines(int carIdx)
         {
-            var lines = Array.Empty<string>();
+            var lines = Array.Empty<Data.DriverBlame.NoteLine>();
             if (carIdx >= 0)
                 foreach (var car in IracingService.Instance.Cars)
                 {
                     if (car.CarIdx != carIdx) continue;
-                    var reasons = Data.DriverBlame.Instance.For(car);
-                    if (reasons.Count == 0) break;
-                    var list = new System.Collections.Generic.List<string>();
-                    for (int i = 0; i < reasons.Count && i < MaxBlameLines; i++)
-                        list.Add($"{reasons[i].Reason} x{reasons[i].Count}");
-                    if (reasons.Count > MaxBlameLines) list[^1] = $"+{reasons.Count - MaxBlameLines + 1} more";
-                    lines = list.ToArray();
+                    lines = Data.DriverBlame.Instance.LinesFor(car, MaxBlameLines);
                     break;
                 }
 
@@ -129,8 +123,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _blameLines = lines;
 
             int width = BoxWidth;
-            foreach (string line in lines)
-                width = Math.Max(width, (int)_fontLabel.MeasureString(line).X + 20);
+            foreach (var line in lines)
+                width = Math.Max(width, (int)_fontLabel.MeasureString(line.Text).X + 20);
             Resize(width, BoxHeight + (lines.Length > 0 ? lines.Length * BlameLineHeight + 8 : 0));
             Invalidate();
         }
@@ -194,10 +188,12 @@ namespace BeltTensionTest.WPF.Services.Overlays
             // What the driver behind has been blamed for, a line each under the delta.
             for (int i = 0; i < _blameLines.Length; i++)
             {
-                var size = _fontLabel.MeasureString(_blameLines[i]);
-                _sb.DrawString(_fontLabel, _blameLines[i],
+                var size = _fontLabel.MeasureString(_blameLines[i].Text);
+                _sb.DrawString(_fontLabel, _blameLines[i].Text,
                     new XnaVector2((Width - size.X) / 2f, BoxHeight - 4 + i * BlameLineHeight),
-                    ColorBlind.Map(CbRole.Warn, new XnaColor(0xFF, 0xD5, 0x2E)));
+                    _blameLines[i].Good
+                        ? ColorBlind.Map(CbRole.Good, new XnaColor(0x50, 0xC8, 0x78))
+                        : ColorBlind.Map(CbRole.Warn, new XnaColor(0xFF, 0xD5, 0x2E)));
             }
 
             _sb.End();

@@ -135,6 +135,22 @@ namespace BeltTensionTest.WPF.Services.Data
         {
             Services.IracingService.Instance.CarsUpdated += OnCarsUpdated;
             Services.IracingService.Instance.Disconnected += () => { lock (_lock) ResetLocked(); };
+            Services.IracingService.Instance.ViewCarChanged += () => { lock (_lock) ResetViewLocked(); };
+        }
+
+        // The gaps and closing rates are measured to the car the overlays are viewed from; a new
+        // viewpoint makes every baseline meaningless, so start them again.
+        private void ResetViewLocked()
+        {
+            foreach (var w in _watch.Values)
+            {
+                w.SampleTime = -1;
+                w.SampleGap = float.NaN;
+                w.Rate = 0;
+                w.Slow = false;
+                w.YellowHazard = w.SlowHazard = false;
+            }
+            _yellowActive = _slowActive = _behindActive = false;
         }
 
         private void ResetLocked()
@@ -149,7 +165,7 @@ namespace BeltTensionTest.WPF.Services.Data
             var svc = Services.IracingService.Instance;
             double time = svc.SessionTime;
             float trackLen = svc.TrackLengthMeters;
-            var player = svc.PlayerCar;
+            var player = svc.ViewCar; // whose point of view the overlays show (your own car unless another driver was picked)
 
             lock (_lock)
             {

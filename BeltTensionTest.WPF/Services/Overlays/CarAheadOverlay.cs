@@ -37,6 +37,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private static readonly XnaColor Border = new XnaColor(0x46, 0x46, 0x6A);
         private static XnaColor Accent => ColorBlind.Map(CbRole.Info, new XnaColor(0x64, 0x96, 0xFF));
         private static XnaColor Warn => ColorBlind.Map(CbRole.Warn, new XnaColor(0xFF, 0xD5, 0x2E));
+        private static XnaColor Good => ColorBlind.Map(CbRole.Good, new XnaColor(0x50, 0xC8, 0x78));
         private static XnaColor Close => ColorBlind.Map(CbRole.Bad, new XnaColor(0xFF, 0x4D, 0x4D));
 
         private readonly SpriteBatch _sb;
@@ -48,7 +49,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private string _name = string.Empty;
         private string _gap = string.Empty;
         private bool _closeGap;
-        private string[] _blameLines = Array.Empty<string>();
+        private Data.DriverBlame.NoteLine[] _blameLines = Array.Empty<Data.DriverBlame.NoteLine>();
 
         public override int CollapsedWidth => (int)_fontHeader.MeasureString(Name).X + 60;
         public override int CollapsedHeight => HeaderHeight;
@@ -69,7 +70,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
             string name = string.Empty, gap = string.Empty;
             bool closeGap = false;
-            string[] lines = Array.Empty<string>();
+            var lines = Array.Empty<Data.DriverBlame.NoteLine>();
             if (show)
             {
                 gap = $"+{ahead.GapSeconds:0.00}";
@@ -78,7 +79,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 if (car != null)
                 {
                     name = car.CarNumber.Length > 0 ? $"#{car.CarNumber} {car.DriverName}" : car.DriverName;
-                    lines = BlameLinesFor(car);
+                    lines = Data.DriverBlame.Instance.LinesFor(car, MaxBlameLines);
                 }
             }
 
@@ -93,8 +94,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
             // As tall as its lines need, and wide enough for the longest of them.
             int width = CardWidth;
-            foreach (string line in lines)
-                width = Math.Max(width, (int)_fontSmall.MeasureString(line).X + Pad * 2);
+            foreach (var line in lines)
+                width = Math.Max(width, (int)_fontSmall.MeasureString(line.Text).X + Pad * 2);
             Resize(width, Pad + NameRow + Math.Max(1, lines.Length) * BlameRow + Pad);
             Invalidate();
         }
@@ -104,17 +105,6 @@ namespace BeltTensionTest.WPF.Services.Overlays
             foreach (var car in IracingService.Instance.Cars)
                 if (car.CarIdx == carIdx) return car;
             return null;
-        }
-
-        private static string[] BlameLinesFor(Data.Car car)
-        {
-            var reasons = Data.DriverBlame.Instance.For(car);
-            if (reasons.Count == 0) return Array.Empty<string>();
-            var list = new List<string>();
-            for (int i = 0; i < reasons.Count && i < MaxBlameLines; i++)
-                list.Add($"{reasons[i].Reason} x{reasons[i].Count}");
-            if (reasons.Count > MaxBlameLines) list[^1] = $"+{reasons.Count - MaxBlameLines + 1} more";
-            return list.ToArray();
         }
 
         // Cut a name with ".." so it fits beside the gap.
@@ -173,9 +163,10 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
             int y = Pad + NameRow;
             if (_blameLines.Length == 0)
-                _sb.DrawString(_fontSmall, "No blame on record", new XnaVector2(Pad, y), BodyText);
+                _sb.DrawString(_fontSmall, "No blame or praise on record", new XnaVector2(Pad, y), BodyText);
             for (int i = 0; i < _blameLines.Length; i++)
-                _sb.DrawString(_fontSmall, _blameLines[i], new XnaVector2(Pad, y + i * BlameRow), Warn);
+                _sb.DrawString(_fontSmall, _blameLines[i].Text, new XnaVector2(Pad, y + i * BlameRow),
+                               _blameLines[i].Good ? Good : Warn);
 
             MonoXRDraw.RoundedRectOutline(_sb, panel, radius, 2, Border);
             _sb.End();

@@ -61,13 +61,6 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private const int MenuItemHeight = 34;
         private const int MenuPad = 5;
 
-        /// <summary>What a driver can be held to have done (the original's incident tags).</summary>
-        private static readonly string[] Reasons =
-        {
-            "Overly aggressive", "Dive bomb", "Driving slow", "Doesn't hold brakes",
-            "Unsafe rejoin", "Deliberate wrecking", "Reckless", "No awareness", "Unforced error",
-        };
-
         // App palette (Resources/Styles.xaml), matching the other panels.
         private static readonly XnaColor PanelBg = new XnaColor(0x12, 0x12, 0x1E, 235);
         private static readonly XnaColor TitleBg = new XnaColor(0x1C, 0x1C, 0x2E, 245);
@@ -355,7 +348,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
                     break;
 
                 case MenuMode.Reason:
-                    foreach (string reason in Reasons)
+                    foreach (string reason in IncidentTracker.BlameReasons)
                     {
                         _menuLabels.Add(reason);
                         _menuValues.Add(-1);

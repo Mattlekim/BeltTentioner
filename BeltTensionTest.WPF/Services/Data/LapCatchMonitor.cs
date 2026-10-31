@@ -133,7 +133,7 @@ namespace BeltTensionTest.WPF.Services.Data
         {
             var svc = Services.IracingService.Instance;
             double time = svc.SessionTime;
-            var player = svc.PlayerCar;
+            var player = svc.ViewCar; // whose point of view the overlays show
 
             lock (_lock)
             {

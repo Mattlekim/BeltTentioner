@@ -146,6 +146,7 @@ namespace BeltTensionTest.WPF.Views
                     // Blame counts are kept by reference in the settings too; a change just needs saving.
                     var blame = Services.Data.DriverBlame.Instance;
                     blame.Load(settings.OverlayDriverBlame);
+                    blame.LoadPraise(settings.OverlayDriverPraise);
                     blame.Changed -= SaveBlame;
                     blame.Changed += SaveBlame;
                 }

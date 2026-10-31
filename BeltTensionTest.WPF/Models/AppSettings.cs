@@ -100,6 +100,8 @@ namespace BeltTensionTest.WPF.Models
         // How often each driver has been blamed, and for what (customer id or "name:<driver>" ->
         // reason -> count), from the in-VR incident list. Shown under the car-behind delta.
         public Dictionary<string, Dictionary<string, int>> OverlayDriverBlame { get; set; } = new();
+        // The same for praise ("Good drive" etc.), marked from the standings menu and shown in green next to the blame.
+        public Dictionary<string, Dictionary<string, int>> OverlayDriverPraise { get; set; } = new();
         // Row colours those tags paint (0xRRGGBB), how strongly the colour
         // fills the row (0..0.8), and whether the Race / Qualifying relative
         // boxes use them too. All set from the in-VR HUD Settings panel.

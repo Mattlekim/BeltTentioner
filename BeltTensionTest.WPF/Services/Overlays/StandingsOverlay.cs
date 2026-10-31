@@ -77,11 +77,15 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         // Driver-tag menu geometry and state. The menu is anchored where the
         // row was clicked and kept inside the panel.
-        private const int MenuWidth = 330;
+        private const int MenuWidth = 440;
         private const int MenuItemHeight = 40;
         private const int MenuTitleHeight = 34;
         private const int MenuPad = 6;
+        private const int MaxBlameIncidents = 8;
         private static readonly XnaColor MenuBg = new XnaColor(0x22, 0x22, 0x34, 250);
+
+        /// <summary>Which step of the driver menu is up: the main list, or the two steps of blaming the driver.</summary>
+        private enum MenuStep { Main, Incident, Reason, Praise }
 
         private string _fastestText = string.Empty;
         private string _brakeBias = "BB --";
@@ -93,6 +97,9 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private string _menuKey = string.Empty;
         private string _menuTitle = string.Empty;
         private readonly List<string> _menuItems = new();
+        private MenuStep _menuStep;
+        private Incident[] _menuIncidents = Array.Empty<Incident>(); // the incidents on offer in the Incident step
+        private Incident? _menuIncident;                             // the one picked, while its reason is chosen
         private int _menuHover = -1;
         private int _menuX, _menuY;
 
@@ -154,6 +161,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _fastestText = classFastest < float.PositiveInfinity
                 ? $"{FormatName(fastestDriver)}  {FormatLapTime(classFastest)}" : string.Empty;
             _fieldText = ordered.Count == 1 ? "1 driver" : $"{ordered.Count} drivers";
+            if (svc.IsViewingOther) _fieldText += $"  |  Viewing {FormatName(player.DriverName)}";
             _brakeBias = BrakeBiasText(svc);
             _temps = float.IsNaN(svc.TrackTempC) ? string.Empty
                 : $"Track {svc.TrackTempC:0}C  Air {svc.AirTempC:0}C";
@@ -339,19 +347,38 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _menuTitle = string.IsNullOrEmpty(car.DriverName) ? "Driver" : car.DriverName;
             _menuHover = -1;
 
+            _menuStep = MenuStep.Main;
+            _menuIncident = null;
+
             // Only the moves that would change something are offered.
+            var svc = IracingService.Instance;
+            bool isYou = car.CarIdx == svc.PlayerCar.CarIdx;
             var tag = DriverTags.Instance.TagOf(_menuKey);
             _menuItems.Clear();
+            if (!isYou && car.CarIdx != svc.ViewCar.CarIdx) _menuItems.Add(ViewItem);
+            if (svc.IsViewingOther) _menuItems.Add(ClearViewItem);
+            if (!isYou) _menuItems.Add(BlameItem);
+            if (!isYou) _menuItems.Add(PraiseItem);
             if (tag != DriverTag.Rival) _menuItems.Add(RivalItem);
             if (tag != DriverTag.Friend) _menuItems.Add(FriendItem);
             if (tag != DriverTag.None) _menuItems.Add(ClearItem);
             _menuItems.Add(CancelItem);
 
+            PlaceMenu(x, y);
+        }
+
+        // Anchor the menu where it was clicked, kept inside the panel.
+        private void PlaceMenu(int x, int y)
+        {
             _menuX = Math.Clamp(x, Pad, Math.Max(Pad, Width - MenuWidth - Pad));
             _menuY = Math.Clamp(y, HeaderTop, Math.Max(HeaderTop, Height - MenuHeight - Pad));
             Invalidate();
         }
 
+        private const string ViewItem = "View from here";
+        private const string ClearViewItem = "Clear view";
+        private const string BlameItem = "Blame...";
+        private const string PraiseItem = "Praise...";
         private const string RivalItem = "Mark as rival";
         private const string FriendItem = "Mark as friend";
         private const string ClearItem = "Clear tag";
@@ -364,9 +391,71 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _menuKey = string.Empty;
             _menuTitle = string.Empty;
             _menuHover = -1;
+            _menuStep = MenuStep.Main;
+            _menuIncident = null;
+            _menuIncidents = Array.Empty<Incident>();
             _menuItems.Clear();
             Invalidate();
         }
+
+        // Blame step 1: the latest incidents, newest first, to pick the one this driver is blamed for.
+        // A "*" marks the ones this driver was in or near.
+        private void OpenIncidentStep()
+        {
+            _menuStep = MenuStep.Incident;
+            _menuHover = -1;
+            _menuItems.Clear();
+
+            var all = IncidentTracker.Instance.Snapshot();
+            int count = Math.Min(all.Length, MaxBlameIncidents);
+            _menuIncidents = new Incident[count];
+            var cars = IracingService.Instance.Cars;
+            for (int i = 0; i < count; i++)
+            {
+                var inc = all[all.Length - 1 - i];
+                _menuIncidents[i] = inc;
+                bool involved = Array.IndexOf(inc.Cars, _menuCar) >= 0
+                             || Array.IndexOf(inc.InvolvedCars, _menuCar) >= 0
+                             || Array.IndexOf(inc.NearbyCars, _menuCar) >= 0;
+                string who = string.Join(" ", inc.Cars.Select(idx => "#" + (cars.FirstOrDefault(c => c.CarIdx == idx)?.CarNumber ?? idx.ToString())));
+                string lap = inc.Lap > 0 ? $"Lap {inc.Lap}" : "Lap -";
+                _menuItems.Add($"{lap}  {IncidentLabel(inc.Type)} {inc.Points}x  {who}{(involved ? " *" : string.Empty)}");
+            }
+            if (count == 0) _menuItems.Add(NoIncidentsItem);
+            _menuItems.Add(CancelItem);
+            PlaceMenu(_menuX, _menuY);
+        }
+
+        // Blame step 2: why.
+        private void OpenReasonStep()
+        {
+            _menuStep = MenuStep.Reason;
+            _menuHover = -1;
+            _menuItems.Clear();
+            _menuItems.AddRange(IncidentTracker.BlameReasons);
+            _menuItems.Add(CancelItem);
+            PlaceMenu(_menuX, _menuY);
+        }
+
+        // Praise: one step, no incident to pick.
+        private void OpenPraiseStep()
+        {
+            _menuStep = MenuStep.Praise;
+            _menuHover = -1;
+            _menuItems.Clear();
+            _menuItems.AddRange(DriverBlame.PraiseReasons);
+            _menuItems.Add(CancelItem);
+            PlaceMenu(_menuX, _menuY);
+        }
+
+        private const string NoIncidentsItem = "No incidents yet";
+
+        private static string IncidentLabel(IncidentType type) => type switch
+        {
+            IncidentType.OffTrack => "Off Track",
+            IncidentType.CarContact => "Contact",
+            _ => "Solo",
+        };
 
         /// <summary>The menu item at a panel-local point, or -1.</summary>
         private int MenuItemAt(int x, int y)
@@ -380,7 +469,50 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         private void ActivateMenuItem(int item)
         {
-            DriverTag? tag = _menuItems[item] switch
+            string label = _menuItems[item];
+
+            // The blame steps: pick the incident, then the reason.
+            if (_menuStep == MenuStep.Incident)
+            {
+                if (label == CancelItem || label == NoIncidentsItem || item >= _menuIncidents.Length) { CloseMenu(); return; }
+                _menuIncident = _menuIncidents[item];
+                OpenReasonStep();
+                return;
+            }
+            if (_menuStep == MenuStep.Reason)
+            {
+                if (label != CancelItem && _menuIncident != null)
+                    IncidentTracker.Instance.SetBlame(_menuIncident, mine: false, carIdx: _menuCar, reason: label);
+                CloseMenu();
+                return;
+            }
+
+            if (_menuStep == MenuStep.Praise)
+            {
+                if (label != CancelItem) DriverBlame.Instance.AddPraise(_menuKey, label);
+                CloseMenu();
+                return;
+            }
+
+            switch (label)
+            {
+                case BlameItem:
+                    OpenIncidentStep();
+                    return;
+                case PraiseItem:
+                    OpenPraiseStep();
+                    return;
+                case ViewItem:
+                    IracingService.Instance.SetViewCar(_menuCar);
+                    CloseMenu();
+                    return;
+                case ClearViewItem:
+                    IracingService.Instance.SetViewCar(-1);
+                    CloseMenu();
+                    return;
+            }
+
+            DriverTag? tag = label switch
             {
                 RivalItem => DriverTag.Rival,
                 FriendItem => DriverTag.Friend,
@@ -402,7 +534,14 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
             // Whose menu this is.
             int titleY = rect.Y + MenuPad;
-            Batch.DrawString(FontHead, Fit(_menuTitle, MenuWidth - 40),
+            string title = _menuStep switch
+            {
+                MenuStep.Incident => $"Blame {_menuTitle}: which incident?",
+                MenuStep.Reason => $"Blame {_menuTitle}: why?",
+                MenuStep.Praise => $"Praise {_menuTitle}:",
+                _ => _menuTitle,
+            };
+            Batch.DrawString(FontHead, Fit(FontHead, title, MenuWidth - 40),
                 new XnaVector2(rect.X + MenuPad + 12, titleY + (MenuTitleHeight - FontHead.LineSpacing) / 2f),
                 RowTextDim);
             MonoXRDraw.HorizontalFade(Batch,
@@ -429,20 +568,20 @@ namespace BeltTensionTest.WPF.Services.Overlays
                     textX = item.X + 38;
                 }
 
-                Batch.DrawString(FontBody, label,
+                Batch.DrawString(FontBody, Fit(FontBody, label, item.Right - textX - 10),
                     new XnaVector2(textX, item.Y + (MenuItemHeight - FontBody.LineSpacing) / 2f),
-                    label == CancelItem ? RowTextDim : RowText);
+                    label == CancelItem || label == NoIncidentsItem ? RowTextDim : RowText);
             }
         }
 
         /// <summary>Cut text down to a pixel width, ending in ".." when it had to.</summary>
-        private string Fit(string text, int maxWidth)
+        private static string Fit(SpriteFont font, string text, int maxWidth)
         {
-            if (string.IsNullOrEmpty(text) || FontHead.MeasureString(text).X <= maxWidth) return text;
+            if (string.IsNullOrEmpty(text) || font.MeasureString(text).X <= maxWidth) return text;
             for (int n = text.Length - 1; n > 0; n--)
             {
                 string cut = text.Substring(0, n) + "..";
-                if (FontHead.MeasureString(cut).X <= maxWidth) return cut;
+                if (font.MeasureString(cut).X <= maxWidth) return cut;
             }
             return string.Empty;
         }

@@ -107,7 +107,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         };
 
         private static bool RightAligned(Col c) =>
-            c is Col.IRating or Col.BestLap or Col.CurLap or Col.Gap
+            c is Col.BestLap or Col.CurLap or Col.Gap
               or Col.Stint or Col.Sectors or Col.LiveSectors;
 
         /// <summary>
@@ -754,8 +754,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         /// <summary>
         /// This lap's sector times for one car: the sectors already completed
-        /// since it crossed the line (colored by merit), the one being driven
-        /// (ticking), and blanks for the ones still ahead. Times from the
+        /// since it crossed the line (colored by merit), and blanks for the one
+        /// being driven and the ones still ahead. Times from the
         /// previous lap are deliberately not shown - the lap in progress is
         /// what the standings box is reporting on.
         /// </summary>
@@ -771,8 +771,9 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 for (int i = 0; i < cells.Length; i++)
                 {
                     var s = timer.Sectors[i];
-                    if (i == active) cells[i] = new SectorCell(s.Current, true, SecNone);
-                    else if (active >= 0 && i > active) cells[i] = new SectorCell(0, false, SecNone);
+                    // The sector being driven is left blank: a time ticking up says nothing, so a
+                    // sector only shows its time once the car has finished it.
+                    if (active >= 0 && i >= active) cells[i] = new SectorCell(0, false, SecNone);
                     else cells[i] = new SectorCell(s.Last, false, MeritLocked(s, i));
                 }
                 return cells;
@@ -1247,7 +1248,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
             Rows.Clear();
             RowOffset = 0;
-            var player = svc.PlayerCar;
+            var player = svc.ViewCar; // your car, or the driver picked from the standings menu
             var all = svc.Cars; // list object is replaced, never mutated — safe to enumerate
             Multiclass = all.Select(c => c.CarClassId).Distinct().Count() > 1;
 
@@ -1786,7 +1787,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
                     }
                     case Col.IRating:
                         if (!string.IsNullOrEmpty(row.IRating))
-                            DrawRight(FontBody, row.IRating, cl + cw, textY, row.IRating == "AI" ? RowTextDim : RowText);
+                            _sb.DrawString(FontBody, row.IRating, new XnaVector2(cl, textY), row.IRating == "AI" ? RowTextDim : RowText);
                         break;
                     case Col.Driver:
                         _sb.DrawString(FontBody, TruncateText(row.Name, cw), new XnaVector2(cl, textY), RowText);

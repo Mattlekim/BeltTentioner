@@ -112,6 +112,13 @@ namespace BeltTensionTest.WPF.Services.Data
     {
         public static IncidentTracker Instance { get; } = new();
 
+        /// <summary>What a driver can be held to have done (the original's incident tags).</summary>
+        public static readonly string[] BlameReasons =
+        {
+            "Overly aggressive", "Dive bomb", "Driving slow", "Doesn't hold brakes",
+            "Unsafe rejoin", "Deliberate wrecking", "Reckless", "No awareness", "Unforced error",
+        };
+
         /// <summary>Two cars score the same incident within this many seconds of each other.</summary>
         public const float TimeRangeSeconds = 4f;
 
