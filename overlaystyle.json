@@ -1,3 +1,16 @@
 {
-  "CornerRadius": 3
+  "CornerRadius": 4,
+  "ColumnWidths": {
+    "Relative": {
+      "Driver": 198,
+      "License": 84,
+      "Gained": 40,
+      "Pos": 57,
+      "Status": 70,
+      "LastLap": 107,
+      "Gap": 72,
+      "Rel": 86,
+      "Tire": 60
+    }
+  }
 }

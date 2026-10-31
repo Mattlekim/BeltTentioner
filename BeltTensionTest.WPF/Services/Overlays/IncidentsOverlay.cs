@@ -84,11 +84,10 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         private readonly SpriteBatch _sb;
         private readonly Texture2D _white;
-        private readonly SpriteFont _font;     // title
-        private readonly SpriteFont _fontBody; // rows
-        private readonly SpriteFont _fontHead; // column headers
+        private SpriteFont _font => OverlayFonts.Title(GraphicsDevice, 30f);     // title
+        private SpriteFont _fontBody => OverlayFonts.Body(GraphicsDevice, 22f); // rows
+        private SpriteFont _fontHead => OverlayFonts.Body(GraphicsDevice, 18f, bold: true); // column headers
 
-        private readonly int _collapsedWidth;
 
         /// <summary>One drawn line: an incident, or one car underneath it.</summary>
         private struct Entry
@@ -123,7 +122,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private readonly List<int> _menuValues = new(); // CarIdx in the Driver step, else -1
         private int _menuHover = -1;
 
-        public override int CollapsedWidth => _collapsedWidth;
+        public override int CollapsedWidth => (int)_font.MeasureString(Name).X + 60;
         public override int CollapsedHeight => TitleBarHeight;
 
         public IncidentsOverlay(GraphicsDevice device, int x, int y)
@@ -135,10 +134,6 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _sb = new SpriteBatch(device);
             _white = new Texture2D(device, 1, 1);
             _white.SetData(new[] { XnaColor.White });
-            _font = RuntimeSpriteFont.Bake(device, "Segoe UI", 30f);
-            _fontBody = RuntimeSpriteFont.Bake(device, "Segoe UI", 22f);
-            _fontHead = RuntimeSpriteFont.Bake(device, "Segoe UI", 18f, System.Drawing.FontStyle.Bold);
-            _collapsedWidth = (int)_font.MeasureString(Name).X + 60;
         }
 
         private bool _headingsHidden;
@@ -654,9 +649,6 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public override void Dispose()
         {
-            _fontHead.Texture.Dispose();
-            _fontBody.Texture.Dispose();
-            _font.Texture.Dispose();
             _white.Dispose();
             _sb.Dispose();
             base.Dispose();

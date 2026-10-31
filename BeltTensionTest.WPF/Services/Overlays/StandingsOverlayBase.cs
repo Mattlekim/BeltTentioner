@@ -54,6 +54,9 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         private Col[] _colOrder;
         private int _dragCol = -1; // index into _colOrder being dragged in edit mode
+        private Col? _sizeCol;     // column whose right edge is being dragged (Debug builds)
+        private int _sizeLeft;     // left edge of that column, panel pixels
+        private const int MinColumnWidth = 30, MaxColumnWidth = 700, EdgeGrab = 10;
 
         private const int ColGapX = 2;          // horizontal gap between cells (narrow, like the in-game relative)
         private const int ColContentLeft = Pad + 8;
@@ -133,7 +136,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             int x = ColContentLeft;
             for (int i = 0; i < cols.Count; i++)
             {
-                int w = cols[i] == Col.Driver ? DriverWidth : FixedWidth(cols[i]);
+                int w = WidthOf(cols[i]);
                 cells[i] = (cols[i], x, w);
                 x += w + ColGapX;
             }
@@ -144,10 +147,21 @@ namespace BeltTensionTest.WPF.Services.Overlays
         // off with "..", which keeps the numbers close to the position instead of far across the panel.
         private int DriverWidth => _nameFormat switch
         {
-            RelativeNameFormat.Initial => 215,
-            RelativeNameFormat.Surname => 190,
-            _ => 280,
+            RelativeNameFormat.Initial => 170,
+            RelativeNameFormat.Surname => 150,
+            _ => 230,
         };
+
+        /// <summary>
+        /// A column's width: the one set in overlaystyle.json (dragged in a Debug build's edit mode) if
+        /// there is one, otherwise its default.
+        /// </summary>
+        private int WidthOf(Col c)
+        {
+            int set = OverlayStyle.ColumnWidth(Name, c.ToString());
+            if (set > 0) return set;
+            return c == Col.Driver ? DriverWidth : FixedWidth(c);
+        }
 
         // Narrowest the panel gets, so the title bar and info bar still fit with few columns showing.
         private const int MinPanelWidth = 640;
@@ -157,7 +171,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         {
             var cols = VisibleColumns();
             int w = ColContentLeft + ColGapX * Math.Max(0, cols.Count - 1) + Pad + 10;
-            foreach (var c in cols) w += c == Col.Driver ? DriverWidth : FixedWidth(c);
+            foreach (var c in cols) w += WidthOf(c);
             return Math.Max(MinPanelWidth, w);
         }
 
@@ -327,8 +341,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
             var old = (Font, FontBody, FontHead);
             var oldDelta = FontDelta;
             string family = OverlayFonts.Family;
-            Font = RuntimeSpriteFont.Bake(GraphicsDevice, family, OverlayFonts.Scaled(30f));
-            FontBody = RuntimeSpriteFont.Bake(GraphicsDevice, family, OverlayFonts.Scaled(24f));
+            Font = RuntimeSpriteFont.Bake(GraphicsDevice, OverlayFonts.TitleFamily, OverlayFonts.TitleScaled(30f), OverlayFonts.Style);
+            FontBody = RuntimeSpriteFont.Bake(GraphicsDevice, family, OverlayFonts.Scaled(24f), OverlayFonts.Style);
             FontHead = RuntimeSpriteFont.Bake(GraphicsDevice, family, OverlayFonts.Scaled(18f), System.Drawing.FontStyle.Bold);
             FontDelta = RuntimeSpriteFont.Bake(GraphicsDevice, family, OverlayFonts.Scaled(27f), System.Drawing.FontStyle.Bold);
             _fontVersion = OverlayFonts.Version;
@@ -405,15 +419,26 @@ namespace BeltTensionTest.WPF.Services.Overlays
         /// <summary>Fill <see cref="Rows"/> for this frame (player is valid, cars non-empty).</summary>
         protected abstract void BuildRows(IReadOnlyList<Car> all, Car player);
 
-        // ----- Finishers ----------------------------------------------------------
-        // Finished = crossed the line after the checkered came out: the lap count each car had when
-        // the session went checkered is remembered, and a car has finished once it completes another
-        // lap. The car that triggered the flag (the overall leader) has finished immediately. A
-        // finisher's position is final from that moment: it is kept here and shown from then on, so
-        // the cars still racing cannot change it.
+        // ----- Race order and finishers ---------------------------------------------
+        // In a race the order is worked out here from how far round the track each car is
+        // (TrackPositionMonitor), because iRacing's own position and gap only change when a car
+        // crosses the line. Before the green flag, and outside races, iRacing's positions are used.
+        //
+        // Finished = crossed the line after the checkered came out: the lines each car had crossed
+        // when the session went checkered are remembered, and a car has finished once it crosses
+        // another. A finisher stops where it crossed: its distance is frozen at the laps it
+        // completed, so cars still racing cannot change its place, and cars that finish on the same
+        // lap rank in the order they crossed.
 
-        private readonly Dictionary<int, int> _lapAtCheckered = new();
+        private readonly Dictionary<int, int> _lapsAtCheckered = new();
+        private readonly Dictionary<int, float> _frozenDistance = new();
+        private readonly List<int> _finishOrder = new();
         private bool _checkeredSeen;
+
+        /// <summary>True while a race is under way (green flag to the end): positions come from the track, not iRacing.</summary>
+        protected bool UseTrackOrder;
+
+        private readonly Dictionary<int, (int Overall, int Class)> _live = new();
 
         /// <summary>Cars that have taken the checkered flag in the race on screen.</summary>
         protected readonly HashSet<int> FinishedCars = new();
@@ -423,42 +448,133 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         protected void ResetFinishTracking()
         {
-            _lapAtCheckered.Clear();
+            _lapsAtCheckered.Clear();
+            _frozenDistance.Clear();
+            _finishOrder.Clear();
             FinishedCars.Clear();
             FinalPositions.Clear();
             _checkeredSeen = false;
         }
 
+        /// <summary>Laps plus lap fraction round the track: where the car really is, frozen once it has finished.</summary>
+        protected float DistanceOf(Car c)
+        {
+            if (_frozenDistance.TryGetValue(c.CarIdx, out float frozen)) return frozen;
+            float d = TrackPositionMonitor.Instance.Distance(c.CarIdx);
+            return float.IsNaN(d) ? c.Lap + Math.Clamp(c.LapDistPct, 0f, 1f) : d;
+        }
+
+        /// <summary>
+        /// Overall and class position of a car: a finisher's final place, else (in a race) its place
+        /// by track distance, else iRacing's own.
+        /// </summary>
+        protected (int Overall, int Class) RacePositionOf(Car c)
+        {
+            if (FinalPositions.TryGetValue(c.CarIdx, out var final)) return final;
+            if (UseTrackOrder && _live.TryGetValue(c.CarIdx, out var live)) return live;
+            return (c.Position, c.ClassPosition);
+        }
+
+        /// <summary>
+        /// Seconds the trailing car is behind the leading one, from the distance between them at the
+        /// trailing car's own pace; it moves every tick instead of once a lap. NaN when there is no pace to go by.
+        /// </summary>
+        protected float GapSeconds(Car trailing, Car leading)
+        {
+            float pace = TrackPositionMonitor.Instance.Pace(trailing);
+            return pace > 0 ? Math.Max(0f, DistanceOf(leading) - DistanceOf(trailing)) * pace : float.NaN;
+        }
+
+        // Put the field in order by distance (finishers by where they stopped, then who crossed first);
+        // cars that are in the garage or not in the session go last.
+        private void RankField(IReadOnlyList<Car> all)
+        {
+            _live.Clear();
+            var monitor = TrackPositionMonitor.Instance;
+            int FinishIndex(int carIdx)
+            {
+                int i = _finishOrder.IndexOf(carIdx);
+                return i < 0 ? int.MaxValue : i;
+            }
+
+            var ordered = all
+                .Where(c => c.CarIdx >= 0)
+                .Select(c => (Car: c,
+                              InWorld: monitor.InWorld(c.CarIdx) || _frozenDistance.ContainsKey(c.CarIdx),
+                              Dist: DistanceOf(c)))
+                .OrderBy(e => e.InWorld ? 0 : 1)
+                .ThenByDescending(e => e.Dist)
+                .ThenBy(e => FinishIndex(e.Car.CarIdx))
+                .ThenBy(e => e.Car.Position > 0 ? e.Car.Position : int.MaxValue)
+                .ThenBy(e => e.Car.CarIdx)
+                .ToList();
+
+            var perClass = new Dictionary<int, int>();
+            for (int i = 0; i < ordered.Count; i++)
+            {
+                var car = ordered[i].Car;
+                perClass.TryGetValue(car.CarClassId, out int inClass);
+                perClass[car.CarClassId] = ++inClass;
+                _live[car.CarIdx] = (i + 1, inClass);
+            }
+        }
+
         private void UpdateFinishTracking(IReadOnlyList<Car> all, int state)
         {
             bool race = CurrentSessionType.IndexOf("Race", StringComparison.OrdinalIgnoreCase) >= 0;
+            UseTrackOrder = race && state >= IracingService.SessionStateRacing;
             if (!race || state < IracingService.SessionStateCheckered)
             {
                 if (_checkeredSeen || FinishedCars.Count > 0) ResetFinishTracking();
+                if (UseTrackOrder) RankField(all);
                 return;
             }
 
-            void Finish(Car c)
-            {
-                if (FinishedCars.Add(c.CarIdx) && (c.Position > 0 || c.ClassPosition > 0))
-                    FinalPositions[c.CarIdx] = (c.Position, c.ClassPosition);
-            }
-
+            var monitor = TrackPositionMonitor.Instance;
             if (!_checkeredSeen)
             {
                 _checkeredSeen = true;
+                foreach (var c in all) _lapsAtCheckered[c.CarIdx] = monitor.Laps(c.CarIdx);
+
+                // The flag falls as the leader crosses the line. The leader is the car furthest round
+                // the track (iRacing's position still has last lap's order). If it has only just
+                // crossed it took the flag; if it has yet to cross it takes it on the crossing, like
+                // everyone else, and is not flagged early.
+                Car? leader = null;
+                float best = float.NegativeInfinity;
                 foreach (var c in all)
                 {
-                    _lapAtCheckered[c.CarIdx] = c.LapCompleted;
-                    if (c.Position == 1) Finish(c);
+                    float d = DistanceOf(c);
+                    if (monitor.InWorld(c.CarIdx) && d > best) { best = d; leader = c; }
                 }
+                float trackLen = IracingService.Instance.TrackLengthMeters;
+                float justCrossed = trackLen > 0 ? 40f / trackLen : 0.01f;
+                if (leader != null && best - Math.Floor(best) < justCrossed)
+                    _lapsAtCheckered[leader.CarIdx] = monitor.Laps(leader.CarIdx) - 1;
             }
+
+            var newlyFinished = new List<Car>();
             foreach (var c in all)
             {
-                if (!_lapAtCheckered.TryGetValue(c.CarIdx, out int lap))
-                    _lapAtCheckered[c.CarIdx] = lap = c.LapCompleted;
-                if (c.LapCompleted > lap) Finish(c);
+                if (FinishedCars.Contains(c.CarIdx)) continue;
+                int laps = monitor.Laps(c.CarIdx);
+                if (laps < 0 || !monitor.InWorld(c.CarIdx)) continue;
+                if (!_lapsAtCheckered.TryGetValue(c.CarIdx, out int at))
+                {
+                    _lapsAtCheckered[c.CarIdx] = laps;
+                    continue;
+                }
+                if (laps <= at) continue;
+
+                _frozenDistance[c.CarIdx] = laps; // stopped at the line, however far it drives on
+                FinishedCars.Add(c.CarIdx);
+                _finishOrder.Add(c.CarIdx);
+                newlyFinished.Add(c);
             }
+
+            RankField(all);
+            foreach (var c in newlyFinished)
+                if (_live.TryGetValue(c.CarIdx, out var place)) FinalPositions[c.CarIdx] = place;
         }
 
         /// <summary>Append any extra visible state (info bar / footer) so changes trigger a repaint.</summary>
@@ -835,6 +951,16 @@ namespace BeltTensionTest.WPF.Services.Overlays
             int top = HeaderTop;
             if (y < top || y >= top + HeaderH) return false;
             var cells = ColumnCells();
+            // Debug builds: the right edge of a header is a handle to set that column's width.
+            if (OverlayStyle.Editable)
+                foreach (var (col, left, width) in cells)
+                    if (Math.Abs(x - (left + width)) <= EdgeGrab)
+                    {
+                        _sizeCol = col;
+                        _sizeLeft = left;
+                        Invalidate();
+                        return true;
+                    }
             for (int i = 0; i < cells.Length; i++)
             {
                 if (x >= cells[i].Left && x < cells[i].Left + cells[i].Width)
@@ -859,6 +985,13 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 // the first row down to just above the footer.
                 int rowsHeight = y - RowsTop - Pad - _footerHeight + (RowHeight + RowSpacing) / 2;
                 RowCapacity = rowsHeight / (RowHeight + RowSpacing);
+                return;
+            }
+            if (_sizeCol is Col sizing)
+            {
+                OverlayStyle.SetColumnWidth(Name, sizing.ToString(), Math.Clamp(x - _sizeLeft, MinColumnWidth, MaxColumnWidth));
+                _lastSnapshot = string.Empty;
+                Invalidate();
                 return;
             }
             if (_dragCol < 0) return;
@@ -907,6 +1040,13 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 _resizeRows = false;
                 Invalidate();
                 ColumnOrderChanged?.Invoke(); // persists the layout, like a header drag
+                return;
+            }
+            if (_sizeCol != null)
+            {
+                _sizeCol = null;
+                Invalidate();
+                ColumnOrderChanged?.Invoke(); // saves the layout, which writes the new width to overlaystyle.json
                 return;
             }
             if (_dragCol < 0) return;
@@ -1113,7 +1253,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
             if (_active && player.CarIdx >= 0 && all.Count > 0)
             {
-                UpdateFinishTracking(all, svc.SessionState);
+                UpdateFinishTracking(all, svc.SessionState); // also ranks the field when a race is on
                 BuildRows(all, player);
             }
 
@@ -1200,7 +1340,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 LicColor = car.IsAi ? -1 : car.LicColor,
                 LowSafety = !car.IsAi && car.LicSubLevel > 0 && car.LicSubLevel < 200,
                 IRating = car.IsAi ? "AI" : car.IRating > 0 ? car.IRating.ToString() : string.Empty,
-                LastLap = FormatLapTime(car.LastLapTime),
+                LastLap = FormatLapTime(TrackPositionMonitor.Instance.LastLap(car)),
                 LastCmp = CompareLastLap(car, player, isPlayer),
                 BestLap = FormatLapTime(car.BestLapTime),
                 BestIsFastest = car.BestLapTime > 0 && Math.Abs(car.BestLapTime - classFastestLap) < 0.0005f,
@@ -1245,9 +1385,10 @@ namespace BeltTensionTest.WPF.Services.Overlays
         /// <summary>Last lap vs the player's: -1 = faster than you, +1 = slower, 0 = player row / no times.</summary>
         private static int CompareLastLap(Car car, Car player, bool isPlayer)
         {
-            if (isPlayer || car.LastLapTime <= 0 || player.LastLapTime <= 0) return 0;
-            return car.LastLapTime < player.LastLapTime ? -1
-                 : car.LastLapTime > player.LastLapTime ? 1 : 0;
+            var monitor = TrackPositionMonitor.Instance;
+            float mine = monitor.LastLap(car), yours = monitor.LastLap(player);
+            if (isPlayer || mine <= 0 || yours <= 0) return 0;
+            return mine < yours ? -1 : mine > yours ? 1 : 0;
         }
 
         /// <summary>
@@ -1492,6 +1633,9 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 {
                     var handle = new XnaRectangle(cl - 3, headTop, cw + 6, HeaderRowHeight - 4);
                     MonoXRDraw.RoundedRect(_sb, handle, 6, dragging ? Accent * 0.35f : XnaColor.White * 0.06f);
+                    if (OverlayStyle.Editable) // the width handle on the right edge
+                        _sb.Draw(_white, new XnaRectangle(cl + cw + 1, headTop + 4, 3, HeaderRowHeight - 12),
+                                 _sizeCol == col ? Accent : XnaColor.White * 0.35f);
                     if (dragging) // shade the whole column while it is being moved
                         _sb.Draw(_white, new XnaRectangle(cl - 3, headTop + HeaderH,
                             cw + 6, Math.Max(0, rowsBottom - headTop - HeaderH)), Accent * 0.12f);

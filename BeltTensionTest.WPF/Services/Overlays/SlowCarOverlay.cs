@@ -39,17 +39,16 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private static readonly XnaColor TextDark = new XnaColor(0x1F, 0x10, 0x00);
 
         private readonly SpriteBatch _sb;
-        private readonly SpriteFont _fontHeader;
-        private readonly SpriteFont _fontBig;
-        private readonly SpriteFont _fontLabel;
+        private SpriteFont _fontHeader => OverlayFonts.Title(GraphicsDevice, 26f, bold: true);
+        private SpriteFont _fontBig => OverlayFonts.Body(GraphicsDevice, 32f, bold: true);
+        private SpriteFont _fontLabel => OverlayFonts.Body(GraphicsDevice, 16f, bold: true);
         private readonly Texture2D _pixel;
-        private readonly int _collapsedWidth;
 
         private bool _show;
         private float _warnTime;   // smallest on-track gap to a slow car, seconds
         private float _flasher;    // original cadence: dt*15, cycle 2
 
-        public override int CollapsedWidth => _collapsedWidth;
+        public override int CollapsedWidth => (int)_fontHeader.MeasureString(Name).X + 60;
         public override int CollapsedHeight => HeaderHeight;
 
         public SlowCarOverlay(GraphicsDevice device, int x, int y)
@@ -57,14 +56,10 @@ namespace BeltTensionTest.WPF.Services.Overlays
         {
             Name = "Slow Car";
             _sb = new SpriteBatch(device);
-            _fontHeader = RuntimeSpriteFont.Bake(device, "Segoe UI", 26f, System.Drawing.FontStyle.Bold);
             // The original draws its readout in its MainFont (Comic Sans MS
             // Bold 20pt) and its edit label at half scale; both scaled 1.6x.
-            _fontBig = RuntimeSpriteFont.Bake(device, "Comic Sans MS", 32f, System.Drawing.FontStyle.Bold);
-            _fontLabel = RuntimeSpriteFont.Bake(device, "Comic Sans MS", 16f, System.Drawing.FontStyle.Bold);
             _pixel = new Texture2D(device, 1, 1);
             _pixel.SetData(new[] { XnaColor.White });
-            _collapsedWidth = (int)_fontHeader.MeasureString(Name).X + 60;
         }
 
         public override void Update(GameTime gameTime)
@@ -140,9 +135,6 @@ namespace BeltTensionTest.WPF.Services.Overlays
         public override void Dispose()
         {
             _pixel.Dispose();
-            _fontLabel.Texture.Dispose();
-            _fontBig.Texture.Dispose();
-            _fontHeader.Texture.Dispose();
             _sb.Dispose();
             base.Dispose();
         }

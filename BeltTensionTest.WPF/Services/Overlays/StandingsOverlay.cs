@@ -49,21 +49,18 @@ namespace BeltTensionTest.WPF.Services.Overlays
         /// <summary>Range the board can be dragged to.</summary>
         public const int MinRowSetting = MinPanelRows, MaxRowSetting = MaxPanelRows;
 
-        private int _maxRows = 26;
+        private const int DefaultRows = 26;
 
         /// <summary>
         /// Rows the board holds before it starts leaving cars out, set by
-        /// dragging its bottom edge in edit mode. Clamped to
+        /// dragging its bottom edge in edit mode (which sets the panel's row
+        /// capacity, so this just reads it back). Clamped to
         /// <see cref="MinRowSetting"/>..<see cref="MaxRowSetting"/>.
         /// </summary>
         public int MaxRows
         {
-            get => _maxRows;
-            set
-            {
-                _maxRows = Math.Clamp(value, MinRowSetting, MaxRowSetting);
-                RowCapacity = _maxRows;
-            }
+            get => RowCapacity;
+            set => RowCapacity = Math.Clamp(value, MinRowSetting, MaxRowSetting);
         }
 
         /// <summary>Leaders always kept on the board when the field does not fit.</summary>
@@ -105,7 +102,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         public StandingsOverlay(GraphicsDevice device, int x, int y, int carsToDisplay = 12)
             : base(device, "Standings", x, y, carsToDisplay, InfoBarH, FooterH, BoardWidth)
         {
-            SetRowCapacity(_maxRows);
+            SetRowCapacity(DefaultRows);
         }
 
         // The board is useful in practice, qualifying and the race alike.
@@ -166,9 +163,13 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private int PositionOf(Car car, bool racing)
         {
             int pos = Multiclass ? car.ClassPosition : car.Position;
-            // A finisher's position is final: it no longer follows the live order.
-            if (racing && FinalPositions.TryGetValue(car.CarIdx, out var final))
-                pos = Multiclass ? final.Class : final.Overall;
+            // In a race the order comes from how far round the track each car is (a finisher's is
+            // final), not from iRacing's position, which only changes once a lap.
+            if (racing)
+            {
+                var place = RacePositionOf(car);
+                pos = Multiclass ? place.Class : place.Overall;
+            }
             // Outside the race iRacing only places a car once it has a time,
             // so an unplaced row keeps a blank badge rather than a fake "0".
             return pos > 0 && (racing || car.BestLapTime > 0) ? pos : 0;
@@ -253,15 +254,14 @@ namespace BeltTensionTest.WPF.Services.Overlays
         }
 
         /// <summary>Race gap to the class leader, in laps once a car is lapped.</summary>
-        private static (string Text, int Cmp) RaceGap(Car car, Car leader)
+        private (string Text, int Cmp) RaceGap(Car car, Car leader)
         {
             if (car.CarIdx == leader.CarIdx) return ("LEADER", 0);
-            float leaderDist = leader.Lap + Math.Clamp(leader.LapDistPct, 0f, 1f);
-            float dist = car.Lap + Math.Clamp(car.LapDistPct, 0f, 1f);
-            int laps = (int)Math.Floor(leaderDist - dist);
+            int laps = (int)Math.Floor(DistanceOf(leader) - DistanceOf(car));
             if (laps >= 1) return ($"+{laps}L", 0);
-            if (car.F2Time <= 0 && leader.F2Time <= 0) return ("--", 0);
-            return ((car.F2Time - leader.F2Time).ToString("+0.0;-0.0;0.0"), 0);
+            // From the distance between the two cars, so it moves all lap (iRacing's F2Time only changes at the line).
+            float seconds = GapSeconds(car, leader);
+            return (float.IsNaN(seconds) ? "--" : seconds.ToString("+0.0;-0.0;0.0"), 0);
         }
 
         // ----- Driver tagging ------------------------------------------------

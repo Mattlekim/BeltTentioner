@@ -33,8 +33,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private static readonly XnaColor TitleText = new XnaColor(0xD0, 0xD0, 0xF0);
 
         private readonly SpriteBatch _sb;
-        private readonly SpriteFont _fontHeader;
-        private readonly int _collapsedWidth;
+        private SpriteFont _fontHeader => OverlayFonts.Title(GraphicsDevice, 26f, bold: true);
 
         private bool _innerLeft, _outerLeft, _innerRight, _outerRight;
         private bool _wasShowing;
@@ -46,7 +45,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private bool _sliderDrag;
         private XnaRectangle _dragTrack;
 
-        public override int CollapsedWidth => _collapsedWidth;
+        public override int CollapsedWidth => (int)_fontHeader.MeasureString(Name).X + 60;
         public override int CollapsedHeight => BoxHeight;
 
         /// <summary>Raised when the user finishes dragging the edit-mode width slider.</summary>
@@ -68,8 +67,6 @@ namespace BeltTensionTest.WPF.Services.Overlays
         {
             Name = "Nearby Cars";
             _sb = new SpriteBatch(device);
-            _fontHeader = RuntimeSpriteFont.Bake(device, "Segoe UI", 26f, System.Drawing.FontStyle.Bold);
-            _collapsedWidth = (int)_fontHeader.MeasureString(Name).X + 60;
         }
 
         public override void Update(GameTime gameTime)
@@ -225,7 +222,6 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public override void Dispose()
         {
-            _fontHeader.Texture.Dispose();
             _sb.Dispose();
             base.Dispose();
         }

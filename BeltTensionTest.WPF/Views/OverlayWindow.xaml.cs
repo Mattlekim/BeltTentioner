@@ -47,6 +47,7 @@ namespace BeltTensionTest.WPF.Views
         private NearbyCarsOverlay? _nearbyPanel;
         private SlowCarOverlay? _slowCarPanel;
         private CarBehindOverlay? _carBehindPanel;
+        private CarAheadOverlay? _aheadPanel;
         private YouTubeOverlay? _youtubePanel;
         private GpuStatsOverlay? _gpuPanel;
         private CatchEstimateOverlay? _catchPanel;
@@ -157,9 +158,14 @@ namespace BeltTensionTest.WPF.Views
                 {
                     OverlayFonts.Family = settings.OverlayFontFamily;
                     OverlayFonts.Percent = settings.OverlayFontPercent;
+                    OverlayFonts.Bold = settings.OverlayFontBold;
+                    OverlayFonts.TitleFamily = settings.OverlayTitleFontFamily;
+                    OverlayFonts.TitlePercent = settings.OverlayTitleFontPercent;
                 }
                 SetupRenderTargets();
                 ApplySavedPanelStates();
+                OverlayFonts.Changed -= OnFontsChanged;
+                OverlayFonts.Changed += OnFontsChanged; // a new font, size or weight redraws every window
 
                 // Panels grouped in edit mode (right-click > Group) move together.
                 var byName = AllPanels().ToDictionary(p => p.Name);
@@ -233,6 +239,7 @@ namespace BeltTensionTest.WPF.Views
             _resolutionTimer.Stop();
             EditButton.IsChecked = false;
             _preview?.Close();
+            OverlayFonts.Changed -= OnFontsChanged;
             _toggleBindings?.Dispose();
             _toggleBindings = null;
             _recenterBinding?.Dispose();
@@ -240,7 +247,7 @@ namespace BeltTensionTest.WPF.Views
             _panelVisibility = null;
             _gazeFocus = null;
             _beltPanel = null; _windPanel = null; _relativePanel = null; _standingsPanel = null;
-            _hudSettingsPanel = null; _headPanel = null; _warningPanel = null; _nearbyPanel = null; _slowCarPanel = null; _carBehindPanel = null;
+            _hudSettingsPanel = null; _headPanel = null; _warningPanel = null; _nearbyPanel = null; _slowCarPanel = null; _carBehindPanel = null; _aheadPanel = null;
             _youtubePanel = null; _gpuPanel = null; _catchPanel = null; _incidentPanel = null; _displayPanel = null;
             bool wasRunning = _host != null;
             _benchmark?.Dispose(); // puts the host's mode back before it goes
@@ -562,6 +569,16 @@ namespace BeltTensionTest.WPF.Views
             }
             _carBehindPanel = _host.AddRenderTarget(new CarBehindOverlay(
                 _host.GraphicsDevice, behindX, behindY, () => _vm.AppSettings));
+
+            // Car-ahead card (within 4 s, with its blame counts): defaults to just above the car-behind box.
+            int aheadX = (_host.CanvasWidth - 320) / 2, aheadY = Math.Max(0, behindY - 160 - 12);
+            if (s != null && HasSavedPos(s.OverlayAheadPanelX, s.OverlayAheadPanelY))
+            {
+                aheadX = Math.Min(s.OverlayAheadPanelX, Math.Max(0, _host.CanvasWidth - 100));
+                aheadY = Math.Min(s.OverlayAheadPanelY, Math.Max(0, _host.CanvasHeight - 100));
+            }
+            _aheadPanel = _host.AddRenderTarget(new CarAheadOverlay(
+                _host.GraphicsDevice, aheadX, aheadY));
             if (s != null && s.OverlayNearbyWidth > 0)
                 _nearbyPanel.BoxWidth = s.OverlayNearbyWidth;
             _nearbyPanel.BoxWidthChanged += SaveLayout; // persist slider resizes like drags
@@ -694,6 +711,7 @@ namespace BeltTensionTest.WPF.Views
                 RestoreScale(_nearbyPanel, s.OverlayNearbyPanelScale);
                 RestoreScale(_slowCarPanel, s.OverlaySlowCarPanelScale);
                 RestoreScale(_carBehindPanel, s.OverlayCarBehindPanelScale);
+                RestoreScale(_aheadPanel, s.OverlayAheadPanelScale);
                 RestoreScale(_youtubePanel, s.OverlayYouTubePanelScale);
                 RestoreScale(_gpuPanel, s.OverlayGpuPanelScale);
                 RestoreScale(_catchPanel, s.OverlayCatchPanelScale);
@@ -709,6 +727,7 @@ namespace BeltTensionTest.WPF.Views
                 RestoreOpacity(_nearbyPanel, s.OverlayNearbyPanelOpacity);
                 RestoreOpacity(_slowCarPanel, s.OverlaySlowCarPanelOpacity);
                 RestoreOpacity(_carBehindPanel, s.OverlayCarBehindPanelOpacity);
+                RestoreOpacity(_aheadPanel, s.OverlayAheadPanelOpacity);
                 RestoreOpacity(_youtubePanel, s.OverlayYouTubePanelOpacity);
                 RestoreOpacity(_gpuPanel, s.OverlayGpuPanelOpacity);
                 RestoreOpacity(_catchPanel, s.OverlayCatchPanelOpacity);
@@ -864,7 +883,7 @@ namespace BeltTensionTest.WPF.Views
         {
             var panels = new OverlayRenderTarget?[]
                 { _beltPanel, _windPanel, _relativePanel, _standingsPanel, _hudSettingsPanel, _headPanel, _warningPanel,
-                  _nearbyPanel, _slowCarPanel, _carBehindPanel, _youtubePanel, _gpuPanel, _catchPanel, _incidentPanel, _displayPanel };
+                  _nearbyPanel, _slowCarPanel, _carBehindPanel, _aheadPanel, _youtubePanel, _gpuPanel, _catchPanel, _incidentPanel, _displayPanel };
             foreach (var p in panels)
                 if (p != null) yield return p;
         }
@@ -901,6 +920,12 @@ namespace BeltTensionTest.WPF.Views
         {
             var s = _vm.AppSettings;
             if (s != null) _settingsSvc.Save(s);
+        }
+
+        private void OnFontsChanged()
+        {
+            foreach (var p in AllPanels()) p.Invalidate();
+            _host?.InvalidateCanvas();
         }
 
         /// <summary>Persist the current overlay layout (panel position, size, distance, DPI).</summary>
@@ -966,6 +991,9 @@ namespace BeltTensionTest.WPF.Views
                 }
                 s.OverlayFontFamily = OverlayFonts.Family;
                 s.OverlayFontPercent = OverlayFonts.Percent;
+                s.OverlayFontBold = OverlayFonts.Bold;
+                s.OverlayTitleFontFamily = OverlayFonts.TitleFamily;
+                s.OverlayTitleFontPercent = OverlayFonts.TitlePercent;
                 if (_recenterBinding != null) s.OverlayRecenterButton = _recenterBinding.Binding;
                 // Driver tags and their colours live in DriverTags while the
                 // overlay runs; push them back into the settings before saving.
@@ -985,67 +1013,56 @@ namespace BeltTensionTest.WPF.Views
                 s.OverlayPanelGroups = _host.Groups.Select(g => g.Select(m => m.Name).ToList()).ToList();
                 s.OverlayHiddenTitleBars = _host.RenderTargets.Where(p => p.TitleBarHidden).Select(p => p.Name).ToList();
                 s.OverlayHiddenHeadings = _host.RenderTargets.Where(p => p.HasHeadings && p.HeadingsHidden).Select(p => p.Name).ToList();
+                // X / Y of these are saved above, relative to the centre screen (PanelPrefixes); saving them raw here
+                // put them back out of step with the origin that is added on load.
                 if (_warningPanel != null)
                 {
-                    s.OverlayWarningPanelX = _warningPanel.X;
-                    s.OverlayWarningPanelY = _warningPanel.Y;
                     s.OverlayWarningPanelScale = SavedScaleOf(_warningPanel);
                     s.OverlayWarningPanelOpacity = SavedOpacityOf(_warningPanel);
                 }
                 if (_nearbyPanel != null)
                 {
-                    s.OverlayNearbyPanelX = _nearbyPanel.X;
-                    s.OverlayNearbyPanelY = _nearbyPanel.Y;
                     s.OverlayNearbyPanelScale = SavedScaleOf(_nearbyPanel);
                     s.OverlayNearbyPanelOpacity = SavedOpacityOf(_nearbyPanel);
                     s.OverlayNearbyWidth = _nearbyPanel.BoxWidth;
                 }
                 if (_slowCarPanel != null)
                 {
-                    s.OverlaySlowCarPanelX = _slowCarPanel.X;
-                    s.OverlaySlowCarPanelY = _slowCarPanel.Y;
                     s.OverlaySlowCarPanelScale = SavedScaleOf(_slowCarPanel);
                     s.OverlaySlowCarPanelOpacity = SavedOpacityOf(_slowCarPanel);
                 }
                 if (_carBehindPanel != null)
                 {
-                    s.OverlayCarBehindPanelX = _carBehindPanel.X;
-                    s.OverlayCarBehindPanelY = _carBehindPanel.Y;
                     s.OverlayCarBehindPanelScale = SavedScaleOf(_carBehindPanel);
                     s.OverlayCarBehindPanelOpacity = SavedOpacityOf(_carBehindPanel);
                 }
+                if (_aheadPanel != null)
+                {
+                    s.OverlayAheadPanelScale = SavedScaleOf(_aheadPanel);
+                    s.OverlayAheadPanelOpacity = SavedOpacityOf(_aheadPanel);
+                }
                 if (_youtubePanel != null)
                 {
-                    s.OverlayYouTubePanelX = _youtubePanel.X;
-                    s.OverlayYouTubePanelY = _youtubePanel.Y;
                     s.OverlayYouTubePanelScale = SavedScaleOf(_youtubePanel);
                     s.OverlayYouTubePanelOpacity = SavedOpacityOf(_youtubePanel);
                 }
                 if (_gpuPanel != null)
                 {
-                    s.OverlayGpuPanelX = _gpuPanel.X;
-                    s.OverlayGpuPanelY = _gpuPanel.Y;
                     s.OverlayGpuPanelScale = SavedScaleOf(_gpuPanel);
                     s.OverlayGpuPanelOpacity = SavedOpacityOf(_gpuPanel);
                 }
                 if (_catchPanel != null)
                 {
-                    s.OverlayCatchPanelX = _catchPanel.X;
-                    s.OverlayCatchPanelY = _catchPanel.Y;
                     s.OverlayCatchPanelScale = SavedScaleOf(_catchPanel);
                     s.OverlayCatchPanelOpacity = SavedOpacityOf(_catchPanel);
                 }
                 if (_incidentPanel != null)
                 {
-                    s.OverlayIncidentPanelX = _incidentPanel.X;
-                    s.OverlayIncidentPanelY = _incidentPanel.Y;
                     s.OverlayIncidentPanelScale = SavedScaleOf(_incidentPanel);
                     s.OverlayIncidentPanelOpacity = SavedOpacityOf(_incidentPanel);
                 }
                 if (_displayPanel != null)
                 {
-                    s.OverlayDisplayPanelX = _displayPanel.X;
-                    s.OverlayDisplayPanelY = _displayPanel.Y;
                     s.OverlayDisplayPanelScale = SavedScaleOf(_displayPanel);
                     s.OverlayDisplayPanelOpacity = SavedOpacityOf(_displayPanel);
                 }
@@ -1588,7 +1605,7 @@ namespace BeltTensionTest.WPF.Views
             ("OverlayPanel", _beltPanel), ("OverlayWindPanel", _windPanel), ("OverlayRacePanel", _relativePanel), ("OverlayStandingsPanel", _standingsPanel),
             ("OverlayHudSettingsPanel", _hudSettingsPanel), ("OverlayWarningPanel", _warningPanel),
             ("OverlayNearbyPanel", _nearbyPanel), ("OverlaySlowCarPanel", _slowCarPanel),
-            ("OverlayCarBehindPanel", _carBehindPanel), ("OverlayYouTubePanel", _youtubePanel),
+            ("OverlayCarBehindPanel", _carBehindPanel), ("OverlayAheadPanel", _aheadPanel), ("OverlayYouTubePanel", _youtubePanel),
             ("OverlayGpuPanel", _gpuPanel), ("OverlayCatchPanel", _catchPanel), ("OverlayIncidentPanel", _incidentPanel), ("OverlayDisplayPanel", _displayPanel),
         };
 

@@ -60,9 +60,9 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         private readonly SpriteBatch _sb;
         private readonly Texture2D _white;
-        private readonly SpriteFont _font;     // title
-        private readonly SpriteFont _fontBody; // menu rows
-        private readonly SpriteFont _fontHead; // small labels
+        private SpriteFont _font => OverlayFonts.Title(GraphicsDevice, 32f);     // title
+        private SpriteFont _fontBody => OverlayFonts.Body(GraphicsDevice, 26f); // menu rows
+        private SpriteFont _fontHead => OverlayFonts.Body(GraphicsDevice, 18f, bold: true); // small labels
 
         private readonly MonoXRMenuControl _menu;
         private readonly OverlayColorRow _friendColor;
@@ -72,6 +72,9 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private readonly MonoXRCheckbox _eyeTracking;
         private readonly OverlayChoiceRow _fontChoice;
         private readonly MonoXRSliderControl _fontSize;
+        private readonly MonoXRCheckbox _fontBold;
+        private readonly OverlayChoiceRow _titleFontChoice;
+        private readonly MonoXRSliderControl _titleFontSize;
         private readonly OverlayChoiceRow _colorBlind;
         private readonly OverlayButtonRow _recenterBtn;
         private readonly HudOptions _options;
@@ -136,9 +139,6 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _sb = new SpriteBatch(device);
             _white = new Texture2D(device, 1, 1);
             _white.SetData(new[] { XnaColor.White });
-            _font = RuntimeSpriteFont.Bake(device, "Segoe UI", 32f);
-            _fontBody = RuntimeSpriteFont.Bake(device, "Segoe UI", 26f);
-            _fontHead = RuntimeSpriteFont.Bake(device, "Segoe UI", 18f, System.Drawing.FontStyle.Bold);
 
             var tags = DriverTags.Instance;
             _taggedCount = () => tags.Count;
@@ -199,7 +199,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _menu.Add(_recenterBtn);
 
             // Font and size of the relative box and the standings board.
-            _menu.Add(new MonoXRLabel("Text (relative box and standings)"));
+            _menu.Add(new MonoXRLabel("Text (all windows)"));
             var fonts = OverlayFonts.Available.ToArray();
             _fontChoice = new OverlayChoiceRow("Font", fonts, Math.Max(0, Array.IndexOf(fonts, OverlayFonts.Family)));
             _fontChoice.SelectedIndexChanged += i => { OverlayFonts.Family = fonts[i]; saved(); Invalidate(); };
@@ -208,6 +208,18 @@ namespace BeltTensionTest.WPF.Services.Overlays
                                                 OverlayFonts.Percent, 5f, "0");
             _fontSize.ValueChanged += v => { OverlayFonts.Percent = (int)v; saved(); Invalidate(); };
             _menu.Add(_fontSize);
+            _fontBold = new MonoXRCheckbox("Bold text", OverlayFonts.Bold);
+            _fontBold.Checked += () => { OverlayFonts.Bold = true; saved(); Invalidate(); };
+            _fontBold.Unchecked += () => { OverlayFonts.Bold = false; saved(); Invalidate(); };
+            _menu.Add(_fontBold);
+
+            _titleFontChoice = new OverlayChoiceRow("Title font", fonts, Math.Max(0, Array.IndexOf(fonts, OverlayFonts.TitleFamily)));
+            _titleFontChoice.SelectedIndexChanged += i => { OverlayFonts.TitleFamily = fonts[i]; saved(); Invalidate(); };
+            _menu.Add(_titleFontChoice);
+            _titleFontSize = new MonoXRSliderControl("Title size (%)", OverlayFonts.MinTitlePercent, OverlayFonts.MaxTitlePercent,
+                                                     OverlayFonts.TitlePercent, 5f, "0");
+            _titleFontSize.ValueChanged += v => { OverlayFonts.TitlePercent = (int)v; saved(); Invalidate(); };
+            _menu.Add(_titleFontSize);
 
             _gaze = gaze;
             _menu.Add(new MonoXRLabel("Look at a panel"));
@@ -421,9 +433,6 @@ namespace BeltTensionTest.WPF.Services.Overlays
             OverlayNavigation.Navigated -= OnNavigated;
             DriverTags.Instance.Changed -= _tagsChanged;
             _options.Recenter.Changed -= _tagsChanged;
-            _fontHead.Texture.Dispose();
-            _fontBody.Texture.Dispose();
-            _font.Texture.Dispose();
             _white.Dispose();
             _sb.Dispose();
             base.Dispose();

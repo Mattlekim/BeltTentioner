@@ -201,13 +201,13 @@ namespace BeltTensionTest.WPF.Services.Overlays
             UpdateFuel(player, svc);
 
             var (fastest, fastestDriver) = ClassFastestLap(all, player);
-            float playerDist = player.Lap + Math.Clamp(player.LapDistPct, 0f, 1f);
+            float playerDist = DistanceOf(player);
 
             // Like the original: a car parked in its stall that is behind you
             // in the race is irrelevant to a relative and is dropped.
             var window = RelativeWindow(all, player, (c, rel) =>
                 !(CarStatusMonitor.Instance.StatusOf(c.CarIdx).Pit == PitState.Pit &&
-                  c.Lap + Math.Clamp(c.LapDistPct, 0f, 1f) < playerDist));
+                  DistanceOf(c) < playerDist));
 
             foreach (var (car, rel) in window)
             {
@@ -218,14 +218,14 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
                 // Class position; before the green (and for anyone iRacing
                 // hasn't classified yet) the class grid slot.
-                int livePos = FinalPositions.TryGetValue(car.CarIdx, out var finalPos) ? finalPos.Class : car.ClassPosition;
+                int livePos = RacePositionOf(car).Class;
                 row.Pos = racing && livePos > 0 ? livePos : g.ClassPos;
 
                 // Whole laps ahead/behind you in the race: total race
                 // distance difference minus the on-track separation.
                 if (racing && !isPlayer && car.Lap >= 0 && player.Lap >= 0)
                 {
-                    float dist = car.Lap + Math.Clamp(car.LapDistPct, 0f, 1f);
+                    float dist = DistanceOf(car);
                     row.LapDelta = (int)Math.Round(dist - playerDist - rel);
                 }
 
@@ -257,7 +257,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             double sof = StrengthOfField(classCars);
             _sof = sof > 0 ? $"SOF {sof:0}" : "SOF --";
             // Where each car is in its class: the race order, or the grid slot before the green.
-            int PosOf(Car c) => racing ? (FinalPositions.TryGetValue(c.CarIdx, out var fp) ? fp.Class : c.ClassPosition)
+            int PosOf(Car c) => racing ? RacePositionOf(c).Class
                                        : (grid.TryGetValue(c.CarIdx, out var cg) ? cg.ClassPos : 0);
             int playerPos = PosOf(player);
             _irDelta = player.IsAi || player.IRating <= 0 || playerPos <= 0 ? null
@@ -313,13 +313,15 @@ namespace BeltTensionTest.WPF.Services.Overlays
         }
 
         /// <summary>Signed race gap to the player: negative = ahead of you, positive = behind you.</summary>
-        private static string FormatGap(Car car, Car player, int lapDelta)
+        private string FormatGap(Car car, Car player, int lapDelta)
         {
             if (lapDelta >= 1) return $"-{lapDelta}L";
             if (lapDelta <= -1) return $"+{-lapDelta}L";
-            if (car.F2Time <= 0 && player.F2Time <= 0) return "--";
-            float diff = car.F2Time - player.F2Time; // more time behind the leader = behind you
-            return diff.ToString("+0.0;-0.0;0.0");
+            // From the distance between the two cars, so it moves all lap (iRacing's F2Time only changes at the line).
+            bool ahead = DistanceOf(car) > DistanceOf(player);
+            float seconds = ahead ? GapSeconds(player, car) : GapSeconds(car, player);
+            if (float.IsNaN(seconds)) return "--";
+            return (ahead ? -seconds : seconds).ToString("+0.0;-0.0;0.0");
         }
 
         private const double Br1 = 1600.0 / 0.69314718055994530942; // 1600 / ln 2

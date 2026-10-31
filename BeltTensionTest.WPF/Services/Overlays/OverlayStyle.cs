@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -9,8 +10,9 @@ namespace BeltTensionTest.WPF.Services.Overlays
     /// Look of the overlay windows that is shared by all of them, kept in
     /// <c>overlaystyle.json</c> next to the exe (copied there from the project folder on
     /// build, and committed to git). Every build reads it; only a Debug build can change
-    /// it, in the Display panel in VR, and saving the layout writes it back to the
-    /// project folder (so git sees it) and to the running copy in bin.
+    /// it, in the Display panel in VR (corner radius) and by dragging column edges in the
+    /// standings / relative boxes (column widths), and saving the layout writes it back to
+    /// the project folder (so git sees it) and to the running copy in bin.
     /// </summary>
     public static class OverlayStyle
     {
@@ -40,10 +42,28 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private sealed class Data
         {
             public int CornerRadius { get; set; } = DefaultCornerRadius;
+
+            /// <summary>Column width overrides in pixels: box name ("Standings"), then column name ("Driver").</summary>
+            public Dictionary<string, Dictionary<string, int>> ColumnWidths { get; set; } = new();
         }
 
         private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
-        private static int _saved = int.MinValue;
+        private static Dictionary<string, Dictionary<string, int>> _columnWidths = new();
+        private static string? _savedJson;
+
+        private static string ToJson() =>
+            JsonSerializer.Serialize(new Data { CornerRadius = CornerRadius, ColumnWidths = _columnWidths }, Options);
+
+        /// <summary>Width the style gives a column of a box, or 0 for "use the box's own default".</summary>
+        public static int ColumnWidth(string box, string column) =>
+            _columnWidths.TryGetValue(box, out var cols) && cols.TryGetValue(column, out int w) ? w : 0;
+
+        /// <summary>Set a column's width; written to the file by the next <see cref="Save"/> (Debug builds).</summary>
+        public static void SetColumnWidth(string box, string column, int width)
+        {
+            if (!_columnWidths.TryGetValue(box, out var cols)) _columnWidths[box] = cols = new Dictionary<string, int>();
+            cols[column] = width;
+        }
 
         /// <summary>Read the file next to the exe; a missing or broken file leaves the defaults.</summary>
         public static void Load()
@@ -55,7 +75,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 var data = JsonSerializer.Deserialize<Data>(File.ReadAllText(path));
                 if (data == null) return;
                 CornerRadius = Math.Clamp(data.CornerRadius, 0, MaxCornerRadius);
-                _saved = CornerRadius;
+                _columnWidths = data.ColumnWidths ?? new();
+                _savedJson = ToJson();
             }
             catch (Exception) { /* keep the defaults */ }
         }
@@ -64,17 +85,17 @@ namespace BeltTensionTest.WPF.Services.Overlays
         public static void Save([CallerFilePath] string sourceFile = "")
         {
 #if DEBUG
-            if (CornerRadius == _saved) return;
+            string json = ToJson();
+            if (json == _savedJson) return;
             try
             {
-                string json = JsonSerializer.Serialize(new Data { CornerRadius = CornerRadius }, Options);
                 File.WriteAllText(Path.Combine(AppContext.BaseDirectory, FileName), json);
                 // This file is in <project>\Services\Overlays: the project's copy is two folders up.
                 string? dir = string.IsNullOrEmpty(sourceFile) ? null : Path.GetDirectoryName(sourceFile);
                 string? project = dir == null ? null : Path.GetDirectoryName(Path.GetDirectoryName(dir));
                 if (project != null && Directory.Exists(project))
                     File.WriteAllText(Path.Combine(project, FileName), json);
-                _saved = CornerRadius;
+                _savedJson = json;
             }
             catch (Exception) { /* the style just isn't saved this time */ }
 #endif

@@ -90,6 +90,9 @@ namespace BeltTensionTest.WPF.Models
         // the standings board; set from the in-VR HUD Settings panel.
         public string OverlayFontFamily { get; set; } = "Segoe UI";
         public int OverlayFontPercent { get; set; } = 100;
+        public bool OverlayFontBold { get; set; } = true;
+        public string OverlayTitleFontFamily { get; set; } = "Segoe UI";
+        public int OverlayTitleFontPercent { get; set; } = 100;
         // Drivers marked as a friend or a rival, keyed by iRacing customer id
         // ("name:<driver>" for AI): "Friend" or "Rival" (Services.Data.DriverTag).
         // Set by clicking a row on the in-VR standings board.
@@ -158,6 +161,8 @@ namespace BeltTensionTest.WPF.Models
         public int OverlaySlowCarPanelY { get; set; } = -1;
         public int OverlayCarBehindPanelX { get; set; } = -1;
         public int OverlayCarBehindPanelY { get; set; } = -1;
+        public int OverlayAheadPanelX { get; set; } = -1;
+        public int OverlayAheadPanelY { get; set; } = -1;
         // Car-behind box (IrachingHud's "Delta Behind"): shown while the car
         // behind is within ShowGap seconds; the readout turns red (and
         // flashes, if enabled) inside CloseGap seconds. 0 = default.
@@ -187,6 +192,7 @@ namespace BeltTensionTest.WPF.Models
         public double OverlayNearbyPanelScale { get; set; } = 0;
         public double OverlaySlowCarPanelScale { get; set; } = 0;
         public double OverlayCarBehindPanelScale { get; set; } = 0;
+        public double OverlayAheadPanelScale { get; set; } = 0;
         public double OverlayYouTubePanelScale { get; set; } = 0;
         public double OverlayGpuPanelScale { get; set; } = 0;
         public double OverlayCatchPanelScale { get; set; } = 0;
@@ -203,6 +209,7 @@ namespace BeltTensionTest.WPF.Models
         public double OverlayNearbyPanelOpacity { get; set; } = 0;
         public double OverlaySlowCarPanelOpacity { get; set; } = 0;
         public double OverlayCarBehindPanelOpacity { get; set; } = 0;
+        public double OverlayAheadPanelOpacity { get; set; } = 0;
         public double OverlayYouTubePanelOpacity { get; set; } = 0;
         public double OverlayGpuPanelOpacity { get; set; } = 0;
         public double OverlayCatchPanelOpacity { get; set; } = 0;

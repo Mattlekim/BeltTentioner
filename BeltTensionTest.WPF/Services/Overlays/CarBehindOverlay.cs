@@ -40,11 +40,10 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         private readonly Func<Models.AppSettings?> _settings;
         private readonly SpriteBatch _sb;
-        private readonly SpriteFont _fontHeader;
-        private readonly SpriteFont _fontBig;
-        private readonly SpriteFont _fontLabel;
+        private SpriteFont _fontHeader => OverlayFonts.Title(GraphicsDevice, 26f, bold: true);
+        private SpriteFont _fontBig => OverlayFonts.Body(GraphicsDevice, 32f, bold: true);
+        private SpriteFont _fontLabel => OverlayFonts.Body(GraphicsDevice, 16f, bold: true);
         private readonly Texture2D _pixel;
-        private readonly int _collapsedWidth;
 
         // The driver behind's blame counts ("Dive bomb x3"), shown under the delta. They make the box taller (and wider if need be).
         private string[] _blameLines = Array.Empty<string>();
@@ -57,7 +56,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private Data.BehindLap _lap;
         private float _flasher;           // original cadence: dt*6, cycle 1, drawn above 0.4
 
-        public override int CollapsedWidth => _collapsedWidth;
+        public override int CollapsedWidth => (int)_fontHeader.MeasureString(Name).X + 60;
         public override int CollapsedHeight => HeaderHeight;
 
         public CarBehindOverlay(GraphicsDevice device, int x, int y, Func<Models.AppSettings?> settings)
@@ -66,14 +65,10 @@ namespace BeltTensionTest.WPF.Services.Overlays
             Name = "Car Behind";
             _settings = settings;
             _sb = new SpriteBatch(device);
-            _fontHeader = RuntimeSpriteFont.Bake(device, "Segoe UI", 26f, System.Drawing.FontStyle.Bold);
             // The original draws its readout in MainFont (Comic Sans MS Bold
             // 20pt) and its edit label in ContentFont (13pt); both scaled 1.6x.
-            _fontBig = RuntimeSpriteFont.Bake(device, "Comic Sans MS", 32f, System.Drawing.FontStyle.Bold);
-            _fontLabel = RuntimeSpriteFont.Bake(device, "Comic Sans MS", 16f, System.Drawing.FontStyle.Bold);
             _pixel = new Texture2D(device, 1, 1);
             _pixel.SetData(new[] { XnaColor.White });
-            _collapsedWidth = (int)_fontHeader.MeasureString(Name).X + 60;
         }
 
         public override void Update(GameTime gameTime)
@@ -211,9 +206,6 @@ namespace BeltTensionTest.WPF.Services.Overlays
         public override void Dispose()
         {
             _pixel.Dispose();
-            _fontLabel.Texture.Dispose();
-            _fontBig.Texture.Dispose();
-            _fontHeader.Texture.Dispose();
             _sb.Dispose();
             base.Dispose();
         }

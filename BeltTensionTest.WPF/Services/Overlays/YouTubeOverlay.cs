@@ -81,9 +81,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         private readonly SpriteBatch _sb;
         private readonly Texture2D _white;
-        private readonly SpriteFont _font;     // title
-        private readonly SpriteFont _fontBody; // chat lines
-        private readonly int _collapsedWidth;
+        private SpriteFont _font => OverlayFonts.Title(GraphicsDevice, 28f);     // title
+        private SpriteFont _fontBody => OverlayFonts.Body(GraphicsDevice, 22f); // chat lines
 
         private readonly Queue<Msg> _chatLines = new(); // wrapped display lines
         private readonly object _statusLock = new();
@@ -99,7 +98,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public bool IsConnected { get; private set; }
 
-        public override int CollapsedWidth => _collapsedWidth;
+        public override int CollapsedWidth => (int)_font.MeasureString(Name).X + 60;
         public override int CollapsedHeight => TitleBarHeight;
 
         private static int PanelHeight =>
@@ -112,9 +111,6 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _sb = new SpriteBatch(device);
             _white = new Texture2D(device, 1, 1);
             _white.SetData(new[] { XnaColor.White });
-            _font = RuntimeSpriteFont.Bake(device, "Segoe UI", 28f);
-            _fontBody = RuntimeSpriteFont.Bake(device, "Segoe UI", 22f);
-            _collapsedWidth = (int)_font.MeasureString(Name).X + 60;
 
             YouTubeAuth.LoginChanged += OnLoginChanged;
             Task.Run(Connect);
@@ -534,8 +530,6 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _cts.Cancel();
             _cts.Dispose();
             _youtubeService?.Dispose();
-            _fontBody.Texture.Dispose();
-            _font.Texture.Dispose();
             _white.Dispose();
             _sb.Dispose();
             base.Dispose();
