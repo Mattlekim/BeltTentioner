@@ -101,7 +101,18 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private int _version = -1;      // tracker version the entries were built from
         private int _hoverRow = -1;     // index into _entries, or -1
         private int _total;             // incidents recorded this session
-        private int _hidden;            // older ones that did not fit
+        private int _hidden;            // incidents scrolled off above
+        private int _later;             // incidents scrolled off below
+
+        // Scrolling: _all is every line, _entries the MaxRows of them on show, starting at line _scroll.
+        // The panel follows the newest incident until the user scrolls up, and again once they scroll back down.
+        private readonly List<Entry> _all = new();
+        private int _scroll;
+        private bool _follow = true;
+        private bool _draggingBar;
+        private int _barGrab;           // pixels from the thumb's top where it was grabbed
+        private const int ScrollBarWidth = 10;
+        private const int WheelLinesPerNotch = 2;
         private bool _active;           // the sim is in its replay
 
         /// <summary>Which step of the right-click blame flow is open.</summary>
@@ -183,33 +194,20 @@ namespace BeltTensionTest.WPF.Services.Overlays
         }
 
         /// <summary>
-        /// Flatten the incidents into drawn lines, newest ones first to fit:
-        /// with no way to scroll in VR, the panel shows the last page of the
-        /// list (an incident and its cars always stay together).
+        /// Flatten the incidents into lines (an incident, then its cars). The panel shows MaxRows of them
+        /// from <see cref="_scroll"/>; the mouse wheel and the scroll bar move that window.
         /// </summary>
         private void BuildEntries(Incident[] incidents)
         {
-            _entries.Clear();
+            _all.Clear();
             _total = incidents.Length;
             _hoverRow = -1;
 
-            // Walk back from the newest until the panel is full.
-            int rows = 0, first = incidents.Length;
-            while (first > 0)
-            {
-                var inc = incidents[first - 1];
-                int need = 1 + (inc.Cars.Length > 1 ? inc.Cars.Length : 0) + inc.InvolvedCars.Length;
-                if (rows + need > MaxRows) break;
-                rows += need;
-                first--;
-            }
-            _hidden = first;
-
             var cars = IracingService.Instance.Cars;
-            for (int i = first; i < incidents.Length; i++)
+            for (int i = 0; i < incidents.Length; i++)
             {
                 var inc = incidents[i];
-                _entries.Add(new Entry
+                _all.Add(new Entry
                 {
                     Incident = inc,
                     Points = $"{inc.Points}x",
@@ -224,15 +222,84 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
                 if (inc.Cars.Length > 1)
                     foreach (int carIdx in inc.Cars)
-                        _entries.Add(new Entry { CarLine = Describe(cars, carIdx) });
+                        _all.Add(new Entry { CarLine = Describe(cars, carIdx) });
                 // Probably involved: nearest to a scoring car just before it scored.
                 for (int k = 0; k < inc.InvolvedCars.Length; k++)
-                    _entries.Add(new Entry
+                    _all.Add(new Entry
                     {
                         CarLine = $"{Describe(cars, inc.InvolvedCars[k])}  (probably, {inc.InvolvedGaps[k]:0.0} m)",
                         Likely = true,
                     });
             }
+
+            if (_follow) _scroll = MaxScroll;
+            ApplyWindow();
+        }
+
+        private int MaxScroll => Math.Max(0, _all.Count - MaxRows);
+        private bool HasScroll => _all.Count > MaxRows;
+
+        /// <summary>Move the window of lines on show and rebuild what is drawn.</summary>
+        private void SetScroll(int line)
+        {
+            line = Math.Clamp(line, 0, MaxScroll);
+            _follow = line >= MaxScroll;
+            if (line == _scroll) return;
+            _scroll = line;
+            _hoverRow = -1;
+            CloseMenu();
+            ApplyWindow();
+            Invalidate();
+        }
+
+        /// <summary>_entries = the MaxRows lines from _scroll; _hidden / _later count the incidents above and below.</summary>
+        private void ApplyWindow()
+        {
+            _scroll = Math.Clamp(_scroll, 0, MaxScroll);
+            _entries.Clear();
+            int end = Math.Min(_all.Count, _scroll + MaxRows);
+            for (int i = _scroll; i < end; i++) _entries.Add(_all[i]);
+            _hidden = 0; _later = 0;
+            for (int i = 0; i < _scroll; i++) if (_all[i].Incident != null) _hidden++;
+            for (int i = end; i < _all.Count; i++) if (_all[i].Incident != null) _later++;
+        }
+
+        // ----- Scroll bar ----------------------------------------------------
+        private XnaRectangle TrackRect => new XnaRectangle(
+            Width - Pad - ScrollBarWidth, RowsTop, ScrollBarWidth, MaxRows * (RowHeight + RowSpacing) - RowSpacing);
+
+        private XnaRectangle ThumbRect
+        {
+            get
+            {
+                var track = TrackRect;
+                int h = Math.Max(28, track.Height * MaxRows / Math.Max(_all.Count, MaxRows));
+                int range = Math.Max(1, track.Height - h);
+                int y = track.Y + (MaxScroll == 0 ? 0 : range * _scroll / MaxScroll);
+                return new XnaRectangle(track.X, y, track.Width, h);
+            }
+        }
+
+        /// <summary>Set the scroll from a thumb top edge (panel pixels).</summary>
+        private void ScrollToThumbTop(int thumbTop)
+        {
+            var track = TrackRect;
+            int range = Math.Max(1, track.Height - ThumbRect.Height);
+            float f = Math.Clamp((thumbTop - track.Y) / (float)range, 0f, 1f);
+            SetScroll((int)Math.Round(f * MaxScroll));
+        }
+
+        public override bool WantsPointerWheel(int x, int y) =>
+            !IsCollapsed && HasScroll && x >= 0 && x < Width && y >= TitleBarHeight && y < Height;
+
+        public override bool OnPointerWheel(int x, int y, int delta)
+        {
+            if (IsCollapsed || !HasScroll) return false;
+            // 120 units per notch; positive is up = towards the older incidents.
+            int lines = (int)Math.Round(delta / 120.0 * WheelLinesPerNotch);
+            if (lines == 0) lines = delta > 0 ? 1 : -1;
+            SetScroll(_scroll - lines);
+            return true;
         }
 
         private static string TypeLabel(IncidentType type) => type switch
@@ -477,6 +544,22 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public override bool OnPointerPress(int x, int y)
         {
+            // The scroll bar works whether or not the replay is up.
+            if (!IsCollapsed && HasScroll && _mode == MenuMode.None)
+            {
+                var track = TrackRect;
+                if (x >= track.X - 4 && x < track.Right + 4 && y >= track.Y && y < track.Bottom)
+                {
+                    var thumb = ThumbRect;
+                    // On the thumb: grab it where it is. On the track: bring the thumb's middle there, then drag from it.
+                    _barGrab = y >= thumb.Y && y < thumb.Bottom ? y - thumb.Y : thumb.Height / 2;
+                    _draggingBar = true;
+                    ScrollToThumbTop(y - _barGrab);
+                    Invalidate();
+                    return true;
+                }
+            }
+
             if (!_active || IsCollapsed) return false;
 
             // A menu is up: it takes the click, whether on an item or not.
@@ -493,6 +576,18 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
             ShowIncident(inc, inc.Cars[0]);
             return true; // consume it so the press doesn't fall through
+        }
+
+        public override void OnPointerDrag(int x, int y)
+        {
+            if (_draggingBar) ScrollToThumbTop(y - _barGrab);
+        }
+
+        public override void OnPointerRelease(int x, int y)
+        {
+            if (!_draggingBar) return;
+            _draggingBar = false;
+            Invalidate();
         }
 
         public override bool OnPointerRightPress(int x, int y)
@@ -538,7 +633,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _sb.DrawString(_font, Name, new XnaVector2(Pad + 12, OverlayStyle.TitleY(_font, TitleBarHeight) + 2), XnaColor.Black * 0.45f);
             _sb.DrawString(_font, Name, new XnaVector2(Pad + 12, OverlayStyle.TitleY(_font, TitleBarHeight)), TitleText);
 
-            string count = _hidden > 0 ? $"{_total} total, {_hidden} earlier" : $"{_total} total";
+            string count = $"{_total} total" + (_hidden > 0 ? $", {_hidden} earlier" : "") + (_later > 0 ? $", {_later} later" : "");
             var countSize = _fontHead.MeasureString(count);
             _sb.DrawString(_fontHead, count,
                 new XnaVector2(Width - Pad - 12 - countSize.X, (TitleBarHeight - _fontHead.LineSpacing) / 2f),
@@ -579,14 +674,14 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 {
                     // Car involved in the row above.
                     // A guess (no points of its own) is drawn in the contact color and gets the room of the blame column too.
-                    int room = e.Likely ? Width - Pad * 2 - ColCarLine : ColBlame - ColCarLine - 12;
+                    int room = e.Likely ? Width - Pad * 2 - ColCarLine - BarGutter : ColBlame - ColCarLine - 12;
                     _sb.DrawString(_fontBody, Fit(_fontBody, e.CarLine, room),
                                    new XnaVector2(ColCarLine, textY), e.Likely ? TypeContact : RowTextDim);
                     y += RowHeight + RowSpacing;
                     continue;
                 }
 
-                var row = new XnaRectangle(Pad, y, Width - Pad * 2, RowHeight);
+                var row = new XnaRectangle(Pad, y, Width - Pad * 2 - BarGutter, RowHeight);
                 MonoXRDraw.RoundedRect(_sb, row, 5, RowBg);
                 bool menuRow = _menuIncident != null && ReferenceEquals(_menuIncident, e.Incident);
                 if (i == _hoverRow || menuRow)
@@ -601,10 +696,17 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 _sb.DrawString(_fontBody, e.Type, new XnaVector2(ColType, textY), e.TypeColor);
                 _sb.DrawString(_fontBody, e.Cars, new XnaVector2(ColCars, textY), RowText);
                 if (e.Blame.Length > 0)
-                    _sb.DrawString(_fontBody, Fit(_fontBody, e.Blame, Width - Pad - 12 - ColBlame),
+                    _sb.DrawString(_fontBody, Fit(_fontBody, e.Blame, Width - Pad - 12 - ColBlame - BarGutter),
                                    new XnaVector2(ColBlame, textY), e.BlameColor);
 
                 y += RowHeight + RowSpacing;
+            }
+
+            if (HasScroll)
+            {
+                var track = TrackRect;
+                MonoXRDraw.RoundedRect(_sb, track, ScrollBarWidth / 2, RowBg);
+                MonoXRDraw.RoundedRect(_sb, ThumbRect, ScrollBarWidth / 2, Accent * (_draggingBar ? 1f : 0.7f));
             }
 
             DrawMenu();
@@ -612,6 +714,9 @@ namespace BeltTensionTest.WPF.Services.Overlays
             MonoXRDraw.RoundedRectOutline(_sb, panel, Radius, 2, Border);
             _sb.End();
         }
+
+        /// <summary>Room taken from the right of the rows by the scroll bar, when there is one.</summary>
+        private int BarGutter => HasScroll ? ScrollBarWidth + 6 : 0;
 
         /// <summary>The blame popup, over the rows. The compositor is inside Begin/End.</summary>
         private void DrawMenu()
