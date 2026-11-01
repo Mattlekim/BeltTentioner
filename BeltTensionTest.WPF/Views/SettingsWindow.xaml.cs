@@ -49,6 +49,15 @@ namespace BeltTensionTest.WPF.Views
                 OverlayWindow.PreviewColorBlind(mode);
         }
 
+        // The menu size shown on the running overlay at once; Cancel puts the saved one back.
+        private float _menuScaleAtOpen;
+
+        private void MenuScale_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (!_colorUiReady) return;
+            Services.Data.DriverTags.Instance.MenuScale = (float)(e.NewValue / 100.0);
+        }
+
         public SettingsWindow(MainViewModel vm)
         {
             InitializeComponent();
@@ -73,6 +82,9 @@ namespace BeltTensionTest.WPF.Views
             sld_CarBehindShow.Value = behindShow > 0 ? behindShow : Services.Overlays.CarBehindOverlay.DefaultShowGap;
             sld_CarBehindClose.Value = behindClose > 0 ? behindClose : Services.Overlays.CarBehindOverlay.DefaultCloseGap;
             chk_CarBehindFlash.IsChecked = _vm.AppSettings?.OverlayCarBehindFlashClose ?? true;
+            // The running overlay's value wins over the saved one: it may have been changed in VR.
+            _menuScaleAtOpen = Services.Data.DriverTags.Instance.MenuScale;
+            sld_MenuScale.Value = Math.Round(_menuScaleAtOpen * 100.0 / 5.0) * 5.0;
 
             var a = _vm.AppSettings;
             chk_HeadSmooth.IsChecked = a?.HeadSmoothEnabled ?? false;
@@ -90,7 +102,12 @@ namespace BeltTensionTest.WPF.Views
             // The head-tracking options act while the window is open; whichever way
             // it closes, the saved values are what the layer ends up with (OK saved
             // them, Cancel puts the old ones back).
-            Closed += (_, _) => { OverlayWindow.ReapplyHeadTracking(); OverlayWindow.ReapplyColorBlind(); };
+            Closed += (_, _) =>
+            {
+                OverlayWindow.ReapplyHeadTracking();
+                OverlayWindow.ReapplyColorBlind();
+                if (DialogResult != true) Services.Data.DriverTags.Instance.MenuScale = _menuScaleAtOpen;
+            };
 
             // Initialize telemetry source radio buttons from the current view model state.
             // The VM already enforces that iRacing and SimHub cannot both be enabled.
@@ -379,6 +396,7 @@ namespace BeltTensionTest.WPF.Views
             _vm.AppSettings.OverlayCarBehindShowGap = Math.Round(sld_CarBehindShow.Value, 2);
             _vm.AppSettings.OverlayCarBehindCloseGap = Math.Round(sld_CarBehindClose.Value, 2);
             _vm.AppSettings.OverlayCarBehindFlashClose = chk_CarBehindFlash.IsChecked == true;
+            _vm.AppSettings.OverlayMenuScale = sld_MenuScale.Value / 100.0;
             // Save keybindings
             _vm.AppSettings.ToggleFanKey = kb_ToggleFan.Gesture ?? string.Empty;
             _vm.AppSettings.ToggleFanGlobal = kb_ToggleFan.IsGlobal;
