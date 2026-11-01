@@ -109,6 +109,10 @@ namespace BeltTensionTest.WPF.Models
         public int OverlayRivalColor { get; set; } = 0xD8462E;
         public double OverlayTagTint { get; set; } = 0.35;
         public bool OverlayTagsInRelativeBoxes { get; set; } = true;
+        // Whether the standings board always keeps tagged drivers on screen when the
+        // field is longer than the board ("Off", "Friends", "Rivals" or "Both").
+        // Set from the in-VR HUD Settings panel or the standings board's right-click menu.
+        public string OverlayStandingsPinTags { get; set; } = "Off";
         // Rows each box holds, set by dragging its bottom edge in edit mode
         // (the standings board leaves cars out beyond it; 0 = coded default).
         public int OverlayStandingsRows { get; set; } = 26;

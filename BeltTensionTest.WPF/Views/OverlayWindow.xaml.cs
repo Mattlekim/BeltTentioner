@@ -153,7 +153,7 @@ namespace BeltTensionTest.WPF.Views
                 if (settings != null)
                     Services.Data.DriverTags.Instance.Load(
                         settings.OverlayDriverTags, settings.OverlayFriendColor, settings.OverlayRivalColor,
-                        settings.OverlayTagTint, settings.OverlayTagsInRelativeBoxes);
+                        settings.OverlayTagTint, settings.OverlayTagsInRelativeBoxes, settings.OverlayStandingsPinTags);
 
                 if (settings != null)
                 {
@@ -505,6 +505,14 @@ namespace BeltTensionTest.WPF.Views
                     if (_vm.AppSettings != null) _vm.AppSettings.ColorBlindMode = mode;
                     SetColorBlind(mode);
                 },
+                // The delta-behind box reads these from the app settings on every frame, so a change
+                // here shows at once. A value of 0 or less means "never set": the box's own default.
+                GetCarBehindShow = () => _vm.AppSettings is { OverlayCarBehindShowGap: > 0 } carBehind ? carBehind.OverlayCarBehindShowGap : CarBehindOverlay.DefaultShowGap,
+                SetCarBehindShow = v => { if (_vm.AppSettings != null) _vm.AppSettings.OverlayCarBehindShowGap = v; },
+                GetCarBehindClose = () => _vm.AppSettings is { OverlayCarBehindCloseGap: > 0 } carBehind ? carBehind.OverlayCarBehindCloseGap : CarBehindOverlay.DefaultCloseGap,
+                SetCarBehindClose = v => { if (_vm.AppSettings != null) _vm.AppSettings.OverlayCarBehindCloseGap = v; },
+                GetCarBehindFlash = () => _vm.AppSettings?.OverlayCarBehindFlashClose ?? true,
+                SetCarBehindFlash = on => { if (_vm.AppSettings != null) _vm.AppSettings.OverlayCarBehindFlashClose = on; },
             };
 
             int hudX = 16, hudY = Math.Max(0, _host.CanvasHeight - 400); // above the GPU panel's corner
@@ -1015,6 +1023,7 @@ namespace BeltTensionTest.WPF.Views
                 s.OverlayRivalColor = tags.RivalColor;
                 s.OverlayTagTint = tags.TintStrength;
                 s.OverlayTagsInRelativeBoxes = tags.ShowInRelativeBoxes;
+                s.OverlayStandingsPinTags = tags.PinMode.ToString();
                 if (_gazeFocus != null)
                 {
                     s.OverlayGazeEffect = _gazeFocus.Effect.ToString();

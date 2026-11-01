@@ -207,28 +207,112 @@ namespace BeltTensionTest.WPF.Services.Overlays
         /// The rows to draw. Everyone, unless the field is longer than the
         /// board: then the leaders, a break marker (a null entry) and the
         /// block around the player, so both ends of the story stay visible.
+        /// With "always show" on (see <see cref="DriverTags.PinMode"/>), the tagged
+        /// drivers it names are kept too, each group of rows set off by a break.
         /// </summary>
         private List<Car?> Window(List<Car> ordered, Car player)
         {
-            var rows = new List<Car?>(Math.Min(ordered.Count, MaxRows));
-            if (ordered.Count <= MaxRows)
+            int capacity = MaxRows;
+            var tags = DriverTags.Instance;
+            if (ordered.Count <= capacity || tags.PinMode == DriverPin.Off)
+                return DefaultWindow(ordered, player, capacity);
+
+            // The drivers to keep, in running order (never the player, who is always shown).
+            var pinned = new List<int>();
+            for (int i = 0; i < ordered.Count; i++)
+                if (ordered[i].CarIdx != player.CarIdx && tags.IsPinned(tags.TagOf(ordered[i])))
+                    pinned.Add(i);
+            if (pinned.Count == 0) return DefaultWindow(ordered, player, capacity);
+
+            // Shrink the leaders-and-player window until the rows it needs, plus a row for each
+            // pinned driver it leaves out and each break between groups, fit the board. If they
+            // still do not fit, show fewer leaders (down to the winner alone) before leaving
+            // a pinned driver out.
+            for (int leaders = LeaderRows; leaders >= 1; leaders--)
+            {
+                int floorRows = leaders + 3; // the leaders, a break and two rows around the player
+                for (int budget = capacity; budget >= floorRows; budget--)
+                {
+                    var merged = MergePinned(ordered, DefaultWindow(ordered, player, budget, leaders), pinned);
+                    if (merged.Count <= capacity) return merged;
+                }
+            }
+
+            // A board too short to hold even the winner, a break and two rows around you: no room to pin anyone.
+            if (capacity < 4) return DefaultWindow(ordered, player, capacity);
+
+            // Too many to fit at all: keep the pinned drivers nearest the player, as many as the rows allow.
+            int playerIdx = Math.Max(0, ordered.FindIndex(c => c.CarIdx == player.CarIdx));
+            var byDistance = pinned.OrderBy(i => Math.Abs(i - playerIdx)).ToList();
+            var floorWindow = DefaultWindow(ordered, player, 4, 1);
+            var kept = new List<int>();
+            foreach (int i in byDistance)
+            {
+                kept.Add(i);
+                if (MergePinned(ordered, floorWindow, kept).Count > capacity) { kept.RemoveAt(kept.Count - 1); break; }
+            }
+            return MergePinned(ordered, floorWindow, kept);
+        }
+
+        /// <summary>The window without any pinned drivers: everyone, or the leaders, a break and the block around the player.</summary>
+        private static List<Car?> DefaultWindow(List<Car> ordered, Car player, int capacity, int leaders = LeaderRows)
+        {
+            var rows = new List<Car?>(Math.Min(ordered.Count, capacity));
+            if (ordered.Count <= capacity)
             {
                 rows.AddRange(ordered);
                 return rows;
             }
 
-            int blockRows = MaxRows - LeaderRows - 1; // the break marker takes one
+            int blockRows = capacity - leaders - 1; // the break marker takes one
             int playerIdx = ordered.FindIndex(c => c.CarIdx == player.CarIdx);
-            if (playerIdx < 0) playerIdx = LeaderRows;
-            int start = Math.Clamp(playerIdx - blockRows / 2, LeaderRows, ordered.Count - blockRows);
+            if (playerIdx < 0) playerIdx = leaders;
+            int start = Math.Clamp(playerIdx - blockRows / 2, leaders, ordered.Count - blockRows);
 
-            for (int i = 0; i < LeaderRows; i++) rows.Add(ordered[i]);
+            for (int i = 0; i < leaders; i++) rows.Add(ordered[i]);
             // Only mark a break when one was actually made; when the player
             // sits just behind the leaders the rows run on unbroken.
-            if (start > LeaderRows) rows.Add(null);
-            else start = LeaderRows;
-            for (int i = start; i < ordered.Count && rows.Count < MaxRows; i++) rows.Add(ordered[i]);
+            if (start > leaders) rows.Add(null);
+            else start = leaders;
+            for (int i = start; i < ordered.Count && rows.Count < capacity; i++) rows.Add(ordered[i]);
             return rows;
+        }
+
+        /// <summary>
+        /// The window plus the pinned drivers it does not already hold, in running
+        /// order, with a break marker wherever the shown drivers are not neighbours.
+        /// </summary>
+        private static List<Car?> MergePinned(List<Car> ordered, List<Car?> window, List<int> pinned)
+        {
+            var shown = new SortedSet<int>(pinned);
+            foreach (var car in window)
+                if (car != null) shown.Add(ordered.FindIndex(c => c.CarIdx == car.CarIdx));
+
+            var rows = new List<Car?>(shown.Count + 2);
+            int previous = -1;
+            foreach (int i in shown)
+            {
+                if (previous >= 0 && i > previous + 1) rows.Add(null);
+                rows.Add(ordered[i]);
+                previous = i;
+            }
+            return rows;
+        }
+
+        // ----- Edit-mode right-click menu ----------------------------------------
+
+        private static readonly string[] PinNames = { "Off", "Friends", "Rivals", "Friends + rivals" };
+
+        /// <summary>Panel options for the edit-mode right-click menu: which tagged drivers are always shown.</summary>
+        public override IEnumerable<(string Label, Action Run)> EditMenuItems()
+        {
+            foreach (var item in base.EditMenuItems()) yield return item;
+            var tags = DriverTags.Instance;
+            yield return ($"Always show: {PinNames[(int)tags.PinMode]} (click to change)", () =>
+            {
+                tags.PinMode = (DriverPin)(((int)tags.PinMode + 1) % PinNames.Length);
+                Invalidate();
+            });
         }
 
         /// <summary>Fastest best lap set in each car class so far (pole), keyed by class id.</summary>

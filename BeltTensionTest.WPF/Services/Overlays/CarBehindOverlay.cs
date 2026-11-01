@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Microsoft.Xna.Framework.Graphics;
 using GameTime = Microsoft.Xna.Framework.GameTime;
 using MonoXR.Client;
@@ -69,6 +70,47 @@ namespace BeltTensionTest.WPF.Services.Overlays
             // 20pt) and its edit label in ContentFont (13pt); both scaled 1.6x.
             _pixel = new Texture2D(device, 1, 1);
             _pixel.SetData(new[] { XnaColor.White });
+        }
+
+        // ----- Edit-mode right-click menu ----------------------------------------
+
+        private static readonly double[] ShowPresets = { 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0 };
+        private static readonly double[] ClosePresets = { 0.1, 0.15, 0.2, 0.3, 0.4, 0.5 };
+
+        // The next preset above the current value, wrapping round to the first.
+        private static double NextPreset(double[] presets, double current)
+        {
+            foreach (double p in presets)
+                if (p > current + 0.001) return p;
+            return presets[0];
+        }
+
+        /// <summary>Panel options for the edit-mode right-click menu: each click steps to the next value.</summary>
+        public override IEnumerable<(string Label, Action Run)> EditMenuItems()
+        {
+            foreach (var item in base.EditMenuItems()) yield return item;
+            var s = _settings();
+            if (s == null) yield break;
+
+            double show = s.OverlayCarBehindShowGap > 0 ? s.OverlayCarBehindShowGap : DefaultShowGap;
+            double close = s.OverlayCarBehindCloseGap > 0 ? s.OverlayCarBehindCloseGap : DefaultCloseGap;
+            bool flash = s.OverlayCarBehindFlashClose;
+
+            yield return ($"Show within: {show:0.0#} s (click to change)", () =>
+            {
+                s.OverlayCarBehindShowGap = NextPreset(ShowPresets, show);
+                Invalidate();
+            });
+            yield return ($"Close distance: {close:0.0#} s (click to change)", () =>
+            {
+                s.OverlayCarBehindCloseGap = NextPreset(ClosePresets, close);
+                Invalidate();
+            });
+            yield return ($"Flash when close: {(flash ? "on" : "off")}", () =>
+            {
+                s.OverlayCarBehindFlashClose = !flash;
+                Invalidate();
+            });
         }
 
         public override void Update(GameTime gameTime)
