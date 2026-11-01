@@ -24,6 +24,15 @@ namespace BeltTensionTest.WPF.Services.Overlays
         public BrakeMarkers? BrakeMarkers { get; init; }
         public Func<bool> GetEyeTracking { get; init; } = () => true;
         public Func<int> GetColorBlindIndex { get; init; } = () => 0;
+
+        // Car behind (the "delta behind" box): how far back it shows, when it counts as close,
+        // and whether it flashes when close. Live in the app settings, so the box picks them up at once.
+        public Func<double> GetCarBehindShow { get; init; } = () => CarBehindOverlay.DefaultShowGap;
+        public Action<double> SetCarBehindShow { get; init; } = _ => { };
+        public Func<double> GetCarBehindClose { get; init; } = () => CarBehindOverlay.DefaultCloseGap;
+        public Action<double> SetCarBehindClose { get; init; } = _ => { };
+        public Func<bool> GetCarBehindFlash { get; init; } = () => true;
+        public Action<bool> SetCarBehindFlash { get; init; } = _ => { };
     }
 
     /// <summary>
@@ -86,6 +95,10 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private readonly HudOptions _options;
         private string _recenterText = string.Empty;
         private readonly OverlayButtonRow _clearTags;
+        private readonly OverlayChoiceRow _pinTags;
+        private readonly MonoXRSliderControl _behindShow;
+        private readonly MonoXRSliderControl _behindClose;
+        private readonly MonoXRCheckbox _behindFlash;
         private readonly Func<int> _taggedCount;
         private string _tagSummary = string.Empty;
 
@@ -98,6 +111,9 @@ namespace BeltTensionTest.WPF.Services.Overlays
         // Option order matches the GazeEffect / GazeSource enums.
         private static readonly string[] GazeEffects = { "Nothing", "Brighten", "Enlarge", "Both" };
 
+        // Option order matches the DriverPin enum.
+        private static readonly string[] PinChoices = { "Off", "Friends", "Rivals", "Friends + rivals" };
+
         // Why "Eye" is running on head direction instead, by what the layer reports.
         private static string EyeFallbackStatus(MonoXrGazeState state) => state switch
         {
@@ -109,34 +125,24 @@ namespace BeltTensionTest.WPF.Services.Overlays
         public override int CollapsedWidth => (int)_font.MeasureString(Name).X + 60;
         public override int CollapsedHeight => TitleBarHeight;
 
-        /// <summary>Panel height for the fixed set of rows below.</summary>
+        /// <summary>Panel height: the content, up to the most a settings panel gets (taller content scrolls).</summary>
         private static int HeightFor() => Math.Min(OverlayStyle.MaxSettingsHeight, ContentHeight());
 
         // The footer is two lines (tag count, then what the gaze is doing) so they cannot run into each other.
         private const int FooterHeight = 62;
 
+        /// <summary>
+        /// Height of every row in the menu: five section headers, the two colour rows, and 21 ordinary
+        /// rows (tint, tags in relative boxes, always show, clear all; show within, close distance,
+        /// flash; eye tracking, colour blind, recenter, brake marker button, road height, clear markers;
+        /// font, size, bold, title font, title size; gaze effect, faded opacity, enlarge). Add a row to
+        /// the menu and this count has to grow with it, or the last rows are cut off.
+        /// </summary>
         private static int ContentHeight() =>
             TitleBarHeight + 14
-            + 36 + RowSpacing            // "Driver tags" header
-            + 56 + RowSpacing            // friend color
-            + 56 + RowSpacing            // rival color
-            + RowHeight + RowSpacing     // tint
-            + RowHeight + RowSpacing     // show in relative boxes
-            + RowHeight + RowSpacing     // clear all
-            + 36 + RowSpacing            // "Overlay" header
-            + RowHeight + RowSpacing     // eye tracking
-            + RowHeight + RowSpacing     // colour blind mode
-            + RowHeight + RowSpacing     // recenter button
-            + RowHeight + RowSpacing     // brake marker button
-            + RowHeight + RowSpacing     // brake marker height
-            + RowHeight + RowSpacing     // clear brake markers
-            + 36 + RowSpacing            // "Text" header
-            + RowHeight + RowSpacing     // font
-            + RowHeight + RowSpacing     // font size
-            + 36 + RowSpacing            // "Look at a panel" header
-            + RowHeight + RowSpacing     // gaze effect
-            + RowHeight + RowSpacing     // dim others
-            + RowHeight + RowSpacing     // enlarge by
+            + 5 * (36 + RowSpacing)      // section headers
+            + 2 * (56 + RowSpacing)      // friend colour, rival colour
+            + 21 * (RowHeight + RowSpacing)
             + FooterHeight;              // two footer lines + padding
 
         /// <param name="options">Overlay-wide switches the Overlay rows drive.</param>
@@ -186,7 +192,28 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _clearTags.Click += () => { tags.ClearAll(); Invalidate(); };
             _menu.Add(_clearTags);
 
+            // Keep tagged drivers on the standings board even when the field is longer than the board.
+            _pinTags = new OverlayChoiceRow("Always show on standings", PinChoices, (int)tags.PinMode);
+            _pinTags.SelectedIndexChanged += i => { tags.PinMode = (DriverPin)i; Invalidate(); };
+            _menu.Add(_pinTags);
+
+            // The delta-behind box: these write straight into the app settings it reads every frame.
             _options = options;
+            _menu.Add(new MonoXRLabel("Car behind (delta box)"));
+
+            _behindShow = new MonoXRSliderControl("Show within (s)", 0.1f, 5f, (float)options.GetCarBehindShow(), 0.1f, "0.0");
+            _behindShow.ValueChanged += v => { options.SetCarBehindShow(Math.Round(v, 2)); saved(); Invalidate(); };
+            _menu.Add(_behindShow);
+
+            _behindClose = new MonoXRSliderControl("Close distance (s)", 0.05f, 0.5f, (float)options.GetCarBehindClose(), 0.05f, "0.00");
+            _behindClose.ValueChanged += v => { options.SetCarBehindClose(Math.Round(v, 2)); saved(); Invalidate(); };
+            _menu.Add(_behindClose);
+
+            _behindFlash = new MonoXRCheckbox("Flash when close", options.GetCarBehindFlash());
+            _behindFlash.Checked += () => { options.SetCarBehindFlash(true); saved(); Invalidate(); };
+            _behindFlash.Unchecked += () => { options.SetCarBehindFlash(false); saved(); Invalidate(); };
+            _menu.Add(_behindFlash);
+
             _menu.Add(new MonoXRLabel("Overlay"));
 
             _eyeTracking = new MonoXRCheckbox("Enable eye tracking", options.EyeTracking);
@@ -374,6 +401,10 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _rivalColor.Value = tags.RivalColor;
             _tint.Value = tags.TintStrength * 100f;
             _inRelative.IsChecked = tags.ShowInRelativeBoxes;
+            _pinTags.SelectedIndex = (int)tags.PinMode;
+            _behindShow.Value = (float)_options.GetCarBehindShow();
+            _behindClose.Value = (float)_options.GetCarBehindClose();
+            _behindFlash.IsChecked = _options.GetCarBehindFlash();
             _eyeTracking.IsChecked = _options.EyeTracking;
             _colorBlind.SelectedIndex = _options.ColorBlindIndex;
             if (_markerBtn != null)

@@ -13,6 +13,15 @@ namespace BeltTensionTest.WPF.Services.Data
         Rival,
     }
 
+    /// <summary>Which tagged drivers the standings board keeps on screen even when the field does not fit.</summary>
+    public enum DriverPin
+    {
+        Off,
+        Friends,
+        Rivals,
+        Both,
+    }
+
     /// <summary>
     /// Drivers marked as a friend or a rival, so the HUD can pick them out of
     /// a full field at a glance. Tags are set from the standings board (click
@@ -61,6 +70,7 @@ namespace BeltTensionTest.WPF.Services.Data
         private int _rivalColor = DefaultRivalColor;
         private float _tint = 0.35f;
         private bool _showInRelativeBoxes = true;
+        private DriverPin _pinMode = DriverPin.Off;
 
         /// <summary>Row color for a friend, 0xRRGGBB.</summary>
         public int FriendColor
@@ -103,6 +113,26 @@ namespace BeltTensionTest.WPF.Services.Data
             set { if (_showInRelativeBoxes == value) return; _showInRelativeBoxes = value; Changed?.Invoke(); }
         }
 
+        /// <summary>
+        /// Which tagged drivers the standings board always shows. When the field is
+        /// longer than the board, the board normally keeps only the leaders and the
+        /// block around you; with this on, the chosen drivers are kept too.
+        /// </summary>
+        public DriverPin PinMode
+        {
+            get => _pinMode;
+            set { if (_pinMode == value) return; _pinMode = value; Changed?.Invoke(); }
+        }
+
+        /// <summary>True when a driver with this tag is one the board is set to always show.</summary>
+        public bool IsPinned(DriverTag tag) => _pinMode switch
+        {
+            DriverPin.Friends => tag == DriverTag.Friend,
+            DriverPin.Rivals => tag == DriverTag.Rival,
+            DriverPin.Both => tag == DriverTag.Friend || tag == DriverTag.Rival,
+            _ => false,
+        };
+
         /// <summary>Drivers currently tagged.</summary>
         public int Count => _tags.Count;
 
@@ -112,13 +142,14 @@ namespace BeltTensionTest.WPF.Services.Data
         /// <see cref="Changed"/> fires.
         /// </summary>
         public void Load(Dictionary<string, string> tags, int friendColor, int rivalColor,
-                         double tint, bool showInRelativeBoxes)
+                         double tint, bool showInRelativeBoxes, string? pinMode = null)
         {
             _tags = tags;
             SetColor(ref _friendColor, friendColor);
             SetColor(ref _rivalColor, rivalColor);
             _tint = (float)Math.Clamp(tint, 0.0, 0.8);
             _showInRelativeBoxes = showInRelativeBoxes;
+            _pinMode = Enum.TryParse(pinMode, out DriverPin pin) ? pin : DriverPin.Off;
         }
 
         /// <summary>The key a car's tag is stored under; empty when it has no identity yet.</summary>
