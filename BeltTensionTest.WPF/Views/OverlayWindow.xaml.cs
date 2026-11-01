@@ -155,8 +155,7 @@ namespace BeltTensionTest.WPF.Views
                 if (settings != null)
                     Services.Data.DriverTags.Instance.Load(
                         settings.OverlayDriverTags, settings.OverlayFriendColor, settings.OverlayRivalColor,
-                        settings.OverlayTagTint, settings.OverlayTagsInRelativeBoxes, settings.OverlayStandingsPinTags,
-                        settings.OverlayMenuScale);
+                        settings.OverlayTagTint, settings.OverlayTagsInRelativeBoxes, settings.OverlayStandingsPinTags);
 
                 if (settings != null)
                 {
@@ -1100,7 +1099,6 @@ namespace BeltTensionTest.WPF.Views
                 s.OverlayTagTint = tags.TintStrength;
                 s.OverlayTagsInRelativeBoxes = tags.ShowInRelativeBoxes;
                 s.OverlayStandingsPinTags = tags.PinMode.ToString();
-                s.OverlayMenuScale = tags.MenuScale;
                 if (_gazeFocus != null)
                 {
                     s.OverlayGazeEffect = _gazeFocus.Effect.ToString();

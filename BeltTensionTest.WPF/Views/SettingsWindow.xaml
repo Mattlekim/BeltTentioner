@@ -185,21 +185,6 @@
                                 <ColumnDefinition Width="180"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="Driver menu size (%):" VerticalAlignment="Center" Foreground="#A0A0BE"
-                                       ToolTip="Size of the pop-up menus on the standings board (the friend / rival driver menu). Raise it if they are too small to read in the headset. The same setting is in the in-VR HUD Settings panel. Shows at once."/>
-                            <Slider x:Name="sld_MenuScale" Grid.Column="1" Minimum="75" Maximum="300" SmallChange="5" LargeChange="25"
-                                    TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center" Margin="6,4"
-                                    ValueChanged="MenuScale_Changed"/>
-                            <TextBlock Grid.Column="2" Text="{Binding Value, ElementName=sld_MenuScale, StringFormat=0}"
-                                       VerticalAlignment="Center" Foreground="#A0A0BE"/>
-                        </Grid>
-
-                        <Grid Margin="0,4">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="140"/>
-                                <ColumnDefinition Width="180"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="Settings panel size (%):" VerticalAlignment="Center" Foreground="#A0A0BE"
                                        ToolTip="Size of the in-VR HUD Settings panel, if its rows and text are too small to read. The same setting is in that panel. Needs the overlay running; shows at once."/>
                             <Slider x:Name="sld_PanelScale" Grid.Column="1" Minimum="50" Maximum="300" SmallChange="5" LargeChange="25"

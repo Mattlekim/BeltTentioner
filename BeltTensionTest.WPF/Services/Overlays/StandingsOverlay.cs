@@ -77,22 +77,10 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         // Driver-tag menu geometry and state. The menu is anchored where the
         // row was clicked and kept inside the panel.
-        private const int MenuWidthBase = 440;
-        private int MenuWidth => Scaled(440);
-        private const int MenuItemBase = 40;
-        private int MenuItemHeight => Scaled(40);
-        private const int MenuTitleBase = 34;
-        private int MenuTitleHeight => Scaled(34);
-        private int MenuPad => Scaled(6);
-        // "Menu size" from the HUD Settings panel: the pop-up menus grow with it, so they stay readable in VR.
-        // The menu is drawn inside this panel, so it cannot be bigger than the panel: the size asked for is
-        // held back to what fits, or the extra rows would be cut off and could not be clicked.
-        private int BaseMenuHeight => MenuTitleBase + Math.Max(1, _menuItems.Count) * MenuItemBase + 12;
-        private float MenuScale => Math.Max(0.5f, Math.Min(DriverTags.Instance.MenuScale,
-            Math.Min((Width - Pad * 2) / (float)MenuWidthBase,
-                     (Height - HeaderTop - Pad) / (float)BaseMenuHeight)));
-        private int Scaled(int v) => (int)Math.Round(v * MenuScale);
-
+        private const int MenuWidth = 440;
+        private const int MenuItemHeight = 40;
+        private const int MenuTitleHeight = 34;
+        private const int MenuPad = 6;
         private const int MaxBlameIncidents = 8;
         private static readonly XnaColor MenuBg = new XnaColor(0x22, 0x22, 0x34, 250);
 
@@ -761,9 +749,9 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 MenuStep.Praise => $"Praise {_menuTitle}:",
                 _ => _menuTitle,
             };
-            Batch.DrawString(FontHead, Fit(FontHead, title, (MenuWidth - Scaled(40)) / MenuScale),
-                new XnaVector2(rect.X + MenuPad + Scaled(12), titleY + (MenuTitleHeight - FontHead.LineSpacing * MenuScale) / 2f),
-                RowTextDim, 0f, XnaVector2.Zero, MenuScale, SpriteEffects.None, 0f);
+            Batch.DrawString(FontHead, Fit(FontHead, title, MenuWidth - 40),
+                new XnaVector2(rect.X + MenuPad + 12, titleY + (MenuTitleHeight - FontHead.LineSpacing) / 2f),
+                RowTextDim);
             MonoXRDraw.HorizontalFade(Batch,
                 new XnaRectangle(rect.X + MenuPad + 8, titleY + MenuTitleHeight - 2,
                                  MenuWidth - (MenuPad + 8) * 2, 2), Border);
@@ -778,25 +766,24 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
                 // The two tagging entries carry a chip of the color they
                 // would paint the row, so the menu doubles as the legend.
-                int textX = item.X + Scaled(14);
+                int textX = item.X + 14;
                 int chip = label == RivalItem ? tags.RivalColor
                          : label == FriendItem ? tags.FriendColor : -1;
                 if (chip >= 0)
                 {
                     MonoXRDraw.RoundedRect(Batch,
-                        new XnaRectangle(item.X + Scaled(12), item.Y + (MenuItemHeight - Scaled(16)) / 2, Scaled(16), Scaled(16)), 4, FromRgb(chip));
-                    textX = item.X + Scaled(38);
+                        new XnaRectangle(item.X + 12, item.Y + (MenuItemHeight - 16) / 2, 16, 16), 4, FromRgb(chip));
+                    textX = item.X + 38;
                 }
 
-                Batch.DrawString(FontBody, Fit(FontBody, label, (item.Right - textX - Scaled(10)) / MenuScale),
-                    new XnaVector2(textX, item.Y + (MenuItemHeight - FontBody.LineSpacing * MenuScale) / 2f),
-                    label == CancelItem || label == NoIncidentsItem ? RowTextDim : RowText,
-                    0f, XnaVector2.Zero, MenuScale, SpriteEffects.None, 0f);
+                Batch.DrawString(FontBody, Fit(FontBody, label, item.Right - textX - 10),
+                    new XnaVector2(textX, item.Y + (MenuItemHeight - FontBody.LineSpacing) / 2f),
+                    label == CancelItem || label == NoIncidentsItem ? RowTextDim : RowText);
             }
         }
 
         /// <summary>Cut text down to a pixel width, ending in ".." when it had to.</summary>
-        private static string Fit(SpriteFont font, string text, float maxWidth)
+        private static string Fit(SpriteFont font, string text, int maxWidth)
         {
             if (string.IsNullOrEmpty(text) || font.MeasureString(text).X <= maxWidth) return text;
             for (int n = text.Length - 1; n > 0; n--)
