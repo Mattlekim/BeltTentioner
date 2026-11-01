@@ -91,6 +91,9 @@
                 <MenuItem Header="Check for Updates..."
                           Foreground="#A0A0BE"
                           Command="{Binding CheckUpdatesCommand}"/>
+                <MenuItem Header="Select version..."
+                          Foreground="#A0A0BE"
+                          Click="SelectVersion_Click"/>
                 <MenuItem Header="About..."
                           Foreground="#A0A0BE"
                           Click="About_Click"/>

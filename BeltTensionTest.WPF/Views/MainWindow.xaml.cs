@@ -593,6 +593,13 @@ namespace BeltTensionTest.WPF.Views
             }
         }
 
+        private void SelectVersion_Click(object sender, RoutedEventArgs e)
+        {
+            var win = new VersionSelectorWindow(new Services.UpdateService()) { Owner = this };
+            win.ShowDialog();
+            if (win.InstallStarted) ExitForUpdate();
+        }
+
         private void About_Click(object sender, RoutedEventArgs e)
         {
             new AboutWindow { Owner = this }.ShowDialog();

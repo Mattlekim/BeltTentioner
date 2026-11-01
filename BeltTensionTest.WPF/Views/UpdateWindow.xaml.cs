@@ -30,7 +30,13 @@ namespace BeltTensionTest.WPF.Views
             _info = info;
             DownloadedZip = alreadyDownloaded;
 
-            HeaderText.Text = $"Version {info.RemoteTag?.TrimStart('v', 'V')} is available";
+            string target = info.RemoteTag?.TrimStart('v', 'V') ?? string.Empty;
+            // The version selector reuses this window for any release, not just newer ones.
+            int cmp = Version.TryParse(target, out var tv) && Version.TryParse(UpdateService.AppVersion, out var cv) ? tv.CompareTo(cv) : 1;
+            HeaderText.Text = cmp > 0 ? $"Version {target} is available"
+                            : cmp < 0 ? $"Install older version {target}"
+                            : $"Reinstall version {target}";
+            Title = cmp > 0 ? "Update available" : "Install version";
             SubText.Text = $"You are on version {UpdateService.AppVersion}.";
             NotesText.Text = string.IsNullOrWhiteSpace(info.Notes) ? "No release notes were provided." : info.Notes.Trim();
 

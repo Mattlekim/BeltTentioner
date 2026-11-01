@@ -101,6 +101,82 @@ namespace BeltTensionTest.WPF.Services
             return result;
         }
 
+        /// <summary>One published release, for the version selector.</summary>
+        public class ReleaseEntry
+        {
+            public string Tag { get; set; } = string.Empty;
+            public Version? Version { get; set; }
+            public DateTimeOffset? Published { get; set; }
+            public bool IsPrerelease { get; set; }
+            public string? Notes { get; set; }
+            public string? DownloadUrl { get; set; }
+            public long DownloadSize { get; set; }
+
+            /// <summary>True when this is the version that is running now.</summary>
+            public bool IsCurrent => Version != null && Version.TryParse(AppVersion, out var cur) && Version.CompareTo(cur) == 0;
+
+            /// <summary>The form <see cref="DownloadAsync"/> / the update window take.</summary>
+            public UpdateInfo ToUpdateInfo() => new()
+            {
+                IsUpdateAvailable = true, RemoteTag = Tag, DownloadUrl = DownloadUrl, DownloadSize = DownloadSize, Notes = Notes,
+            };
+        }
+
+        /// <summary>
+        /// Every release that has a downloadable zip, newest first. Returns an empty list and sets
+        /// <paramref name="error"/> if GitHub cannot be reached.
+        /// </summary>
+        public async Task<(System.Collections.Generic.List<ReleaseEntry> Releases, string? Error)> ListReleasesAsync()
+        {
+            var list = new System.Collections.Generic.List<ReleaseEntry>();
+            try
+            {
+                using var http = CreateClient();
+                for (int page = 1; page <= 5; page++)
+                {
+                    var resp = await http.GetAsync($"https://api.github.com/repos/{RepoOwner}/{RepoName}/releases?per_page=100&page={page}").ConfigureAwait(false);
+                    if (!resp.IsSuccessStatusCode) return (list, $"HTTP {(int)resp.StatusCode}");
+                    using var stream = await resp.Content.ReadAsStreamAsync().ConfigureAwait(false);
+                    using var doc = await JsonDocument.ParseAsync(stream).ConfigureAwait(false);
+                    if (doc.RootElement.ValueKind != JsonValueKind.Array) break;
+                    int count = 0;
+                    foreach (var rel in doc.RootElement.EnumerateArray())
+                    {
+                        count++;
+                        if (rel.TryGetProperty("draft", out var d) && d.ValueKind == JsonValueKind.True) continue;
+                        var tag = rel.TryGetProperty("tag_name", out var t) ? t.GetString() ?? string.Empty : string.Empty;
+                        if (!TryParseVersion(tag, out var ver) || ver == null) continue;
+
+                        string? dl = null; long size = 0;
+                        if (rel.TryGetProperty("assets", out var assets) && assets.ValueKind == JsonValueKind.Array)
+                            foreach (var a in assets.EnumerateArray())
+                            {
+                                var name = a.TryGetProperty("name", out var n) ? n.GetString() : null;
+                                if (name == null || !name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) continue;
+                                if (!a.TryGetProperty("browser_download_url", out var bd)) continue;
+                                dl = bd.GetString();
+                                if (a.TryGetProperty("size", out var sz) && sz.TryGetInt64(out var s)) size = s;
+                                break;
+                            }
+                        if (dl == null) continue; // nothing to install
+
+                        DateTimeOffset? published = rel.TryGetProperty("published_at", out var pa) && pa.ValueKind == JsonValueKind.String
+                            && DateTimeOffset.TryParse(pa.GetString(), out var pd) ? pd : null;
+                        list.Add(new ReleaseEntry
+                        {
+                            Tag = tag, Version = ver, Published = published, DownloadUrl = dl, DownloadSize = size,
+                            IsPrerelease = rel.TryGetProperty("prerelease", out var pr) && pr.ValueKind == JsonValueKind.True,
+                            Notes = rel.TryGetProperty("body", out var b) && b.ValueKind == JsonValueKind.String ? b.GetString() : null,
+                        });
+                    }
+                    if (count < 100) break;
+                }
+                list.Sort((x, y) => y.Version!.CompareTo(x.Version!));
+                return (list, null);
+            }
+            catch (Exception ex) { return (list, ex.Message); }
+        }
+
         /// <summary>Downloads the release zip to a temp file and returns its path.</summary>
         public async Task<string> DownloadAsync(UpdateInfo info, IProgress<double>? progress, CancellationToken ct)
         {
