@@ -115,8 +115,6 @@ namespace BeltTensionTest.WPF.Models
         // field is longer than the board ("Off", "Friends", "Rivals" or "Both").
         // Set from the in-VR HUD Settings panel or the standings board's right-click menu.
         public string OverlayStandingsPinTags { get; set; } = "Off";
-        // Size of the standings pop-up menus (driver / column), 1 = normal. Set from the HUD Settings panel.
-        public double OverlayMenuScale { get; set; } = 1.0;
         // Rows each box holds, set by dragging its bottom edge in edit mode
         // (the standings board leaves cars out beyond it; 0 = coded default).
         public int OverlayStandingsRows { get; set; } = 26;
