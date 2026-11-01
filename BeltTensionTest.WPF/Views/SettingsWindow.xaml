@@ -179,6 +179,23 @@
 
                         <Separator Margin="0,8" Background="#46466A"/>
 
+                        <Grid Margin="0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Menu size (%):" VerticalAlignment="Center" Foreground="#A0A0BE"
+                                       ToolTip="Size of the pop-up menus on the standings board (the friend / rival driver menu). Raise it if they are too small to read in the headset. The same setting is in the in-VR HUD Settings panel. Shows at once."/>
+                            <Slider x:Name="sld_MenuScale" Grid.Column="1" Minimum="75" Maximum="300" SmallChange="5" LargeChange="25"
+                                    TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center" Margin="6,4"
+                                    ValueChanged="MenuScale_Changed"/>
+                            <TextBlock Grid.Column="2" Text="{Binding Value, ElementName=sld_MenuScale, StringFormat=0}"
+                                       VerticalAlignment="Center" Foreground="#A0A0BE"/>
+                        </Grid>
+
+                        <Separator Margin="0,8" Background="#46466A"/>
+
                         <CheckBox x:Name="chk_EyeTracking" Content="Enable gaze focus" Foreground="#A0A0BE" Margin="0,4"
                                   ToolTip="Gaze focus: the panel you look at stands out. Off ignores the Effect / Tracked with choices in the in-VR HUD Settings panel (they are kept)."/>
                         <Grid Margin="0,4">

@@ -45,7 +45,7 @@
                 <TextBlock Text="Buy me a coffee" FontSize="20" FontWeight="Bold" Foreground="{StaticResource TextBrightBrush}" HorizontalAlignment="Center"/>
                 <TextBlock Text="If you like this project, you can support development by buying a coffee." TextWrapping="Wrap" Margin="0,8,0,0" HorizontalAlignment="Center"/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,12,0,0">
-                    <Button x:Name="btn_Buy" Content="{x:Static properties:Resources.WindowTitle}" Width="140" Height="32" Click="Buy_Click" Background="{StaticResource AccentBlueBrush}" Foreground="White" Style="{DynamicResource BlueButton}" ToolTip="{x:Static properties:Resources.BuyButtonToolTip}"/>
+                    <Button x:Name="btn_Buy" Content="{x:Static properties:Resources.WindowTitle}" Width="140" Height="32" Click="Buy_Click" Background="{StaticResource AccentBlueBrush}" Foreground="Black" Style="{DynamicResource BlueButton}" ToolTip="{x:Static properties:Resources.BuyButtonToolTip}"/>
                     <Button Style="{DynamicResource BlueButton}" Content="Later" Width="80" Height="32" Margin="8,0,0,0" Click="Close_Click" ToolTip="{x:Static properties:Resources.LaterButtonToolTip}"/>
                 </StackPanel>
             </StackPanel>
