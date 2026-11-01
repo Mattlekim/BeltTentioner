@@ -306,6 +306,10 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public override void OnEditDrag(int x, int y) => _menu.OnPointerDrag(x, y);
 
+        // The wheel over a slider adjusts it - and is kept from reaching the game or scrolling anything behind.
+        public override bool WantsPointerWheel(int x, int y) => !IsCollapsed && _menu.WantsWheel(x, y);
+        public override bool OnPointerWheel(int x, int y, int delta) => !IsCollapsed && _menu.OnPointerWheel(x, y, delta);
+
         public override void OnEditRelease(int x, int y)
         {
             _menu.OnPointerRelease(x, y);

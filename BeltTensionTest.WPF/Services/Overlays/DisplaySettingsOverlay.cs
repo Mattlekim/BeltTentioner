@@ -47,6 +47,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private readonly OverlayChoiceRow _editView;
         private readonly OverlayDropdownRow _shape;
         private readonly OverlayDropdownRow _colorBlind;
+        private readonly OverlayChoiceRow _quality;
+        private readonly Func<int> _getQuality;
         private readonly Func<int> _getShape;
         private readonly Func<int> _getColorBlind;
         private readonly Func<int> _getEditView;
@@ -62,7 +64,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         private static int RowsFor(IReadOnlyList<BeltSettingRow> rows, int shape)
         {
-            int n = 3; // Shape, Colour blind, Editing for
+            int n = 4; // Shape, Quality, Colour blind, Editing for
             foreach (var row in rows) if (row.VisibleFor == null || row.VisibleFor(shape)) n++;
             return n;
         }
@@ -80,11 +82,15 @@ namespace BeltTensionTest.WPF.Services.Overlays
         /// <param name="colorBlindOptions">Choices for the colour-blind mode.</param>
         /// <param name="getColorBlind">Selected colour-blind mode, polled every frame like <paramref name="getShape"/>.</param>
         /// <param name="setColorBlind">Called when the colour-blind mode is changed here.</param>
+        /// <param name="qualityOptions">The resolution presets, the first being "Custom" (no preset matches).</param>
+        /// <param name="getQuality">Which preset the canvas matches, polled every frame.</param>
+        /// <param name="setQuality">Called when a preset is picked here (including 0, which should do nothing).</param>
         public DisplaySettingsOverlay(GraphicsDevice device, int x, int y,
                                       IReadOnlyList<BeltSettingRow> rows, Func<string> resolutionText,
                                       string[] editViewOptions, Func<int> getEditView, Action<int> setEditView,
                                       Func<int> getShape, Action<int> setShape,
-                                      string[] colorBlindOptions, Func<int> getColorBlind, Action<int> setColorBlind)
+                                      string[] colorBlindOptions, Func<int> getColorBlind, Action<int> setColorBlind,
+                                      string[] qualityOptions, Func<int> getQuality, Action<int> setQuality)
             : base(device, PanelWidth, HeightFor(RowsFor(rows, getShape())), x, y)
         {
             _allRows = new List<BeltSettingRow>(rows);
@@ -117,6 +123,11 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _shape = new OverlayDropdownRow("Shape", new[] { "Flat", "Curved", "Triple", "Triple + top", "Triple + bottom", "Triple + top + bottom" }, getShape());
             _shape.SelectedIndexChanged += i => { setShape(i); Invalidate(); };
 
+            // Resolution presets (1080p / 2K / 4K): sets the DPI; the panels keep their size.
+            _getQuality = getQuality;
+            _quality = new OverlayChoiceRow("Resolution", qualityOptions, getQuality());
+            _quality.SelectedIndexChanged += i => { setQuality(i); Invalidate(); };
+
             // Swaps the status colours for a set that is easier to tell apart.
             _getColorBlind = getColorBlind;
             _colorBlind = new OverlayDropdownRow("Colour blind", colorBlindOptions, getColorBlind());
@@ -143,6 +154,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _menu.Clear();
             foreach (var (row, slider) in _bindings)
                 if (row.VisibleFor == null) _menu.Add(slider);
+            _menu.Add(_quality);
             _menu.Add(_shape);
             foreach (var (row, slider) in _bindings)
                 if (row.VisibleFor != null && row.VisibleFor(shape)) _menu.Add(slider);
@@ -182,6 +194,10 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public override void OnEditDrag(int x, int y) => _menu.OnPointerDrag(x, y);
 
+        // The wheel over a slider adjusts it - and is kept from reaching the game or scrolling anything behind.
+        public override bool WantsPointerWheel(int x, int y) => !IsCollapsed && _menu.WantsWheel(x, y);
+        public override bool OnPointerWheel(int x, int y, int delta) => !IsCollapsed && _menu.OnPointerWheel(x, y, delta);
+
         // The open lists light up the option under the pointer.
         public override void OnEditHover(int x, int y)
         {
@@ -220,6 +236,13 @@ namespace BeltTensionTest.WPF.Services.Overlays
             if (shape != _shape.SelectedIndex)
             {
                 _shape.SelectedIndex = shape; // changed in the desktop window
+                Invalidate();
+            }
+
+            int quality = _getQuality();
+            if (quality != _quality.SelectedIndex)
+            {
+                _quality.SelectedIndex = quality; // the DPI was changed by a slider or the desktop window
                 Invalidate();
             }
 

@@ -124,6 +124,7 @@ namespace BeltTensionTest.WPF.Views
         {
             _lastAttached = false;
             _statusLogged = false;
+            _lastEffectiveDpi = null; // a new host: the saved panel sizes belong to the saved DPI
             try
             {
                 Log("Creating MonoGame overlay host...");
@@ -673,7 +674,8 @@ namespace BeltTensionTest.WPF.Views
                     if (_vm.AppSettings != null) _vm.AppSettings.ColorBlindMode = mode;
                     SetColorBlind(mode);
                     SaveLayout();
-                });
+                },
+                DpiPresetNames, DpiPresetIndex, i => ApplyDpiPreset(i == 0 ? 0 : i - 1)); // stepping past High lands on "Custom": wrap round to Low
 
             // Defaults to the right-hand edge, vertically centered (the corner
             // panels are all taken); then the saved position, clamped.
@@ -856,12 +858,23 @@ namespace BeltTensionTest.WPF.Views
 
             int w = Math.Clamp((int)Math.Round(rawW * fit), MinCanvasSize, MaxCanvasSize);
             int h = Math.Clamp((int)Math.Round(rawH * fit), MinCanvasSize, MaxCanvasSize);
-            if (w == _host.CanvasWidth && h == _host.CanvasHeight) return;
+
+            // Panels are laid out in canvas pixels, so a different pixel density (DPI) would make every
+            // panel physically bigger or smaller. Scale their size and position by the change so they
+            // stay the same size and in the same place in VR; only the canvas gets sharper or softer.
+            double effectiveDpi = w / Math.Max(0.01, _host.DisplaySize.X);
+            double dpiRatio = _lastEffectiveDpi is double last && last > 0 ? effectiveDpi / last : 1.0;
+            _lastEffectiveDpi = effectiveDpi;
+            bool rescaled = Math.Abs(dpiRatio - 1.0) > 0.002;
+            if (rescaled) ScalePanels(dpiRatio);
+
+            if (w == _host.CanvasWidth && h == _host.CanvasHeight) { if (rescaled) SaveLayout(); return; }
 
             try
             {
                 _host.SetCanvasResolution(w, h);
                 ClampPanelsToCanvas();
+                if (rescaled) SaveLayout();
                 // The effective DPI, which is the requested one unless the
                 // limits above scaled it.
                 Log($"Canvas resolution set to {w}×{h} ({w / Math.Max(0.01f, _host.DisplaySize.X):0} px/m).");
@@ -870,6 +883,52 @@ namespace BeltTensionTest.WPF.Views
             {
                 Log("RESOLUTION CHANGE FAILED: " + ex);
             }
+        }
+
+        // Pixels per meter the canvas had when the panels were last laid out (null until the first canvas is built).
+        private double? _lastEffectiveDpi;
+
+        /// <summary>Scale every free panel's size and position by <paramref name="ratio"/> (new DPI / old DPI).</summary>
+        private void ScalePanels(double ratio)
+        {
+            foreach (var p in AllPanels())
+            {
+                if (p.IsDocked) continue; // placed by the host
+                p.Scale = (float)(p.Scale * ratio);
+                p.X = (int)Math.Round(p.X * ratio);
+                p.Y = (int)Math.Round(p.Y * ratio);
+                _gazeFocus?.Recapture(p); // the new size is the user's baseline now
+            }
+            Log($"DPI changed: panels scaled x{ratio:0.###} to keep their size.");
+        }
+
+        // ----- DPI presets: the canvas width in pixels -------------------------
+        private static readonly string[] DpiPresetNames = { "Custom", "Low 1080p", "Med 2K", "High 4K" };
+        private static readonly int[] DpiPresetWidths = { 1920, 2560, 3840 };
+
+        /// <summary>Set the DPI so the canvas is about the preset's width in pixels (1080p, 2K, 4K).</summary>
+        private void ApplyDpiPreset(int preset)
+        {
+            if (_host == null || preset < 0 || preset >= DpiPresetWidths.Length) return;
+            double dpi = DpiPresetWidths[preset] / Math.Max(0.01, _host.DisplaySize.X);
+            ApplyDisplaySetting(DisplaySetting.Dpi, Math.Clamp(dpi, 128, 2048));
+            Log($"Resolution preset: {DpiPresetNames[preset + 1]}.");
+        }
+
+        /// <summary>Which preset the canvas matches: 0 = custom, else 1..3.</summary>
+        private int DpiPresetIndex()
+        {
+            if (_host == null) return 0;
+            double width = _dpi * _host.DisplaySize.X;
+            for (int i = 0; i < DpiPresetWidths.Length; i++)
+                if (Math.Abs(width - DpiPresetWidths[i]) <= DpiPresetWidths[i] * 0.015) return i + 1;
+            return 0;
+        }
+
+        private void DpiPreset_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement { Tag: string tag } && int.TryParse(tag, out int preset))
+                ApplyDpiPreset(preset);
         }
 
         /// <summary>

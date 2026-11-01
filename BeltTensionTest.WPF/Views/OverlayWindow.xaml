@@ -151,8 +151,17 @@
                         <TextBlock Grid.Row="5" Grid.Column="2" x:Name="DpiValue" VerticalAlignment="Center" Margin="0,0,0,4"/>
 
                         <TextBlock Grid.Row="6" Grid.Column="0" Text="Resolution" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <TextBlock Grid.Row="6" Grid.Column="1" Grid.ColumnSpan="2" x:Name="ResolutionValue"
-                                   VerticalAlignment="Center"/>
+                        <DockPanel Grid.Row="6" Grid.Column="1" Grid.ColumnSpan="2">
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                <Button Content="Low" Tag="0" Width="46" Height="22" Margin="6,0,0,0" Click="DpiPreset_Click"
+                                        ToolTip="Low: about 1920 px across (1080p). Panels keep their size."/>
+                                <Button Content="Med" Tag="1" Width="46" Height="22" Margin="4,0,0,0" Click="DpiPreset_Click"
+                                        ToolTip="Medium: about 2560 px across (2K). Panels keep their size."/>
+                                <Button Content="High" Tag="2" Width="46" Height="22" Margin="4,0,0,0" Click="DpiPreset_Click"
+                                        ToolTip="High: about 3840 px across (4K). Panels keep their size."/>
+                            </StackPanel>
+                            <TextBlock x:Name="ResolutionValue" VerticalAlignment="Center"/>
+                        </DockPanel>
 
                         <!-- Depth-only distance: match the game's UI depth so both eyes agree on the cursor -->
                         <CheckBox Grid.Row="7" Grid.Column="1" Grid.ColumnSpan="2" x:Name="DepthOnlyCheck"
