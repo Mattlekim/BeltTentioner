@@ -476,6 +476,7 @@ namespace BeltTensionTest.WPF.Views
             // Edit-mode eye button on each panel: whether it reacts to gaze.
             // Each click cycles the panel: eye tracking -> head tracking -> off.
             _host.GazeButtonState = panel => _gazeFocus?.IsPanelEnabled(panel) ?? true;
+            _host.GazeButtonMode = panel => _gazeFocus == null ? 1 : (int)_gazeFocus.ModeOf(panel) switch { 2 => 1, 1 => 2, _ => 0 };
             _host.GazeToggleRequested += panel =>
             {
                 if (_gazeFocus == null) return;
