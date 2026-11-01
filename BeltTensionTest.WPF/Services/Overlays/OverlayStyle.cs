@@ -20,6 +20,9 @@ namespace BeltTensionTest.WPF.Services.Overlays
         public const int DefaultCornerRadius = 18;
         public const int MaxCornerRadius = 40;
 
+        /// <summary>Tallest a settings panel (Belt, HUD, Display, Head tracking) gets, in canvas pixels. Taller content scrolls.</summary>
+        public const int MaxSettingsHeight = 760;
+
         /// <summary>Corner radius of the overlay windows in pixels; 0 is square.</summary>
         public static int CornerRadius { get; set; } = DefaultCornerRadius;
 

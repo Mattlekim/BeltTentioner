@@ -60,7 +60,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         /// <summary>Panel height for <paramref name="rowCount"/> sliders plus the resolution line.</summary>
         private static int HeightFor(int rowCount) =>
-            TitleBarHeight + 14 + rowCount * (RowHeight + RowSpacing) + ResolutionRowHeight + 16;
+            Math.Min(OverlayStyle.MaxSettingsHeight,
+                     TitleBarHeight + 14 + rowCount * (RowHeight + RowSpacing) + ResolutionRowHeight + 16);
 
         private static int RowsFor(IReadOnlyList<BeltSettingRow> rows, int shape)
         {

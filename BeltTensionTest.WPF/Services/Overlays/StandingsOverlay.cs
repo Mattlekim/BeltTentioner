@@ -103,6 +103,91 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private int _menuHover = -1;
         private int _menuX, _menuY;
 
+        // Scrolling. By default the board follows you: the leaders, then the block of cars around you. Turning
+        // the wheel or dragging the bar switches to a plain window of the running order starting at
+        // _scrollTop; that lasts ManualHoldMs after the last scroll, then the board follows you again.
+        private const int ManualHoldMs = 10000;
+        private const int BarWidth = 8;
+        private const int WheelRowsPerNotch = 3;
+        private int _fieldCount;         // cars in the running order
+        private int _windowStart;        // index of the first car of the scrolling part of the window (for the thumb)
+        private int _playerIdx;          // the viewed driver's place in the running order
+        private int _scrollTop;          // first car shown while scrolling by hand
+        private long _manualUntil;       // Environment.TickCount64 until which the manual window holds
+        private bool _barDrag;
+        private int _barGrab;
+
+        private bool Manual => Environment.TickCount64 < _manualUntil;
+        private bool HasScroll => _fieldCount > MaxRows;
+        private int MaxTop => Math.Max(0, _fieldCount - MaxRows);
+
+        private XnaRectangle TrackRect => new XnaRectangle(
+            Width - Pad - 10 - BarWidth, RowsTop, BarWidth, MaxRows * (RowHeight + RowSpacing) - RowSpacing);
+
+        private XnaRectangle ThumbRect
+        {
+            get
+            {
+                var track = TrackRect;
+                int h = Math.Max(28, track.Height * MaxRows / Math.Max(_fieldCount, MaxRows));
+                int range = Math.Max(1, track.Height - h);
+                int top = Math.Clamp(_windowStart, 0, MaxTop);
+                int y = track.Y + (MaxTop == 0 ? 0 : range * top / MaxTop);
+                return new XnaRectangle(track.X, y, track.Width, h);
+            }
+        }
+
+        /// <summary>Hand scrolling on: start from where the board is now if it was following you.</summary>
+        private void BeginManual()
+        {
+            if (!Manual) _scrollTop = Math.Clamp(_playerIdx - MaxRows / 2, 0, MaxTop);
+            _manualUntil = Environment.TickCount64 + ManualHoldMs;
+        }
+
+        private void ScrollTo(int top)
+        {
+            BeginManual();
+            top = Math.Clamp(top, 0, MaxTop);
+            _manualUntil = Environment.TickCount64 + ManualHoldMs;
+            if (top == _scrollTop) return;
+            _scrollTop = top;
+            CloseMenu();
+            Invalidate();
+        }
+
+        private void ScrollToThumbTop(int thumbTop)
+        {
+            var track = TrackRect;
+            int range = Math.Max(1, track.Height - ThumbRect.Height);
+            float f = Math.Clamp((thumbTop - track.Y) / (float)range, 0f, 1f);
+            ScrollTo((int)Math.Round(f * MaxTop));
+        }
+
+        public override bool WantsPointerWheel(int x, int y) =>
+            !IsCollapsed && IsActive && HasScroll && x >= 0 && x < Width && y >= RowsTop - HeaderH && y < Height;
+
+        public override bool OnPointerWheel(int x, int y, int delta)
+        {
+            if (IsCollapsed || !IsActive || !HasScroll) return false;
+            int rows = (int)Math.Round(delta / 120.0 * WheelRowsPerNotch);
+            if (rows == 0) rows = delta > 0 ? 1 : -1;
+            BeginManual();
+            ScrollTo(_scrollTop - rows); // wheel up = towards the leaders
+            return true;
+        }
+
+        public override void OnPointerDrag(int x, int y)
+        {
+            if (_barDrag) ScrollToThumbTop(y - _barGrab);
+        }
+
+        public override void OnPointerRelease(int x, int y)
+        {
+            if (!_barDrag) return;
+            _barDrag = false;
+            Invalidate();
+        }
+
         private bool MenuOpen => _menuCar >= 0;
         private int MenuHeight => MenuTitleHeight + _menuItems.Count * MenuItemHeight + MenuPad * 2;
 
@@ -211,9 +296,21 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private List<Car?> Window(List<Car> ordered, Car player)
         {
             var rows = new List<Car?>(Math.Min(ordered.Count, MaxRows));
+            _fieldCount = ordered.Count;
+            _playerIdx = ordered.FindIndex(c => c.CarIdx == player.CarIdx);
             if (ordered.Count <= MaxRows)
             {
+                _windowStart = 0;
                 rows.AddRange(ordered);
+                return rows;
+            }
+
+            // Scrolled by hand: a plain window of the running order.
+            if (Manual)
+            {
+                _scrollTop = Math.Clamp(_scrollTop, 0, MaxTop);
+                _windowStart = _scrollTop;
+                for (int i = _scrollTop; i < ordered.Count && rows.Count < MaxRows; i++) rows.Add(ordered[i]);
                 return rows;
             }
 
@@ -227,6 +324,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             // sits just behind the leaders the rows run on unbroken.
             if (start > LeaderRows) rows.Add(null);
             else start = LeaderRows;
+            _windowStart = start;
             for (int i = start; i < ordered.Count && rows.Count < MaxRows; i++) rows.Add(ordered[i]);
             return rows;
         }
@@ -313,6 +411,20 @@ namespace BeltTensionTest.WPF.Services.Overlays
         {
             if (HeaderMenuPress(x, y)) return true;
             if (!IsActive || IsCollapsed) return false;
+
+            // The scroll bar: grab the thumb, or click the track to bring the thumb there and drag from it.
+            if (HasScroll && !MenuOpen)
+            {
+                var track = TrackRect;
+                if (x >= track.X - 6 && x < track.Right + 6 && y >= track.Y && y < track.Bottom)
+                {
+                    var thumb = ThumbRect;
+                    _barGrab = y >= thumb.Y && y < thumb.Bottom ? y - thumb.Y : thumb.Height / 2;
+                    _barDrag = true;
+                    ScrollToThumbTop(y - _barGrab);
+                    return true;
+                }
+            }
 
             // With the menu up it takes the click wherever it lands, so a
             // press beside it dismisses instead of opening another one.
@@ -525,6 +637,13 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         protected override void DrawPopups()
         {
+            if (HasScroll && IsActive)
+            {
+                var track = TrackRect;
+                MonoXRDraw.RoundedRect(Batch, track, BarWidth / 2, XnaColor.White * 0.08f);
+                MonoXRDraw.RoundedRect(Batch, ThumbRect, BarWidth / 2, Accent * (_barDrag ? 1f : Manual ? 0.85f : 0.55f));
+            }
+
             if (!MenuOpen || !IsActive) return;
 
             var tags = DriverTags.Instance;
@@ -588,7 +707,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         protected override void AppendSnapshot(StringBuilder sb)
         {
-            sb.Append('#').Append(_fastestText).Append(_fieldText).Append(_temps).Append(_brakeBias);
+            sb.Append('#').Append(_fastestText).Append(_fieldText).Append(_temps).Append(_brakeBias)
+              .Append('S').Append(_windowStart).Append(Manual ? 'm' : 'a').Append(_barDrag ? 'd' : 'u');
         }
 
         protected override void DrawInfoBar(XnaRectangle area)

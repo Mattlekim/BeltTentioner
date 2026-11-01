@@ -104,7 +104,12 @@ namespace BeltTensionTest.WPF.Services.Overlays
         public override int CollapsedHeight => TitleBarHeight;
 
         /// <summary>Panel height for the fixed set of rows below.</summary>
-        private static int HeightFor() =>
+        private static int HeightFor() => Math.Min(OverlayStyle.MaxSettingsHeight, ContentHeight());
+
+        // The footer is two lines (tag count, then what the gaze is doing) so they cannot run into each other.
+        private const int FooterHeight = 62;
+
+        private static int ContentHeight() =>
             TitleBarHeight + 14
             + 36 + RowSpacing            // "Driver tags" header
             + 56 + RowSpacing            // friend color
@@ -123,7 +128,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             + RowHeight + RowSpacing     // gaze effect
             + RowHeight + RowSpacing     // dim others
             + RowHeight + RowSpacing     // enlarge by
-            + 34;                        // footer line + padding
+            + FooterHeight;              // two footer lines + padding
 
         /// <param name="options">Overlay-wide switches the Overlay rows drive.</param>
         /// <param name="saved">Called after any change, to persist it.</param>
@@ -142,7 +147,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
             _menu = new MonoXRMenuControl
             {
-                Bounds = new XnaRectangle(16, TitleBarHeight + 14, Width - 32, Height - TitleBarHeight - 48),
+                Bounds = new XnaRectangle(16, TitleBarHeight + 14, Width - 32, Height - TitleBarHeight - 14 - FooterHeight),
                 ItemHeight = RowHeight,
                 ItemSpacing = RowSpacing,
             };
@@ -411,16 +416,27 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
             _menu.Draw(_sb, _fontBody, _white);
 
-            // Footer: tag count on the left, what the gaze is doing on the right.
-            _sb.DrawString(_fontHead, _tagSummary + "  -  click a row on the standings board to tag a driver",
-                new XnaVector2(28, Height - 30), RowTextDim);
-            var gazeSize = _fontHead.MeasureString(_gazeStatus);
-            _sb.DrawString(_fontHead, _gazeStatus,
-                new XnaVector2(Width - 28 - gazeSize.X, Height - 30), RowTextDim);
+            // Footer, one line each: the tag count, then what the gaze is doing. (Both used to share a
+            // line and drew over each other once the gaze text got long.)
+            string tagLine = Fit(_fontHead, _tagSummary + "  -  click a row on the standings board to tag a driver", Width - 56);
+            _sb.DrawString(_fontHead, tagLine, new XnaVector2(28, Height - 54), RowTextDim);
+            _sb.DrawString(_fontHead, Fit(_fontHead, _gazeStatus, Width - 56), new XnaVector2(28, Height - 28), RowTextDim);
 
             MonoXRDraw.RoundedRectOutline(_sb, panel, Radius, 2, Border);
 
             _sb.End();
+        }
+
+        /// <summary>Text cut down to a pixel width, ending in ".." when it had to be.</summary>
+        private static string Fit(SpriteFont font, string text, int maxWidth)
+        {
+            if (string.IsNullOrEmpty(text) || font.MeasureString(text).X <= maxWidth) return text;
+            for (int n = text.Length - 1; n > 0; n--)
+            {
+                string cut = text.Substring(0, n) + "..";
+                if (font.MeasureString(cut).X <= maxWidth) return cut;
+            }
+            return string.Empty;
         }
 
         public override void Dispose()

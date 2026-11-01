@@ -109,7 +109,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         public BeltSettingsOverlay(GraphicsDevice device, int width, int height, int x, int y,
                                    IReadOnlyList<BeltSettingGroup> groups, string name = "Belt Settings")
-            : base(device, width, height, x, y)
+            : base(device, width, Math.Min(height, OverlayStyle.MaxSettingsHeight), x, y)
         {
             Name = name;
             _sb = new SpriteBatch(device);
@@ -118,7 +118,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
             _menu = new MonoXRMenuControl
             {
-                Bounds = new XnaRectangle(16, TitleBarHeight + 14, width - 32, height - TitleBarHeight - 22),
+                Bounds = new XnaRectangle(16, TitleBarHeight + 14, width - 32, Height - TitleBarHeight - 22),
                 ItemHeight = 48,
                 ItemSpacing = 6,
             };

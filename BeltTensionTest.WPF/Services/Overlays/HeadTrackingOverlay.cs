@@ -43,7 +43,9 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private string _status = string.Empty;
 
         // Header, 3 groups of toggle + sliders, lock button, status line.
-        private static int HeightFor() =>
+        private static int HeightFor() => Math.Min(OverlayStyle.MaxSettingsHeight, ContentHeight());
+
+        private static int ContentHeight() =>
             TitleBarHeight + 14
             + 36 + RowSpacing                              // "Smoothing" header
             + 2 * (RowHeight + RowSpacing)                 // smooth on, amount
