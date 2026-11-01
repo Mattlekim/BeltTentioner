@@ -22,6 +22,7 @@ namespace BeltTensionTest.WPF.Views
 
         // Full canvas size, for mapping the mouse position back onto the canvas.
         private int _canvasW, _canvasH;
+        private MonoGameOverlayHost? _host;
 
         private bool _syncingEmulate;
 
@@ -93,6 +94,7 @@ namespace BeltTensionTest.WPF.Views
             int w = rect.Right - rect.Left, h = rect.Bottom - rect.Top;
             if (w <= 0 || h <= 0) return;
 
+            _host = host;
             _canvasW = host.CanvasWidth;
             _canvasH = host.CanvasHeight;
 
@@ -120,7 +122,11 @@ namespace BeltTensionTest.WPF.Views
         public (int X, int Y)? TryGetCanvasCursor()
         {
             IntPtr hwnd = Surface.SurfaceHandle;
-            int canvasW = _canvasW, canvasH = _canvasH;
+            // The host's size right now, not the one from the last drawn frame: the host asks for the mouse
+            // while rendering, and for a frame after the canvas is rebuilt the cached size is the old one. A
+            // position past the new, smaller canvas would be stored by the host as overshoot and offset the
+            // crosshair for good.
+            int canvasW = _host?.CanvasWidth ?? _canvasW, canvasH = _host?.CanvasHeight ?? _canvasH;
             if (hwnd == IntPtr.Zero || canvasW <= 0 || canvasH <= 0) return null;
 
             if (!GetCursorPos(out var pt)) return null;
@@ -147,10 +153,16 @@ namespace BeltTensionTest.WPF.Views
             double cx = (pt.X - offX) / scale;
             double cy = (pt.Y - offY) / scale;
             // Over the letterbox bars or past the edge: stop at the canvas edge.
-            return (Math.Clamp((int)Math.Floor(cx), 0, canvasW - 1), Math.Clamp((int)Math.Floor(cy), 0, canvasH - 1));
+            var result = (Math.Clamp((int)Math.Floor(cx), 0, canvasW - 1), Math.Clamp((int)Math.Floor(cy), 0, canvasH - 1));
+            LastMapping = $"mouse {pt.X},{pt.Y} in surface {areaW}x{areaH}, canvas {canvasW}x{canvasH}, scale {scale:0.####}, "
+                        + $"letterbox {offX:0.#},{offY:0.#}, swap chain {_swapChain?.Width}x{_swapChain?.Height} -> canvas {result.Item1},{result.Item2}";
+            return result;
         }
 
         private bool _dragCaptured;
+
+        /// <summary>How the mouse was last mapped onto the canvas (for the log, to chase a misplaced crosshair).</summary>
+        public string LastMapping { get; private set; } = "";
 
         private void TitleBar_MouseDown(object sender, MouseButtonEventArgs e)
         {

@@ -73,6 +73,7 @@ namespace BeltTensionTest.WPF.Services
         private IRacingSdkDatum? _datumGpsLon;
         private IRacingSdkDatum? _datumGpsAlt;
         private IRacingSdkDatum? _datumYawNorth;
+        private IRacingSdkDatum? _datumLapDist;
 
         /// <summary>
         /// Type of the session currently running ("Practice", "Lone Qualify",
@@ -93,8 +94,10 @@ namespace BeltTensionTest.WPF.Services
         /// <summary>Where the viewed car is in the world and which way it faces, as of one telemetry sample.</summary>
         public sealed class WorldPose
         {
+            public bool HasGps;         // false: the sim sends no Lat / Lon / Alt, and only LapDist places the car
             public double Lat, Lon;     // degrees
             public float Alt;           // meters
+            public float LapDist;       // meters along the lap, or -1 when the car is not on the track
             public float YawNorth;      // radians, relative to north
             public float Speed;         // m/s
             public long Ticks;          // Stopwatch ticks when sampled
@@ -405,6 +408,7 @@ namespace BeltTensionTest.WPF.Services
                 try { _datumGpsLon = _sdk.Data.TelemetryDataProperties["Lon"]; } catch { _datumGpsLon = null; }
                 try { _datumGpsAlt = _sdk.Data.TelemetryDataProperties["Alt"]; } catch { _datumGpsAlt = null; }
                 try { _datumYawNorth = _sdk.Data.TelemetryDataProperties["YawNorth"]; } catch { _datumYawNorth = null; }
+                try { _datumLapDist = _sdk.Data.TelemetryDataProperties["LapDist"]; } catch { _datumLapDist = null; }
 
                 _dataInitialized = true;
                 return true;
@@ -457,16 +461,23 @@ namespace BeltTensionTest.WPF.Services
                 if (_datumSessionState != null) SessionState = _sdk!.Data.GetInt(_datumSessionState);
                 if (_datumReplayFrame != null) ReplayFrameNum = _sdk!.Data.GetInt(_datumReplayFrame);
                 if (_datumReplayFrameEnd != null) ReplayFrameNumEnd = _sdk!.Data.GetInt(_datumReplayFrameEnd);
-                if (_datumGpsLat != null && _datumGpsLon != null && _datumGpsAlt != null && _datumYawNorth != null)
+                // Some sim versions send no GPS position: then only the heading and the distance along the lap
+                // are known (HasGps false), which is enough to place a marker on the track.
+                if (_datumYawNorth != null)
+                {
+                    bool gps = _datumGpsLat != null && _datumGpsLon != null && _datumGpsAlt != null;
                     _worldPose = new WorldPose
                     {
-                        Lat = _sdk!.Data.GetDouble(_datumGpsLat),
-                        Lon = _sdk.Data.GetDouble(_datumGpsLon),
-                        Alt = _sdk.Data.GetFloat(_datumGpsAlt),
-                        YawNorth = _sdk.Data.GetFloat(_datumYawNorth),
+                        HasGps = gps,
+                        Lat = gps ? _sdk!.Data.GetDouble(_datumGpsLat!) : 0,
+                        Lon = gps ? _sdk!.Data.GetDouble(_datumGpsLon!) : 0,
+                        Alt = gps ? _sdk!.Data.GetFloat(_datumGpsAlt!) : 0,
+                        LapDist = _datumLapDist != null ? _sdk!.Data.GetFloat(_datumLapDist) : -1f,
+                        YawNorth = _sdk!.Data.GetFloat(_datumYawNorth),
                         Speed = speed,
                         Ticks = System.Diagnostics.Stopwatch.GetTimestamp(),
                     };
+                }
                 string trackName = _sdk!.Data.SessionInfo?.WeekendInfo?.TrackName ?? string.Empty;
                 if (trackName.Length > 0) TrackKey = trackName;
                 if (_datumFuelLevel != null) FuelLevel = _sdk!.Data.GetFloat(_datumFuelLevel);

@@ -188,6 +188,7 @@ namespace BeltTensionTest.WPF.Views
                 _toggleBindings = new Services.PanelToggleBindings(
                     _vm.AppSettings?.OverlayPanelToggleBindings ?? new Dictionary<string, string>(),
                     AllPanels, () => _host?.InvalidateCanvas());
+                _host.LockedClick += OnLockedClick;
                 _toggleBindings.Changed += SaveLayout;
                 _toggleBindings.Status += Log;
                 _host.BindButtonLabel = _toggleBindings.LabelFor;
@@ -881,6 +882,8 @@ namespace BeltTensionTest.WPF.Views
             double effectiveDpi = w / Math.Max(0.01, _host.DisplaySize.X);
             double dpiRatio = _lastEffectiveDpi is double last && last > 0 ? effectiveDpi / last : 1.0;
             _lastEffectiveDpi = effectiveDpi;
+            // The size limits follow the pixel density, so a panel scaled up to keep its size is not clamped.
+            OverlayRenderTarget.ScaleUnit = (float)(effectiveDpi / DefaultDpi);
             bool rescaled = Math.Abs(dpiRatio - 1.0) > 0.002;
             if (rescaled) ScalePanels(dpiRatio);
 
@@ -907,12 +910,16 @@ namespace BeltTensionTest.WPF.Views
         /// <summary>Scale every free panel's size and position by <paramref name="ratio"/> (new DPI / old DPI).</summary>
         private void ScalePanels(double ratio)
         {
+            // Positions scale about the centre screen's corner, not the canvas corner: when the canvas is
+            // rebuilt the host moves every panel by however far that corner moved, so scaling about the
+            // canvas corner as well would move them twice.
+            var origin = _host?.CenterOrigin ?? default;
             foreach (var p in AllPanels())
             {
                 if (p.IsDocked) continue; // placed by the host
                 p.Scale = (float)(p.Scale * ratio);
-                p.X = (int)Math.Round(p.X * ratio);
-                p.Y = (int)Math.Round(p.Y * ratio);
+                p.X = origin.X + (int)Math.Round((p.X - origin.X) * ratio);
+                p.Y = origin.Y + (int)Math.Round((p.Y - origin.Y) * ratio);
                 _gazeFocus?.Recapture(p); // the new size is the user's baseline now
             }
             Log($"DPI changed: panels scaled x{ratio:0.###} to keep their size.");
@@ -1284,6 +1291,7 @@ namespace BeltTensionTest.WPF.Views
                 _gazeFocus?.Update(_host.EditMode);
                 UpdateCurvedSupport();
                 _brakeMarkers?.Update();
+                SyncBindLock();
 
                 var host = _host;
                 float now = (float)_clock.Elapsed.TotalSeconds;
@@ -1326,9 +1334,41 @@ namespace BeltTensionTest.WPF.Views
             // readback is skipped when the canvas didn't change this tick).
             if (_preview != null)
             {
-                try { _preview.UpdateFrame(_host); }
+                try
+                {
+                    _preview.UpdateFrame(_host);
+                    // While chasing a misplaced preview crosshair: log how the mouse maps onto the canvas, at most every 2 s.
+                    if (_preview.LastMapping.Length > 0 && _clock.Elapsed.TotalSeconds - _lastMappingLog > 2)
+                    {
+                        _lastMappingLog = _clock.Elapsed.TotalSeconds;
+                        Log("Preview " + _preview.LastMapping);
+                    }
+                }
                 catch (Exception ex) { Log("PREVIEW FAILED: " + ex.Message); _preview.Close(); }
             }
+        }
+
+        private double _lastMappingLog;
+
+        // While a binding waits for a button press the overlay is locked: nothing else reacts and a grey veil
+        // covers it. A click cancels the bind, a right-click clears the binding.
+        private bool AnyBindCapturing =>
+            _toggleBindings?.Capturing == true || _recenterBinding?.Capturing == true || _brakeMarkers?.Button.Capturing == true;
+
+        private void SyncBindLock()
+        {
+            if (_host == null) return;
+            bool capturing = AnyBindCapturing;
+            _host.InputLockMessage = "Press the button(s) or move an axis to bind  -  click to cancel, right-click to clear";
+            if (_host.InputLocked != capturing) _host.InputLocked = capturing;
+        }
+
+        private void OnLockedClick(bool right)
+        {
+            if (_toggleBindings?.Capturing == true) _toggleBindings.CancelCapture(clear: right);
+            if (_recenterBinding?.Capturing == true) { if (right) _recenterBinding.Clear(); else _recenterBinding.Cancel(); }
+            if (_brakeMarkers?.Button.Capturing == true) { if (right) _brakeMarkers.Button.Clear(); else _brakeMarkers.Button.Cancel(); }
+            SyncBindLock();
         }
 
         private void OnClosed(object? sender, EventArgs e) => Cleanup();
@@ -1988,6 +2028,8 @@ namespace BeltTensionTest.WPF.Views
                     _host.Distance = _host.Distance * factor;
                     _host.DisplaySize = size * factor;
                     _dpi /= factor;
+                    // The canvas keeps its pixels, so the panels must not be rescaled when it is next rebuilt.
+                    if (_lastEffectiveDpi is double lastDpi) _lastEffectiveDpi = lastDpi / factor;
                     resolutionMayChange = false;
                     break;
                 default:

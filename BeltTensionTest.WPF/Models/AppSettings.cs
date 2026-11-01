@@ -332,5 +332,7 @@ namespace BeltTensionTest.WPF.Models
         public double Alt { get; set; }
         /// <summary>The sim's YawNorth at that moment, radians.</summary>
         public double Yaw { get; set; }
+        /// <summary>Metres along the lap, for sims that send no GPS position (then Lat / Lon / Alt are unused); -1 when not known.</summary>
+        public double LapDist { get; set; } = -1;
     }
 }

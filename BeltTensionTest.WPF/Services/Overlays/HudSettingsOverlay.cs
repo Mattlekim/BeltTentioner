@@ -313,20 +313,20 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         private string MarkerText() =>
             _options.BrakeMarkers is not { } m ? string.Empty
-            : m.Button.Capturing ? "Press a controller button... (click to cancel)"
+            : m.Button.Capturing ? "Press buttons / move an axis... (click to cancel)"
             : m.Button.Binding.Length > 0
-                ? $"Brake marker button: {RecenterBinding.Short(m.Button.Binding)} (click to clear)"
-                : "Bind a controller button to drop a brake marker";
+                ? $"Brake marker: {RecenterBinding.Short(m.Button.Binding)} (click to clear)"
+                : "Bind a button, combo or axis to drop a brake marker";
 
         private string MarkerClearText() =>
             _options.BrakeMarkers is { CountOnTrack: > 0 } m ? $"Clear brake markers on this track ({m.CountOnTrack})"
             : "No brake markers on this track";
 
         private string RecenterText() =>
-            _options.Recenter.Capturing ? "Press a controller button... (click to cancel)"
+            _options.Recenter.Capturing ? "Press buttons / move an axis... (click to cancel)"
             : _options.Recenter.Binding.Length > 0
-                ? $"Recenter button: {RecenterBinding.Short(_options.Recenter.Binding)} (click to clear)"
-                : "Bind a controller button to recenter";
+                ? $"Recenter: {RecenterBinding.Short(_options.Recenter.Binding)} (click to clear)"
+                : "Bind a button, combo or axis to recenter";
 
         private void OnNavigated(OverlayNavAction action)
         {
