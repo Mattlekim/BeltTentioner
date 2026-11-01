@@ -77,13 +77,21 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         // Driver-tag menu geometry and state. The menu is anchored where the
         // row was clicked and kept inside the panel.
-        private static int MenuWidth => Scaled(440);
-        private static int MenuItemHeight => Scaled(40);
-        private static int MenuTitleHeight => Scaled(34);
-        private static int MenuPad => Scaled(6);
+        private const int MenuWidthBase = 440;
+        private int MenuWidth => Scaled(440);
+        private const int MenuItemBase = 40;
+        private int MenuItemHeight => Scaled(40);
+        private const int MenuTitleBase = 34;
+        private int MenuTitleHeight => Scaled(34);
+        private int MenuPad => Scaled(6);
         // "Menu size" from the HUD Settings panel: the pop-up menus grow with it, so they stay readable in VR.
-        private static float MenuScale => DriverTags.Instance.MenuScale;
-        private static int Scaled(int v) => (int)Math.Round(v * MenuScale);
+        // The menu is drawn inside this panel, so it cannot be bigger than the panel: the size asked for is
+        // held back to what fits, or the extra rows would be cut off and could not be clicked.
+        private int BaseMenuHeight => MenuTitleBase + Math.Max(1, _menuItems.Count) * MenuItemBase + 12;
+        private float MenuScale => Math.Max(0.5f, Math.Min(DriverTags.Instance.MenuScale,
+            Math.Min((Width - Pad * 2) / (float)MenuWidthBase,
+                     (Height - HeaderTop - Pad) / (float)BaseMenuHeight)));
+        private int Scaled(int v) => (int)Math.Round(v * MenuScale);
 
         private const int MaxBlameIncidents = 8;
         private static readonly XnaColor MenuBg = new XnaColor(0x22, 0x22, 0x34, 250);
