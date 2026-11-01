@@ -57,6 +57,7 @@ namespace BeltTensionTest.WPF.Views
         private Services.GazeFocus? _gazeFocus;
         private Services.PanelToggleBindings? _toggleBindings;
         private Services.RecenterBinding? _recenterBinding;
+        private Services.BrakeMarkers? _brakeMarkers;
         private Services.PanelVisibility? _panelVisibility;
 
         // Cars the relative box shows (player included) until it is dragged
@@ -246,6 +247,8 @@ namespace BeltTensionTest.WPF.Views
             _toggleBindings = null;
             _recenterBinding?.Dispose();
             _recenterBinding = null;
+            _brakeMarkers?.Dispose();
+            _brakeMarkers = null;
             _panelVisibility = null;
             _gazeFocus = null;
             _beltPanel = null; _windPanel = null; _relativePanel = null; _standingsPanel = null;
@@ -490,9 +493,12 @@ namespace BeltTensionTest.WPF.Views
             // these are changed while sitting in the pits. It starts collapsed
             // to a pill near the bottom-left, which opens it when clicked.
             _recenterBinding = new Services.RecenterBinding(s?.OverlayRecenterButton ?? string.Empty, Recenter);
+            // Brake markers own a few OpenXR overlays of their own, apart from the canvas.
+            _brakeMarkers = s != null ? new Services.BrakeMarkers(_host, s, SaveLayout, Log) : null;
             var hudOptions = new HudOptions
             {
                 Recenter = _recenterBinding,
+                BrakeMarkers = _brakeMarkers,
                 GetEyeTracking = () => _vm.AppSettings?.EnableEyeTracking ?? true,
                 SetEyeTracking = on =>
                 {
@@ -1067,6 +1073,7 @@ namespace BeltTensionTest.WPF.Views
                 s.OverlayTitleFontFamily = OverlayFonts.TitleFamily;
                 s.OverlayTitleFontPercent = OverlayFonts.TitlePercent;
                 if (_recenterBinding != null) s.OverlayRecenterButton = _recenterBinding.Binding;
+                _brakeMarkers?.Export();
                 // Driver tags and their colours live in DriverTags while the
                 // overlay runs; push them back into the settings before saving.
                 var tags = Services.Data.DriverTags.Instance;
@@ -1265,6 +1272,7 @@ namespace BeltTensionTest.WPF.Views
                 // RenderFrame so this tick's frame already shows the change.
                 _gazeFocus?.Update(_host.EditMode);
                 UpdateCurvedSupport();
+                _brakeMarkers?.Update();
 
                 var host = _host;
                 float now = (float)_clock.Elapsed.TotalSeconds;

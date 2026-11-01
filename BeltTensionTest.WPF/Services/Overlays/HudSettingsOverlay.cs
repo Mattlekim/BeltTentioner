@@ -20,6 +20,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
         public Action<bool> SetEyeTracking { get; init; } = _ => { };
         public Action<int> SetColorBlindIndex { get; init; } = _ => { };
         public RecenterBinding Recenter { get; init; } = null!;
+        /// <summary>Brake markers: the button that drops one, the road height slider, and clearing this track's markers.</summary>
+        public BrakeMarkers? BrakeMarkers { get; init; }
         public Func<bool> GetEyeTracking { get; init; } = () => true;
         public Func<int> GetColorBlindIndex { get; init; } = () => 0;
     }
@@ -77,6 +79,10 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private readonly MonoXRSliderControl _titleFontSize;
         private readonly OverlayChoiceRow _colorBlind;
         private readonly OverlayButtonRow _recenterBtn;
+        private readonly OverlayButtonRow? _markerBtn;
+        private readonly OverlayButtonRow? _markerClear;
+        private readonly MonoXRSliderControl? _markerHeight;
+        private string _markerText = string.Empty;
         private readonly HudOptions _options;
         private string _recenterText = string.Empty;
         private readonly OverlayButtonRow _clearTags;
@@ -121,6 +127,9 @@ namespace BeltTensionTest.WPF.Services.Overlays
             + RowHeight + RowSpacing     // eye tracking
             + RowHeight + RowSpacing     // colour blind mode
             + RowHeight + RowSpacing     // recenter button
+            + RowHeight + RowSpacing     // brake marker button
+            + RowHeight + RowSpacing     // brake marker height
+            + RowHeight + RowSpacing     // clear brake markers
             + 36 + RowSpacing            // "Text" header
             + RowHeight + RowSpacing     // font
             + RowHeight + RowSpacing     // font size
@@ -200,6 +209,29 @@ namespace BeltTensionTest.WPF.Services.Overlays
             };
             _menu.Add(_recenterBtn);
 
+            // Brake markers: the next controller button pressed becomes the "drop a marker here" button.
+            if (options.BrakeMarkers is { } markers)
+            {
+                _markerBtn = new OverlayButtonRow(MarkerText());
+                _markerBtn.Click += () =>
+                {
+                    if (markers.Button.Capturing || markers.Button.Binding.Length > 0) markers.Button.Clear();
+                    else markers.Button.BeginCapture();
+                    saved();
+                    Invalidate();
+                };
+                _menu.Add(_markerBtn);
+
+                // How far below the recentred origin the road is, so the strips stand on it. Negative = down.
+                _markerHeight = new MonoXRSliderControl("Marker road height (m)", -3f, 1f, markers.Height, 0.05f, "0.00");
+                _markerHeight.ValueChanged += v => { markers.SetHeight(v); Invalidate(); };
+                _menu.Add(_markerHeight);
+
+                _markerClear = new OverlayButtonRow(MarkerClearText());
+                _markerClear.Click += () => { markers.ClearTrack(); Invalidate(); };
+                _menu.Add(_markerClear);
+            }
+
             // Font and size of the relative box and the standings board.
             _menu.Add(new MonoXRLabel("Text (all windows)"));
             var fonts = OverlayFonts.Available.ToArray();
@@ -243,6 +275,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _tagsChanged = saved;
             tags.Changed += _tagsChanged;
             options.Recenter.Changed += saved;
+            if (options.BrakeMarkers != null) options.BrakeMarkers.Button.Changed += saved;
 
             OverlayNavigation.Navigated += OnNavigated;
         }
@@ -250,6 +283,17 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private readonly Action _tagsChanged;
 
         private static readonly string[] ColorBlindModes = { "Off", "Deuteranopia", "Tritanomaly" };
+
+        private string MarkerText() =>
+            _options.BrakeMarkers is not { } m ? string.Empty
+            : m.Button.Capturing ? "Press a controller button... (click to cancel)"
+            : m.Button.Binding.Length > 0
+                ? $"Brake marker button: {RecenterBinding.Short(m.Button.Binding)} (click to clear)"
+                : "Bind a controller button to drop a brake marker";
+
+        private string MarkerClearText() =>
+            _options.BrakeMarkers is { CountOnTrack: > 0 } m ? $"Clear brake markers on this track ({m.CountOnTrack})"
+            : "No brake markers on this track";
 
         private string RecenterText() =>
             _options.Recenter.Capturing ? "Press a controller button... (click to cancel)"
@@ -332,6 +376,20 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _inRelative.IsChecked = tags.ShowInRelativeBoxes;
             _eyeTracking.IsChecked = _options.EyeTracking;
             _colorBlind.SelectedIndex = _options.ColorBlindIndex;
+            if (_markerBtn != null)
+            {
+                string text = MarkerText() + "|" + MarkerClearText();
+                if (text != _markerText)
+                {
+                    _markerText = text;
+                    _markerBtn.Text = MarkerText();
+                    _markerClear!.Text = MarkerClearText();
+                    _markerClear.IsEnabled = _options.BrakeMarkers!.CountOnTrack > 0;
+                    Invalidate();
+                }
+                _markerHeight!.Value = _options.BrakeMarkers!.Height;
+            }
+
             string recenterText = RecenterText();
             if (recenterText != _recenterText)
             {
@@ -444,6 +502,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             OverlayNavigation.Navigated -= OnNavigated;
             DriverTags.Instance.Changed -= _tagsChanged;
             _options.Recenter.Changed -= _tagsChanged;
+            if (_options.BrakeMarkers != null) _options.BrakeMarkers.Button.Changed -= _tagsChanged;
             _white.Dispose();
             _sb.Dispose();
             base.Dispose();

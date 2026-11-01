@@ -116,6 +116,12 @@ namespace BeltTensionTest.WPF.Models
         // Controller / wheel button that recenters the overlay, bound from the
         // in-VR HUD Settings panel (GamepadService control name, e.g. "Button5").
         public string OverlayRecenterButton { get; set; } = string.Empty;
+        // Brake markers: a controller button that drops one where the car is, how far below the
+        // headset's recentred origin the road is (m, negative = down), and the markers themselves,
+        // keyed by track (the session's TrackName).
+        public string OverlayBrakeMarkerButton { get; set; } = string.Empty;
+        public double BrakeMarkerHeight { get; set; } = -1.0;
+        public Dictionary<string, List<BrakeMarkerData>> BrakeMarkers { get; set; } = new();
         // The panel layout (positions, sizes, opacity, rows) of each overlay shape,
         // keyed "Flat", "Curved", "Triple", "TripleTop", "TripleBottom" or "TripleTopBottom": saved when the shape is
         // left and restored when it is chosen again.
@@ -310,5 +316,15 @@ namespace BeltTensionTest.WPF.Models
         public string WindowState { get; set; } = "Normal";
         // Whether the Effects section on the Belt Tensioner tab is expanded
         public bool EffectsExpanded { get; set; } = true;
+    }
+
+    /// <summary>A brake marker on a track: where the car was (GPS) and which way it faced when the button was pressed.</summary>
+    public class BrakeMarkerData
+    {
+        public double Lat { get; set; }
+        public double Lon { get; set; }
+        public double Alt { get; set; }
+        /// <summary>The sim's YawNorth at that moment, radians.</summary>
+        public double Yaw { get; set; }
     }
 }

@@ -69,6 +69,10 @@ namespace BeltTensionTest.WPF.Services
         private IRacingSdkDatum? _datumClutch;
         private IRacingSdkDatum? _datumReplayFrame;
         private IRacingSdkDatum? _datumReplayFrameEnd;
+        private IRacingSdkDatum? _datumGpsLat;
+        private IRacingSdkDatum? _datumGpsLon;
+        private IRacingSdkDatum? _datumGpsAlt;
+        private IRacingSdkDatum? _datumYawNorth;
 
         /// <summary>
         /// Type of the session currently running ("Practice", "Lone Qualify",
@@ -85,6 +89,24 @@ namespace BeltTensionTest.WPF.Services
         /// ("3.85 km"). 0 until connected / session info arrives.
         /// </summary>
         public float TrackLengthMeters { get; private set; }
+
+        /// <summary>Where the viewed car is in the world and which way it faces, as of one telemetry sample.</summary>
+        public sealed class WorldPose
+        {
+            public double Lat, Lon;     // degrees
+            public float Alt;           // meters
+            public float YawNorth;      // radians, relative to north
+            public float Speed;         // m/s
+            public long Ticks;          // Stopwatch ticks when sampled
+        }
+
+        private volatile WorldPose? _worldPose;
+
+        /// <summary>The latest car position / heading (null until telemetry carries it, and after disconnecting).</summary>
+        public WorldPose? CarWorldPose => _worldPose;
+
+        /// <summary>Identifies the track layout (WeekendInfo.TrackName), or empty before session info arrives.</summary>
+        public string TrackKey { get; private set; } = string.Empty;
         private string _trackLengthRaw = string.Empty;
 
         /// <summary>Session clock in seconds (SessionTime), refreshed every telemetry tick.</summary>
@@ -321,6 +343,8 @@ namespace BeltTensionTest.WPF.Services
             SessionType = string.Empty;
             TrackLengthMeters = 0f;
             _trackLengthRaw = string.Empty;
+            _worldPose = null;
+            TrackKey = string.Empty;
             SessionTime = 0;
             SessionTimeRemain = 0;
             SessionLapsRemain = 0;
@@ -377,6 +401,10 @@ namespace BeltTensionTest.WPF.Services
                 try { _datumClutch = _sdk.Data.TelemetryDataProperties["Clutch"]; } catch { _datumClutch = null; }
                 try { _datumReplayFrame = _sdk.Data.TelemetryDataProperties["ReplayFrameNum"]; } catch { _datumReplayFrame = null; }
                 try { _datumReplayFrameEnd = _sdk.Data.TelemetryDataProperties["ReplayFrameNumEnd"]; } catch { _datumReplayFrameEnd = null; }
+                try { _datumGpsLat = _sdk.Data.TelemetryDataProperties["Lat"]; } catch { _datumGpsLat = null; }
+                try { _datumGpsLon = _sdk.Data.TelemetryDataProperties["Lon"]; } catch { _datumGpsLon = null; }
+                try { _datumGpsAlt = _sdk.Data.TelemetryDataProperties["Alt"]; } catch { _datumGpsAlt = null; }
+                try { _datumYawNorth = _sdk.Data.TelemetryDataProperties["YawNorth"]; } catch { _datumYawNorth = null; }
 
                 _dataInitialized = true;
                 return true;
@@ -429,6 +457,18 @@ namespace BeltTensionTest.WPF.Services
                 if (_datumSessionState != null) SessionState = _sdk!.Data.GetInt(_datumSessionState);
                 if (_datumReplayFrame != null) ReplayFrameNum = _sdk!.Data.GetInt(_datumReplayFrame);
                 if (_datumReplayFrameEnd != null) ReplayFrameNumEnd = _sdk!.Data.GetInt(_datumReplayFrameEnd);
+                if (_datumGpsLat != null && _datumGpsLon != null && _datumGpsAlt != null && _datumYawNorth != null)
+                    _worldPose = new WorldPose
+                    {
+                        Lat = _sdk!.Data.GetDouble(_datumGpsLat),
+                        Lon = _sdk.Data.GetDouble(_datumGpsLon),
+                        Alt = _sdk.Data.GetFloat(_datumGpsAlt),
+                        YawNorth = _sdk.Data.GetFloat(_datumYawNorth),
+                        Speed = speed,
+                        Ticks = System.Diagnostics.Stopwatch.GetTimestamp(),
+                    };
+                string trackName = _sdk!.Data.SessionInfo?.WeekendInfo?.TrackName ?? string.Empty;
+                if (trackName.Length > 0) TrackKey = trackName;
                 if (_datumFuelLevel != null) FuelLevel = _sdk!.Data.GetFloat(_datumFuelLevel);
                 BrakeBias = _datumBrakeBias != null ? _sdk!.Data.GetFloat(_datumBrakeBias) : float.NaN;
                 if (_datumTrackTemp != null) TrackTempC = _sdk!.Data.GetFloat(_datumTrackTemp);
