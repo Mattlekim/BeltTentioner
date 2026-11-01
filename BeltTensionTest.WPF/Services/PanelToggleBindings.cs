@@ -55,6 +55,22 @@ namespace BeltTensionTest.WPF.Services
             GamepadService.Instance.Start();
         }
 
+        /// <summary>True while waiting for the user to press the button(s) to bind.</summary>
+        public bool Capturing => _capturing != null;
+
+        /// <summary>Give up the capture in progress; <paramref name="clear"/> also removes the panel's binding.</summary>
+        public void CancelCapture(bool clear)
+        {
+            if (_capturing == null) return;
+            var rt = _capturing;
+            EndCapture();
+            if (clear && _bindings.Remove(rt.Name))
+            {
+                Status?.Invoke($"{rt.Name}: toggle binding cleared");
+                Changed?.Invoke();
+            }
+        }
+
         /// <summary>Edit-mode Bind button text and highlight for a panel.</summary>
         public (string Label, bool Active) LabelFor(OverlayRenderTarget rt)
         {
