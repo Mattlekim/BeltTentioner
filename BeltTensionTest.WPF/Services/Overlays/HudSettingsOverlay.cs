@@ -77,6 +77,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         private readonly MonoXRMenuControl _menu;
         private readonly MonoXRSliderControl _menuScale;
+        private readonly MonoXRSliderControl _panelScale;
         private readonly OverlayColorRow _friendColor;
         private readonly OverlayColorRow _rivalColor;
         private readonly MonoXRSliderControl _tint;
@@ -133,8 +134,8 @@ namespace BeltTensionTest.WPF.Services.Overlays
         private const int FooterHeight = 62;
 
         /// <summary>
-        /// Height of every row in the menu: five section headers, the two colour rows, and 22 ordinary
-        /// rows (tint, tags in relative boxes, always show, clear all, menu size; show within, close distance,
+        /// Height of every row in the menu: five section headers, the two colour rows, and 23 ordinary
+        /// rows (tint, tags in relative boxes, always show, clear all, driver menu size, panel size; show within, close distance,
         /// flash; eye tracking, colour blind, recenter, brake marker button, road height, clear markers;
         /// font, size, bold, title font, title size; gaze effect, faded opacity, enlarge). Add a row to
         /// the menu and this count has to grow with it, or the last rows are cut off.
@@ -143,7 +144,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             TitleBarHeight + 14
             + 5 * (36 + RowSpacing)      // section headers
             + 2 * (56 + RowSpacing)      // friend colour, rival colour
-            + 22 * (RowHeight + RowSpacing)
+            + 23 * (RowHeight + RowSpacing)
             + FooterHeight;              // two footer lines + padding
 
         /// <param name="options">Overlay-wide switches the Overlay rows drive.</param>
@@ -199,9 +200,24 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _menu.Add(_pinTags);
 
             // Size of the driver / column pop-up menus on the standings board, for headsets where they read too small.
-            _menuScale = new MonoXRSliderControl("Menu size", 75f, 300f, tags.MenuScale * 100f, 5f, "0");
+            _menuScale = new MonoXRSliderControl("Driver menu size", 75f, 300f, tags.MenuScale * 100f, 5f, "0");
             _menuScale.ValueChanged += v => { tags.MenuScale = v / 100f; Invalidate(); };
             _menu.Add(_menuScale);
+
+            // This panel's own size, for headsets where its rows and text read too small. The same as
+            // resizing it in edit mode; it grows from its anchor, so a big value may need a recenter.
+            _panelScale = new MonoXRSliderControl("Settings panel size", 50f, OverlayRenderTarget.MaxScale * 100f,
+                                                  gaze.BaseScaleOf(this) * 100f, 5f, "0");
+            _panelScale.ValueChanged += v =>
+            {
+                float scale = Math.Clamp(v / 100f, OverlayRenderTarget.MinScale, OverlayRenderTarget.MaxScale);
+                if (Math.Abs(scale - gaze.BaseScaleOf(this)) < 0.001f) return;
+                Scale = scale;
+                gaze.Recapture(this);
+                saved();
+                Invalidate();
+            };
+            _menu.Add(_panelScale);
 
             // The delta-behind box: these write straight into the app settings it reads every frame.
             _options = options;
@@ -409,6 +425,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _inRelative.IsChecked = tags.ShowInRelativeBoxes;
             _pinTags.SelectedIndex = (int)tags.PinMode;
             _menuScale.Value = tags.MenuScale * 100f;
+            _panelScale.Value = _gaze.BaseScaleOf(this) * 100f;
             _behindShow.Value = (float)_options.GetCarBehindShow();
             _behindClose.Value = (float)_options.GetCarBehindClose();
             _behindFlash.IsChecked = _options.GetCarBehindFlash();

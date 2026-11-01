@@ -51,6 +51,13 @@ namespace BeltTensionTest.WPF.Views
 
         // The menu size shown on the running overlay at once; Cancel puts the saved one back.
         private float _menuScaleAtOpen;
+        private float _panelScaleAtOpen;
+
+        private void PanelScale_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (!_colorUiReady) return;
+            OverlayWindow.PreviewHudPanelScale((float)(e.NewValue / 100.0));
+        }
 
         private void MenuScale_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
@@ -85,6 +92,8 @@ namespace BeltTensionTest.WPF.Views
             // The running overlay's value wins over the saved one: it may have been changed in VR.
             _menuScaleAtOpen = Services.Data.DriverTags.Instance.MenuScale;
             sld_MenuScale.Value = Math.Round(_menuScaleAtOpen * 100.0 / 5.0) * 5.0;
+            _panelScaleAtOpen = OverlayWindow.HudPanelScale;
+            sld_PanelScale.Value = Math.Clamp(Math.Round(_panelScaleAtOpen * 100.0 / 5.0) * 5.0, 50, 300);
 
             var a = _vm.AppSettings;
             chk_HeadSmooth.IsChecked = a?.HeadSmoothEnabled ?? false;
@@ -106,7 +115,12 @@ namespace BeltTensionTest.WPF.Views
             {
                 OverlayWindow.ReapplyHeadTracking();
                 OverlayWindow.ReapplyColorBlind();
-                if (DialogResult != true) Services.Data.DriverTags.Instance.MenuScale = _menuScaleAtOpen;
+                if (DialogResult != true)
+                {
+                    Services.Data.DriverTags.Instance.MenuScale = _menuScaleAtOpen;
+                    OverlayWindow.PreviewHudPanelScale(_panelScaleAtOpen);
+                }
+                else OverlayWindow.PlacementChanged(); // saves the panel size with the rest of the layout
             };
 
             // Initialize telemetry source radio buttons from the current view model state.

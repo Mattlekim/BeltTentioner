@@ -1504,6 +1504,19 @@ namespace BeltTensionTest.WPF.Views
         }
 
         /// <summary>Hand the saved head-tracking filter settings (Preferences > Head Tracking) to the layer.</summary>
+        /// <summary>The HUD Settings panel's own size (1 = normal), or 1 when the overlay is not running.</summary>
+        public static float HudPanelScale =>
+            s_active?._hudSettingsPanel is { } p ? s_active._gazeFocus?.BaseScaleOf(p) ?? p.Scale : 1f;
+
+        /// <summary>Resize the HUD Settings panel on the open overlay right away (Preferences does this as its slider moves).</summary>
+        public static void PreviewHudPanelScale(float scale)
+        {
+            if (s_active?._hudSettingsPanel is not { } p) return;
+            p.Scale = Math.Clamp(scale, OverlayRenderTarget.MinScale, OverlayRenderTarget.MaxScale);
+            s_active._gazeFocus?.Recapture(p);
+            p.Invalidate();
+        }
+
         /// <summary>Show a colour-blind mode on the open overlay right away, without saving it (Preferences does this as its choice changes).</summary>
         public static void PreviewColorBlind(string? mode) => s_active?.SetColorBlind(mode);
 
