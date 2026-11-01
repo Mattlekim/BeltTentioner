@@ -12,8 +12,12 @@ namespace BeltTensionTest.WPF.Services
         int UsagePercent,
         int TemperatureC,
         ulong MemoryUsedBytes,
-        ulong MemoryTotalBytes)
+        ulong MemoryTotalBytes,
+        ulong OverlayMemoryBytes = 0)
     {
+        /// <summary>Dedicated GPU memory this app (the overlay) holds; 0 when Windows' counters do not report it.</summary>
+        public bool HasOverlayMemory => OverlayMemoryBytes > 0;
+
         public static readonly GpuSnapshot None = new(false, "No NVIDIA GPU", 0, 0, 0, 0);
     }
 
@@ -56,7 +60,7 @@ namespace BeltTensionTest.WPF.Services
                     Nvml.nvmlDeviceGetMemoryInfo(_device, out var mem) != 0)
                     return; // keep the last good reading
 
-                _latest = new GpuSnapshot(true, _name, (int)util.Gpu, (int)temp, mem.Used, mem.Total);
+                _latest = new GpuSnapshot(true, _name, (int)util.Gpu, (int)temp, mem.Used, mem.Total, ReadOverlayMemory());
             }
             catch (Exception)
             {
@@ -68,6 +72,38 @@ namespace BeltTensionTest.WPF.Services
             {
                 Volatile.Write(ref _polling, 0);
             }
+        }
+
+        // The overlay is this process: its dedicated GPU memory (the canvas, every panel's texture, the
+        // shared textures it publishes) is Windows' "GPU Process Memory" counter for our pid. Reading the
+        // category lists every process, so it is refreshed every few seconds and the last value is kept.
+        private const int OverlayMemoryEveryPolls = 2;
+        private int _overlayMemoryPoll;
+        private ulong _overlayMemory;
+        private bool _overlayMemoryFailed;
+
+        private ulong ReadOverlayMemory()
+        {
+            if (_overlayMemoryFailed) return 0;
+            if (_overlayMemoryPoll++ % OverlayMemoryEveryPolls != 0) return _overlayMemory;
+            try
+            {
+                var category = new System.Diagnostics.PerformanceCounterCategory("GPU Process Memory").ReadCategory();
+                if (!category.Contains("Dedicated Usage")) { _overlayMemoryFailed = true; return 0; }
+                int pid = Environment.ProcessId;
+                string prefix = "pid_" + pid + "_";
+                ulong total = 0;
+                foreach (System.Diagnostics.InstanceData d in category["Dedicated Usage"].Values)
+                    if (d.InstanceName.StartsWith(prefix, StringComparison.Ordinal))
+                        total += (ulong)Math.Max(0, d.Sample.RawValue);
+                _overlayMemory = total;
+            }
+            catch (Exception)
+            {
+                _overlayMemoryFailed = true; // counters disabled / not available: stop trying
+                _overlayMemory = 0;
+            }
+            return _overlayMemory;
         }
 
         private bool EnsureNvml()

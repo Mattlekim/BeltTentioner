@@ -56,6 +56,7 @@
     <PackageReference Include="runtime.win-x64.Microsoft.NETCore.DotNetAppHost" Version="2.1.30" ExcludeAssets="all" />
     <PackageReference Include="runtime.win-x64.Microsoft.NETCore.DotNetHostPolicy" Version="2.1.30" ExcludeAssets="all" />
     <PackageReference Include="runtime.win-x64.Microsoft.NETCore.DotNetHostResolver" Version="2.1.30" ExcludeAssets="all" />
+    <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="8.0.0" />
     <PackageReference Include="System.IO.Ports" Version="9.0.5" />
   </ItemGroup>
 

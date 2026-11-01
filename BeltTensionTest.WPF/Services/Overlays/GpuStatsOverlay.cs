@@ -10,14 +10,15 @@ namespace BeltTensionTest.WPF.Services.Overlays
 {
     /// <summary>
     /// In-VR GPU monitor: load %, temperature and VRAM used / total, each with
-    /// a bar colored green → amber → red as it climbs. Data comes from
+    /// a bar colored green → amber → red as it climbs, then the GPU memory the
+    /// overlay itself is holding (this app's "GPU Process Memory" counter). Data comes from
     /// <see cref="GpuMonitorService"/> (NVML, polled once a second off the
     /// render thread); the panel only redraws when a new reading arrives.
     /// </summary>
     public sealed class GpuStatsOverlay : OverlayRenderTarget
     {
         private const int PanelWidth = 440;
-        private const int PanelHeight = 250;
+        private const int PanelHeight = 306;
         private const int TitleBarHeight = 56;
         public override int TitleBarSourceHeight => TitleBarHeight;
         private const int RowHeight = 56;
@@ -114,6 +115,19 @@ namespace BeltTensionTest.WPF.Services.Overlays
                 float memFrac = g.MemoryTotalBytes > 0 ? (float)(usedGb / totalGb) : 0f;
                 DrawRow(y + RowHeight * 2, "VRAM", $"{usedGb:0.0} / {totalGb:0.0} GB", memFrac,
                         LevelColor(memFrac * 100f, 85, 95), degree: false);
+
+                // What the overlay itself holds, as a share of the card's memory (not a warning level: always the accent colour).
+                if (g.HasOverlayMemory)
+                {
+                    double mb = g.OverlayMemoryBytes / 1048576.0;
+                    string text = mb >= 1024 ? $"{mb / 1024.0:0.00} GB" : $"{mb:0} MB";
+                    float share = g.MemoryTotalBytes > 0 ? (float)((double)g.OverlayMemoryBytes / g.MemoryTotalBytes) : 0f;
+                    DrawRow(y + RowHeight * 3, "Overlay", text, Math.Max(share, 0.01f), Accent, degree: false);
+                }
+                else
+                {
+                    DrawRow(y + RowHeight * 3, "Overlay", "n/a", 0f, Accent, degree: false);
+                }
             }
 
             MonoXRDraw.RoundedRectOutline(_sb, panel, Radius, 2, Border);
