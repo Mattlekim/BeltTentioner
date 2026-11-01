@@ -73,6 +73,15 @@ namespace BeltTensionTest.WPF.Views
                         RegisterNavHotkey("NavNextControl", vm.AppSettings.NavNextControlKey, vm.AppSettings.NavNextControlGlobal, MonoXR.Client.OverlayNavAction.NextControl);
                         RegisterNavHotkey("NavPrevControl", vm.AppSettings.NavPrevControlKey, vm.AppSettings.NavPrevControlGlobal, MonoXR.Client.OverlayNavAction.PreviousControl);
 
+                        // Brake marker: dropped from the cockpit, so always system-wide too.
+                        if (!string.IsNullOrWhiteSpace(vm.AppSettings.BrakeMarkerKey))
+                        {
+                            GlobalHotKeyManager.Register("BrakeMarker", vm.AppSettings.BrakeMarkerKey, () =>
+                            {
+                                try { vm.MenuStateText = DropBrakeMarker("Hotkey", vm.AppSettings.BrakeMarkerKey); } catch { }
+                            });
+                        }
+
                         // Always global: recentering happens with the headset on and the sim focused.
                         if (!string.IsNullOrWhiteSpace(vm.AppSettings.RecenterOverlayKey))
                         {
@@ -361,6 +370,13 @@ namespace BeltTensionTest.WPF.Views
                 e.Handled = true;
                 return;
             }
+
+            if (Match(vm.AppSettings.BrakeMarkerKey))
+            {
+                vm.MenuStateText = DropBrakeMarker("Hotkey", currentGesture);
+                e.Handled = true;
+                return;
+            }
         }
 
         /// <summary>
@@ -372,6 +388,14 @@ namespace BeltTensionTest.WPF.Views
             return OverlayWindow.RequestRecenter()
                 ? $"{source} triggered: RecenterOverlay ({gesture})"
                 : $"{source} triggered: RecenterOverlay ({gesture}) — OpenXR overlay is not running";
+        }
+
+        /// <summary>Drop a brake marker at the car and return the status text for the trigger that fired it.</summary>
+        internal static string DropBrakeMarker(string source, string gesture)
+        {
+            return OverlayWindow.RequestBrakeMarker()
+                ? $"{source} triggered: BrakeMarker ({gesture})"
+                : $"{source} triggered: BrakeMarker ({gesture}) — OpenXR overlay is not running";
         }
 
         private void RegisterNavHotkey(string id, string gesture, bool isGlobal, MonoXR.Client.OverlayNavAction action)
@@ -450,6 +474,10 @@ namespace BeltTensionTest.WPF.Views
             else if (Match(vm.AppSettings.RecenterOverlayKey))
             {
                 vm.MenuStateText = RecenterOverlay("Gamepad", gesture);
+            }
+            else if (Match(vm.AppSettings.BrakeMarkerKey))
+            {
+                vm.MenuStateText = DropBrakeMarker("Gamepad", gesture);
             }
         }
 

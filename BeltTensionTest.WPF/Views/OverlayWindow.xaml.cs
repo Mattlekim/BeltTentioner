@@ -230,6 +230,7 @@ namespace BeltTensionTest.WPF.Views
             }
 
             RecenterRequested += Recenter;
+            BrakeMarkerRequested += OnBrakeMarkerRequested;
             _timer.Start();
             UpdateRunningUi();
         }
@@ -237,6 +238,7 @@ namespace BeltTensionTest.WPF.Views
         private void Stop()
         {
             RecenterRequested -= Recenter;
+            BrakeMarkerRequested -= OnBrakeMarkerRequested;
             if (ReferenceEquals(s_active, this)) s_active = null;
             _timer.Stop();
             _resolutionTimer.Stop();
@@ -1500,6 +1502,20 @@ namespace BeltTensionTest.WPF.Views
         // Lets the recenter key/gamepad binding (MainWindow, SettingsWindow)
         // reach whichever overlay window is open without holding a reference.
         private static event Action? RecenterRequested;
+
+        // Same for the brake marker key / gamepad button set in Preferences.
+        private static event Action? BrakeMarkerRequested;
+
+        /// <summary>Drop a brake marker where the car is. False when no overlay window is open.</summary>
+        public static bool RequestBrakeMarker()
+        {
+            var handler = BrakeMarkerRequested;
+            if (handler == null) return false;
+            handler();
+            return true;
+        }
+
+        private void OnBrakeMarkerRequested() => _brakeMarkers?.RequestMark();
 
         /// <summary>Recenter the open overlay, if any. False when no overlay window is open.</summary>
         public static bool RequestRecenter()

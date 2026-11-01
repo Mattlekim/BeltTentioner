@@ -47,6 +47,8 @@ namespace BeltTensionTest.WPF.Models
         // Recenter the VR overlay on the headset (same as the overlay window's Recenter button).
         // Always registered system-wide — it is only ever pressed while the sim has focus.
         public string RecenterOverlayKey { get; set; } = string.Empty;
+        // Drops a brake marker where the car is (keyboard gesture or gamepad button; always system-wide).
+        public string BrakeMarkerKey { get; set; } = string.Empty;
         // VR overlay layout (edit mode). Panel position is in canvas pixels measured
         // from the centre screen's top-left corner (negative on the top screen or
         // the left screen); both -1 = never dragged (use the coded default). Size/distance/DPI

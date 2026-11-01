@@ -97,7 +97,7 @@ namespace BeltTensionTest.WPF.Services
         }
 
         /// <summary>The button was pressed (any thread); the marker is dropped on the next <see cref="Update"/>.</summary>
-        private void RequestMark() { lock (_lock) _markRequested = true; }
+        public void RequestMark() { lock (_lock) _markRequested = true; }
 
         /// <summary>Remove this track's markers.</summary>
         public void ClearTrack()

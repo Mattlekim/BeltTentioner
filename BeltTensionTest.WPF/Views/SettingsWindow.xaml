@@ -82,6 +82,7 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
@@ -123,6 +124,10 @@
                         <TextBlock Grid.Row="11" Grid.Column="0" Text="Recenter overlay:" VerticalAlignment="Center" Margin="0,6" Foreground="#A0A0BE"
                                    ToolTip="Centers the OpenXR overlay on where the headset is looking (same as the overlay window's Recenter button). Always works system-wide, even while the sim has focus." />
                         <views:KeyBindingControl x:Name="kb_RecenterOverlay" Grid.Row="11" Grid.Column="1" Margin="6,4" ShowGlobalOption="False" />
+
+                        <TextBlock Grid.Row="12" Grid.Column="0" Text="Brake marker:" VerticalAlignment="Center" Margin="0,6" Foreground="#A0A0BE"
+                                   ToolTip="Drops a brake marker where the car is: a red strip on the track in the OpenXR overlay. Pressing it within 20 m of an existing marker moves that one. Takes a key or a controller / wheel button, and always works system-wide, even while the sim has focus." />
+                        <views:KeyBindingControl x:Name="kb_BrakeMarker" Grid.Row="12" Grid.Column="1" Margin="6,4" ShowGlobalOption="False" />
 
                     </Grid>
                     </ScrollViewer>

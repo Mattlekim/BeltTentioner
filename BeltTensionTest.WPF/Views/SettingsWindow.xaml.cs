@@ -121,6 +121,7 @@ namespace BeltTensionTest.WPF.Views
                 kb_NavPrevControl.Gesture = _vm.AppSettings.NavPrevControlKey ?? string.Empty;
                 kb_NavPrevControl.IsGlobal = _vm.AppSettings.NavPrevControlGlobal;
                 kb_RecenterOverlay.Gesture = _vm.AppSettings.RecenterOverlayKey ?? string.Empty;
+                kb_BrakeMarker.Gesture = _vm.AppSettings.BrakeMarkerKey ?? string.Empty;
             }
 
             // Also load on-disk settings to ensure mappings saved from previous runs are shown
@@ -148,6 +149,7 @@ namespace BeltTensionTest.WPF.Views
                     if (!string.IsNullOrWhiteSpace(disk.NavPrevControlKey)) kb_NavPrevControl.Gesture = disk.NavPrevControlKey;
                     kb_NavPrevControl.IsGlobal = disk.NavPrevControlGlobal;
                     if (!string.IsNullOrWhiteSpace(disk.RecenterOverlayKey)) kb_RecenterOverlay.Gesture = disk.RecenterOverlayKey;
+                    if (!string.IsNullOrWhiteSpace(disk.BrakeMarkerKey)) kb_BrakeMarker.Gesture = disk.BrakeMarkerKey;
                 }
             }
             catch { }
@@ -166,6 +168,7 @@ namespace BeltTensionTest.WPF.Views
                 kb_NavNextControl.GestureChanged += Kb_GestureChanged;
                 kb_NavPrevControl.GestureChanged += Kb_GestureChanged;
                 kb_RecenterOverlay.GestureChanged += Kb_GestureChanged;
+                kb_BrakeMarker.GestureChanged += Kb_GestureChanged;
 
                 kb_ToggleFan.GlobalChanged += Kb_GlobalChanged;
                 kb_IncreaseWindRest.GlobalChanged += Kb_GlobalChanged;
@@ -396,6 +399,7 @@ namespace BeltTensionTest.WPF.Views
             _vm.AppSettings.NavPrevControlKey = kb_NavPrevControl.Gesture ?? string.Empty;
             _vm.AppSettings.NavPrevControlGlobal = kb_NavPrevControl.IsGlobal;
             _vm.AppSettings.RecenterOverlayKey = kb_RecenterOverlay.Gesture ?? string.Empty;
+            _vm.AppSettings.BrakeMarkerKey = kb_BrakeMarker.Gesture ?? string.Empty;
 
             // Persist
             _settingsSvc.Save(_vm.AppSettings);
@@ -444,6 +448,7 @@ namespace BeltTensionTest.WPF.Views
                     _vm.AppSettings.NavNextControlKey = loaded.NavNextControlKey;
                     _vm.AppSettings.NavPrevControlKey = loaded.NavPrevControlKey;
                     _vm.AppSettings.RecenterOverlayKey = loaded.RecenterOverlayKey;
+                    _vm.AppSettings.BrakeMarkerKey = loaded.BrakeMarkerKey;
                 }
             }
             catch { }
@@ -515,6 +520,7 @@ namespace BeltTensionTest.WPF.Views
                 }
                 else if (TryHandleNavBinding(sender)) { }
                 else if (TryHandleRecenterBinding(sender)) { }
+                else if (TryHandleBrakeMarkerBinding(sender)) { }
 
                 _settingsSvc.Save(_vm.AppSettings);
             }
@@ -571,6 +577,21 @@ namespace BeltTensionTest.WPF.Views
             return true;
         }
 
+        // Same for the brake marker binding: keyboard gestures are always system-wide hotkeys, gamepad
+        // buttons are picked up by the main window's polling.
+        private bool TryHandleBrakeMarkerBinding(object? sender)
+        {
+            if (_vm?.AppSettings == null || sender != kb_BrakeMarker) return false;
+
+            string gesture = kb_BrakeMarker.Gesture ?? string.Empty;
+            _vm.AppSettings.BrakeMarkerKey = gesture;
+
+            GlobalHotKeyManager.Unregister("BrakeMarker");
+            if (!string.IsNullOrWhiteSpace(gesture))
+                GlobalHotKeyManager.Register("BrakeMarker", gesture, () => { try { _vm.MenuStateText = MainWindow.DropBrakeMarker("Hotkey", gesture); } catch { } });
+            return true;
+        }
+
         private void Kb_GlobalChanged(object? sender, EventArgs e)
         {
             try
@@ -599,6 +620,7 @@ namespace BeltTensionTest.WPF.Views
                 }
                 else if (TryHandleNavBinding(sender)) { }
                 else if (TryHandleRecenterBinding(sender)) { }
+                else if (TryHandleBrakeMarkerBinding(sender)) { }
 
                 _settingsSvc.Save(_vm.AppSettings);
             }
