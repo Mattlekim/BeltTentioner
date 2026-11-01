@@ -62,7 +62,7 @@
 
                 <!-- One overlay per window, per-window placement and the benchmark -->
                 <WrapPanel Grid.Row="1" Margin="0,0,0,8">
-                    <CheckBox x:Name="PerWindowCheck" Content="One overlay per window" VerticalAlignment="Center"
+                    <CheckBox x:Name="PerWindowCheck" Content="One overlay per window" VerticalAlignment="Center" Visibility="Collapsed"
                               Margin="0,0,14,0" Foreground="#A0A0BE"
                               Checked="PerWindowCheck_Changed" Unchecked="PerWindowCheck_Changed"
                               ToolTip="Publish every window as its own VR overlay instead of one shared canvas. Uses less GPU memory, and a window that did not change is not copied again. Edit mode, the triple layout and the mouse calibration still use the canvas while they are open."/>
@@ -75,10 +75,10 @@
                             ValueChanged="StereoDepthSlider_Changed"
                             ToolTip="How far every window's picture stands out of its frame toward you, in meters (negative: behind it)"/>
                     <TextBlock x:Name="StereoDepthValue" Visibility="Collapsed" VerticalAlignment="Center" Width="48" Margin="0,0,10,0"/>
-                    <Button x:Name="PlacementButton" Content="Window placement..." Width="140" Height="24" Margin="0,0,8,0"
+                    <Button x:Name="PlacementButton" Content="Window placement..." Width="140" Visibility="Collapsed" Height="24" Margin="0,0,8,0"
                             Click="PlacementButton_Click"
                             ToolTip="Set each window's distance and rotation (needs One overlay per window)"/>
-                    <Button x:Name="BenchmarkButton" Content="Benchmark..." Width="100" Height="24"
+                    <Button x:Name="BenchmarkButton" Content="Benchmark..." Width="100" Visibility="Collapsed" Height="24"
                             Click="BenchmarkButton_Click"
                             ToolTip="Measure GPU use and GPU memory for 2 minutes with the single canvas, then 2 minutes with one overlay per window, and compare"/>
                 </WrapPanel>
@@ -196,7 +196,6 @@
                                 <ComboBoxItem Content="Triple + top"/>
                                 <ComboBoxItem Content="Triple + bottom"/>
                                 <ComboBoxItem Content="Triple + top + bottom"/>
-                                <ComboBoxItem Content="Flat - Individual Overlays"/>
                             </ComboBox>
                         </StackPanel>
 

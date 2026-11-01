@@ -114,7 +114,7 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
             // Flat quad, wrapped around the viewer on a cylinder, or three screens.
             _getShape = getShape;
-            _shape = new OverlayDropdownRow("Shape", new[] { "Flat", "Curved", "Triple", "Triple + top", "Triple + bottom", "Triple + top + bottom", "Flat - Individual Overlays" }, getShape());
+            _shape = new OverlayDropdownRow("Shape", new[] { "Flat", "Curved", "Triple", "Triple + top", "Triple + bottom", "Triple + top + bottom" }, getShape());
             _shape.SelectedIndexChanged += i => { setShape(i); Invalidate(); };
 
             // Swaps the status colours for a set that is easier to tell apart.

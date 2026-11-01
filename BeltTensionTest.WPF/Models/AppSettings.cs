@@ -131,6 +131,9 @@ namespace BeltTensionTest.WPF.Models
         // Panels that follow gaze focus (their eye button in edit mode is on);
         // every other panel ignores the settings above.
         public List<string> OverlayGazeEnabledPanels { get; set; } = new();
+        // Per-panel tracking, keyed by panel name: "Head" or "Eye" (absent = off). Replaces the
+        // single OverlayGazeSource + OverlayGazeEnabledPanels pair, which is still read when this is empty.
+        public Dictionary<string, string> OverlayGazePanelModes { get; set; } = new();
         // EXPERIMENTAL head-tracking filter (Preferences > Head Tracking): smooths the
         // head pose the VR game receives, holds it still for tiny movements, and/or
         // keeps only the rotation with the head pinned at a point (OpenXR LOCAL

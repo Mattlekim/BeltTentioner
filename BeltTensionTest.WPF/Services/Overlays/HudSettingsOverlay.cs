@@ -85,14 +85,12 @@ namespace BeltTensionTest.WPF.Services.Overlays
 
         private readonly GazeFocus _gaze;
         private readonly OverlayChoiceRow _gazeEffect;
-        private readonly OverlayChoiceRow _gazeSource;
         private readonly MonoXRSliderControl _gazeDim;
         private readonly MonoXRSliderControl _gazeGrow;
         private string _gazeStatus = string.Empty;
 
         // Option order matches the GazeEffect / GazeSource enums.
         private static readonly string[] GazeEffects = { "Nothing", "Brighten", "Enlarge", "Both" };
-        private static readonly string[] GazeSources = { "Off", "Head", "Eye (exp.)" };
 
         // Why "Eye" is running on head direction instead, by what the layer reports.
         private static string EyeFallbackStatus(MonoXrGazeState state) => state switch
@@ -123,7 +121,6 @@ namespace BeltTensionTest.WPF.Services.Overlays
             + RowHeight + RowSpacing     // font size
             + 36 + RowSpacing            // "Look at a panel" header
             + RowHeight + RowSpacing     // gaze effect
-            + RowHeight + RowSpacing     // gaze source
             + RowHeight + RowSpacing     // dim others
             + RowHeight + RowSpacing     // enlarge by
             + 34;                        // footer line + padding
@@ -227,10 +224,6 @@ namespace BeltTensionTest.WPF.Services.Overlays
             _gazeEffect = new OverlayChoiceRow("Looking at a panel", GazeEffects, (int)gaze.Effect);
             _gazeEffect.SelectedIndexChanged += i => { gaze.Effect = (GazeEffect)i; saved(); Invalidate(); };
             _menu.Add(_gazeEffect);
-
-            _gazeSource = new OverlayChoiceRow("Tracked with", GazeSources, (int)gaze.Source);
-            _gazeSource.SelectedIndexChanged += i => { gaze.Source = (GazeSource)i; saved(); Invalidate(); };
-            _menu.Add(_gazeSource);
 
             _gazeDim = new MonoXRSliderControl("Faded opacity", 5f, 100f, gaze.FadedOpacity * 100f, 5f, "0");
             _gazeDim.ValueChanged += v => { gaze.FadedOpacity = v / 100f; saved(); Invalidate(); };
@@ -341,18 +334,16 @@ namespace BeltTensionTest.WPF.Services.Overlays
             // Gaze rows follow the service, and the status line says why
             // nothing is happening when that is the case.
             _gazeEffect.SelectedIndex = (int)_gaze.Effect;
-            _gazeSource.SelectedIndex = (int)_gaze.Source;
             _gazeDim.Value = _gaze.FadedOpacity * 100f;
             _gazeGrow.Value = _gaze.GrowFactor * 100f;
-            _gazeEffect.IsEnabled = _gazeSource.IsEnabled = _gaze.Enabled;
+            _gazeEffect.IsEnabled = _gaze.Enabled;
             _gazeDim.IsEnabled = _gaze.Enabled && _gaze.Effect is GazeEffect.Brighten or GazeEffect.Both;
             _gazeGrow.IsEnabled = _gaze.Enabled && _gaze.Effect is GazeEffect.Enlarge or GazeEffect.Both;
 
             string gazeStatus =
                 !_gaze.Enabled ? "Eye tracking is off in Preferences"
-                : _gaze.Source == GazeSource.Off || _gaze.Effect == GazeEffect.None ? "Gaze off"
+                : !_gaze.IsActive ? "Gaze off - set a panel to eye or head in edit mode"
                 : !_gaze.HasSignal ? "No head pose - start the sim in VR"
-                : _gaze.Source == GazeSource.Eye && !_gaze.UsingEyes ? EyeFallbackStatus(_gaze.EyeState)
                 : string.IsNullOrEmpty(_gaze.FocusedName) ? "Looking away from the panels"
                 : "Looking at " + _gaze.FocusedName + (_gaze.UsingEyes ? " (eyes, experimental)" : "");
             if (gazeStatus != _gazeStatus)

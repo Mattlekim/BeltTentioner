@@ -470,17 +470,18 @@ namespace BeltTensionTest.WPF.Views
                 _gazeFocus.FadedOpacity = (float)s.OverlayGazeFadedOpacity;
                 _gazeFocus.GrowFactor = (float)s.OverlayGazeGrow;
                 _gazeFocus.Enabled = s.EnableEyeTracking;
-                _gazeFocus.SetEnabledPanels(s.OverlayGazeEnabledPanels);
+                _gazeFocus.SetPanelModes(s.OverlayGazePanelModes, s.OverlayGazeEnabledPanels);
             }
 
             // Edit-mode eye button on each panel: whether it reacts to gaze.
+            // Each click cycles the panel: eye tracking -> head tracking -> off.
             _host.GazeButtonState = panel => _gazeFocus?.IsPanelEnabled(panel) ?? true;
             _host.GazeToggleRequested += panel =>
             {
                 if (_gazeFocus == null) return;
-                _gazeFocus.TogglePanel(panel);
+                var mode = _gazeFocus.CyclePanel(panel);
                 SaveLayout();
-                Log($"{panel.Name} {(_gazeFocus.IsPanelEnabled(panel) ? "now reacts to" : "now ignores")} gaze — saved.");
+                Log($"{panel.Name} tracking: {(mode == Services.GazeSource.Off ? "off" : mode == Services.GazeSource.Eye ? "eye" : "head")} — saved.");
             };
 
             // HUD settings (tag colours, standings size). Not edit-mode only:
@@ -782,6 +783,10 @@ namespace BeltTensionTest.WPF.Views
         }
         // ===================== END MONOGAME RENDER SECTION ===================
 
+        /// <summary>A saved number held to a range; NaN / infinity gives the fallback.</summary>
+        private static float SaneFloat(double value, float min, float max, float fallback) =>
+            double.IsFinite(value) ? Math.Clamp((float)value, min, max) : fallback;
+
         /// <summary>Apply persisted overlay size/distance/DPI to the freshly created host.</summary>
         private void ApplySavedLayout()
         {
@@ -790,14 +795,20 @@ namespace BeltTensionTest.WPF.Views
 
             if (s != null)
             {
+                // Values from a settings file written by an older version (or edited by hand) are held to
+                // the ranges the sliders allow, so an out-of-range or NaN number cannot give the overlay a
+                // huge canvas or put it somewhere odd - which a VR game may not survive.
                 if (s.OverlaySizeX > 0 && s.OverlaySizeY > 0)
                     _host.DisplaySize = new System.Numerics.Vector2(
-                        Math.Max(MinDisplayMeters, (float)s.OverlaySizeX), Math.Max(MinDisplayMeters, (float)s.OverlaySizeY));
+                        SaneFloat(s.OverlaySizeX, MinDisplayMeters, 8f, 2.5f), SaneFloat(s.OverlaySizeY, MinDisplayMeters, 8f, 1.33f));
                 if (s.OverlayDistance > 0)
-                    _host.Distance = (float)s.OverlayDistance;
+                    _host.Distance = SaneFloat(s.OverlayDistance, 0.25f, 10f, 3f);
                 _host.CurveAmount = (float)s.OverlayCurveAmount;
                 _host.Curved = s.OverlayCurved;
-                _host.PerWindowOverlays = s.OverlayPerWindow;
+                // One overlay per window is switched off (see PerWindowAvailable): a settings file saved with it
+                // on is not honoured, and is written back off.
+                s.OverlayPerWindow = false;
+                _host.PerWindowOverlays = PerWindowAvailable && s.OverlayPerWindow;
                 _host.StereoDepth = (float)s.OverlayStereoDepth;
                 _host.Stereo3D = Stereo3DAvailable && s.OverlayStereo;
                 _host.TripleCenterPercent = (float)s.OverlayTripleCenter;
@@ -809,10 +820,10 @@ namespace BeltTensionTest.WPF.Views
                 _host.TripleBottomAngle = (float)s.OverlayBottomAngle;
                 _host.TripleBottom = s.OverlayTripleBottom;
                 _host.Triple = s.OverlayTriple;
-                _host.OffsetX = (float)s.OverlayOffsetX;
-                _host.OffsetY = (float)s.OverlayOffsetY;
+                _host.OffsetX = SaneFloat(s.OverlayOffsetX, -5f, 5f, 0f);
+                _host.OffsetY = SaneFloat(s.OverlayOffsetY, -5f, 5f, 0f);
                 if (s.OverlayDpi > 0)
-                    _dpi = s.OverlayDpi;
+                    _dpi = SaneFloat(s.OverlayDpi, 128f, 2048f, (float)DefaultDpi);
                 if (s.OverlayCursorCalSet)
                     _host.SetCursorCalibration((float)s.OverlayCursorCalScaleX, (float)s.OverlayCursorCalOffsetX,
                                                (float)s.OverlayCursorCalScaleY, (float)s.OverlayCursorCalOffsetY);
@@ -1010,6 +1021,7 @@ namespace BeltTensionTest.WPF.Views
                     s.OverlayGazeFadedOpacity = _gazeFocus.FadedOpacity;
                     s.OverlayGazeGrow = _gazeFocus.GrowFactor;
                     s.OverlayGazeEnabledPanels = new List<string>(_gazeFocus.EnabledPanels);
+                    s.OverlayGazePanelModes = _gazeFocus.PanelModes.ToDictionary(kv => kv.Key, kv => kv.Value.ToString());
                 }
                 s.OverlayPanelGroups = _host.Groups.Select(g => g.Select(m => m.Name).ToList()).ToList();
                 s.OverlayHiddenTitleBars = _host.RenderTargets.Where(p => p.TitleBarHidden).Select(p => p.Name).ToList();
@@ -1171,33 +1183,49 @@ namespace BeltTensionTest.WPF.Views
             Log($"{target.Name} opacity set to {target.Opacity * 100:0}% — saved.");
         }
 
+        // Consecutive ticks that failed to render. A single bad frame (a device hiccup, a panel that threw
+        // while drawing) must not freeze the overlay - and the red edit cursor with it - until the app is
+        // restarted, so the loop keeps going and only a long unbroken run of failures restarts the overlay.
+        private int _tickFailures;
+        private const int RestartAfterFailures = 120; // ~2 s at 60 Hz
+
         private void OnTick(object? sender, EventArgs e)
         {
             if (_host == null) return;
 
-            // Panels that only apply in the car or in the replay follow the
-            // sim's state, which can change between any two ticks.
-            _panelVisibility?.Apply();
-            UpdateSimStateLabel();
-            LogSimStateChange();
-
-            // Fade / grow whatever the headset is pointed at. Runs before
-            // RenderFrame so this tick's frame already shows the change.
-            _gazeFocus?.Update(_host.EditMode);
-            UpdateCurvedSupport();
-
             try
             {
+                // Panels that only apply in the car or in the replay follow the
+                // sim's state, which can change between any two ticks.
+                _panelVisibility?.Apply();
+                UpdateSimStateLabel();
+                LogSimStateChange();
+
+                // Fade / grow whatever the headset is pointed at. Runs before
+                // RenderFrame so this tick's frame already shows the change.
+                _gazeFocus?.Update(_host.EditMode);
+                UpdateCurvedSupport();
+
                 var host = _host;
                 float now = (float)_clock.Elapsed.TotalSeconds;
                 if (_benchmark is { IsRunning: true } bench) bench.RunFrame(() => host.RenderFrame(now));
                 else host.RenderFrame(now);
+                _tickFailures = 0;
             }
             catch (Exception ex)
             {
-                _timer.Stop();
-                Log("RENDER FAILED: " + ex);
-                StatusLabel.Text = "Render failed — see log.";
+                _tickFailures++;
+                // Log the first failure and then now and again, not 60 lines a second.
+                if (_tickFailures == 1 || _tickFailures % 60 == 0)
+                    Log($"RENDER FAILED ({_tickFailures} in a row): " + ex);
+                StatusLabel.Text = "Render failed — retrying, see log.";
+                if (_tickFailures >= RestartAfterFailures)
+                {
+                    Log("Rendering keeps failing — restarting the overlay.");
+                    _tickFailures = 0;
+                    Stop();
+                    Start();
+                }
                 return;
             }
 
@@ -1271,7 +1299,7 @@ namespace BeltTensionTest.WPF.Views
 
         private void PerWindowCheck_Changed(object sender, RoutedEventArgs e)
         {
-            if (_syncingPerWindow) return;
+            if (_syncingPerWindow || !PerWindowAvailable) return;
             bool on = PerWindowCheck.IsChecked == true;
             if (_vm.AppSettings != null) _vm.AppSettings.OverlayPerWindow = on;
             if (_host == null) return;
@@ -1537,6 +1565,9 @@ namespace BeltTensionTest.WPF.Views
         /// <summary>The 3D effect is switched off for now: no 3D choice in the shape lists or the toolbar, and a saved 3D setting is not applied. The code behind it stays.</summary>
         private const bool Stereo3DAvailable = false;
 
+        /// <summary>One overlay per window is switched off for now (it was suspected of crashing iRacing for some users): no checkbox, no shape-list entry, no placement or benchmark buttons, and a saved "on" is ignored. The code behind it stays.</summary>
+        private const bool PerWindowAvailable = false;
+
         /// <summary>The shape list's choice: <see cref="CurrentShape"/>, or 6 (flat, individual overlays) / 7 (3D) for a flat overlay with one overlay per window.</summary>
         private int ShapeChoice => _host == null ? 0
             : CurrentShape != 0 ? CurrentShape
@@ -1559,7 +1590,7 @@ namespace BeltTensionTest.WPF.Views
         /// <summary>Turn one overlay per window on or off, keeping the toolbar's box in step.</summary>
         private void SetPerWindow(bool on)
         {
-            if (_host == null) return;
+            if (_host == null || !PerWindowAvailable) return;
             if (_vm.AppSettings != null) _vm.AppSettings.OverlayPerWindow = on;
             _host.PerWindowOverlays = on;
             _syncingPerWindow = true;

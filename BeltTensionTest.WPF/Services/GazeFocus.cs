@@ -87,7 +87,8 @@ namespace BeltTensionTest.WPF.Services
         // Panels switched on with their eye button in edit mode. Every other
         // panel never takes focus, is never faded or grown, and stays exactly
         // as the user set it.
-        private readonly HashSet<string> _enabled = new();
+        // Tracking per panel: absent = Off, otherwise Head or Eye.
+        private readonly Dictionary<string, GazeSource> _modes = new();
 
         private OverlayRenderTarget? _focused;   // panel that currently holds focus
         private OverlayRenderTarget? _candidate; // panel the gaze is resting on
@@ -107,6 +108,10 @@ namespace BeltTensionTest.WPF.Services
             _lastTick = _clock.Elapsed.TotalSeconds;
         }
 
+        /// <summary>
+        /// Source given to a panel switched on from a pre-per-panel settings file (which had one
+        /// global source). Not user-selectable any more: each panel has its own, see <see cref="ModeOf"/>.
+        /// </summary>
         public GazeSource Source { get; set; } = GazeSource.Off;
 
         /// <summary>
@@ -138,7 +143,7 @@ namespace BeltTensionTest.WPF.Services
         private float _grow = 1.25f;
 
         /// <summary>True when the feature is doing anything at all.</summary>
-        public bool IsActive => Enabled && Source != GazeSource.Off && Effect != GazeEffect.None;
+        public bool IsActive => Enabled && _modes.Count > 0 && Effect != GazeEffect.None;
 
         /// <summary>Name of the panel currently in focus, for the settings readout.</summary>
         public string FocusedName => _focused?.Name ?? string.Empty;
@@ -161,23 +166,36 @@ namespace BeltTensionTest.WPF.Services
         public MonoXrGazeState EyeState => _host.EyeGazeState;
 
         /// <summary>Whether a panel reacts to being looked at (its eye button in edit mode); off until switched on.</summary>
-        public bool IsPanelEnabled(OverlayRenderTarget panel) => _enabled.Contains(panel.Name);
+        public bool IsPanelEnabled(OverlayRenderTarget panel) => _modes.ContainsKey(panel.Name);
 
-        /// <summary>Names of the panels that react to gaze, for saving.</summary>
-        public IReadOnlyCollection<string> EnabledPanels => _enabled;
+        /// <summary>How a panel is tracked: Off, Head or Eye.</summary>
+        public GazeSource ModeOf(OverlayRenderTarget panel) =>
+            _modes.TryGetValue(panel.Name, out var m) ? m : GazeSource.Off;
 
-        /// <summary>Replace the set of panels that react to gaze (settings load).</summary>
-        public void SetEnabledPanels(IEnumerable<string>? names)
+        /// <summary>Per-panel tracking choices (Head or Eye; Off panels are absent), for saving.</summary>
+        public IReadOnlyDictionary<string, GazeSource> PanelModes => _modes;
+
+        /// <summary>Names of the panels that react to gaze.</summary>
+        public IReadOnlyCollection<string> EnabledPanels => _modes.Keys;
+
+        /// <summary>Replace the per-panel tracking (settings load).</summary>
+        public void SetPanelModes(IDictionary<string, string>? modes, IEnumerable<string>? legacyEnabled)
         {
-            _enabled.Clear();
-            if (names == null) return;
-            foreach (var name in names) _enabled.Add(name);
+            _modes.Clear();
+            if (modes != null)
+                foreach (var kv in modes)
+                    if (Enum.TryParse(kv.Value, out GazeSource m) && m != GazeSource.Off) _modes[kv.Key] = m;
+            // Older settings: a list of panels plus one global source.
+            if (modes == null || modes.Count == 0)
+                if (legacyEnabled != null)
+                    foreach (var name in legacyEnabled)
+                        if (Source != GazeSource.Off) _modes[name] = Source;
         }
 
-        /// <summary>Flip whether a panel reacts to gaze; a panel switched off goes straight back to the user's own values.</summary>
-        public void TogglePanel(OverlayRenderTarget panel)
+        /// <summary>Set how a panel is tracked; a panel switched off goes straight back to the user's own values.</summary>
+        public void SetPanelMode(OverlayRenderTarget panel, GazeSource mode)
         {
-            if (!_enabled.Remove(panel.Name)) _enabled.Add(panel.Name);
+            if (mode == GazeSource.Off) _modes.Remove(panel.Name); else _modes[panel.Name] = mode;
             if (ReferenceEquals(_focused, panel)) _focused = null;
             if (ReferenceEquals(_candidate, panel)) _candidate = null;
             if (_entries.TryGetValue(panel, out var entry))
@@ -186,6 +204,19 @@ namespace BeltTensionTest.WPF.Services
                 panel.Opacity = entry.BaseOpacity;
                 panel.Scale = entry.BaseScale;
             }
+        }
+
+        /// <summary>Click on a panel's tracking button: Off -> Eye -> Head -> Off.</summary>
+        public GazeSource CyclePanel(OverlayRenderTarget panel)
+        {
+            var next = ModeOf(panel) switch
+            {
+                GazeSource.Off => GazeSource.Eye,
+                GazeSource.Eye => GazeSource.Head,
+                _ => GazeSource.Off,
+            };
+            SetPanelMode(panel, next);
+            return next;
         }
 
         /// <summary>The user's own opacity for a panel, ignoring any gaze dimming.</summary>
@@ -251,14 +282,14 @@ namespace BeltTensionTest.WPF.Services
             }
 
             // The layer only polls the eye tracker while asked to.
-            _host.EyeGazeRequested = Source == GazeSource.Eye;
+            _host.EyeGazeRequested = AnyEyePanel();
 
             UpdateFocusTarget(now);
 
             foreach (var panel in _panels())
             {
                 var entry = EntryFor(panel);
-                if (!_enabled.Contains(panel.Name))
+                if (!_modes.ContainsKey(panel.Name))
                 {
                     // Not part of gaze focus: hold the user's own values.
                     entry.Focus = 0f;
@@ -293,10 +324,12 @@ namespace BeltTensionTest.WPF.Services
         // taking it and the hold before letting it go.
         private void UpdateFocusTarget(double now)
         {
-            float gx = 0f, gy = 0f;
-            UsingEyes = Source == GazeSource.Eye && _host.TryGetEyeGazeCanvasPoint(out gx, out gy);
-            HasSignal = UsingEyes || _host.TryGetGazeCanvasPoint(out gx, out gy);
-            var looking = HasSignal ? PanelAt(gx, gy, UsingEyes ? EyeSlackPx : 0f) : null;
+            float hx = 0f, hy = 0f, ex = 0f, ey = 0f;
+            bool eyes = AnyEyePanel() && _host.TryGetEyeGazeCanvasPoint(out ex, out ey);
+            bool head = _host.TryGetGazeCanvasPoint(out hx, out hy);
+            UsingEyes = eyes;
+            HasSignal = eyes || head;
+            var looking = HasSignal ? PanelAt(head, hx, hy, eyes, ex, ey) : null;
 
             if (!ReferenceEquals(looking, _candidate))
             {
@@ -328,18 +361,28 @@ namespace BeltTensionTest.WPF.Services
         /// and HUD settings panels are used, not glanced at) still qualify:
         /// leaving them out would make them dim permanently.
         /// </summary>
-        private OverlayRenderTarget? PanelAt(float x, float y, float slack)
+        private OverlayRenderTarget? PanelAt(bool head, float hx, float hy, bool eyes, float ex, float ey)
         {
             OverlayRenderTarget? hit = null;
             foreach (var panel in _panels())
             {
                 if (!panel.Visible || !panel.IsLive) continue;
-                if (!_enabled.Contains(panel.Name)) continue;
+                if (!_modes.TryGetValue(panel.Name, out var mode)) continue;
+                // An Eye panel uses the eyes (with slack) and falls back to the head while no gaze comes in.
+                bool useEye = mode == GazeSource.Eye && eyes;
+                if (!useEye && !head) continue;
+                float x = useEye ? ex : hx, y = useEye ? ey : hy, slack = useEye ? EyeSlackPx : 0f;
                 if (x < panel.X - slack || x >= panel.X + panel.DisplayWidth + slack) continue;
                 if (y < panel.Y - slack || y >= panel.Y + panel.DisplayHeight + slack) continue;
                 hit = panel; // later panels composite on top, so the last wins
             }
             return hit;
+        }
+
+        private bool AnyEyePanel()
+        {
+            foreach (var m in _modes.Values) if (m == GazeSource.Eye) return true;
+            return false;
         }
 
         private bool FadesOthers => Effect is GazeEffect.Brighten or GazeEffect.Both;
