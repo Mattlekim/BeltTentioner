@@ -71,6 +71,27 @@ namespace BeltTensionTest.WPF.Services.Data
         private float _tint = 0.35f;
         private bool _showInRelativeBoxes = true;
         private DriverPin _pinMode = DriverPin.Off;
+        private float _menuScale = 1f;
+
+        public const float MinMenuScale = 0.75f;
+        public const float MaxMenuScale = 3f;
+
+        /// <summary>
+        /// Size of the pop-up menus opened from the standings board (driver
+        /// menu, column menu), 1 = normal. Raise it when they are too small to
+        /// read in the headset.
+        /// </summary>
+        public float MenuScale
+        {
+            get => _menuScale;
+            set
+            {
+                float v = Math.Clamp(value, MinMenuScale, MaxMenuScale);
+                if (Math.Abs(v - _menuScale) < 0.001f) return;
+                _menuScale = v;
+                Changed?.Invoke();
+            }
+        }
 
         /// <summary>Row color for a friend, 0xRRGGBB.</summary>
         public int FriendColor
@@ -142,7 +163,7 @@ namespace BeltTensionTest.WPF.Services.Data
         /// <see cref="Changed"/> fires.
         /// </summary>
         public void Load(Dictionary<string, string> tags, int friendColor, int rivalColor,
-                         double tint, bool showInRelativeBoxes, string? pinMode = null)
+                         double tint, bool showInRelativeBoxes, string? pinMode = null, double menuScale = 1.0)
         {
             _tags = tags;
             SetColor(ref _friendColor, friendColor);
@@ -150,6 +171,7 @@ namespace BeltTensionTest.WPF.Services.Data
             _tint = (float)Math.Clamp(tint, 0.0, 0.8);
             _showInRelativeBoxes = showInRelativeBoxes;
             _pinMode = Enum.TryParse(pinMode, out DriverPin pin) ? pin : DriverPin.Off;
+            _menuScale = menuScale >= MinMenuScale && menuScale <= MaxMenuScale ? (float)menuScale : 1f;
         }
 
         /// <summary>The key a car's tag is stored under; empty when it has no identity yet.</summary>
