@@ -210,6 +210,8 @@ namespace BeltTensionTest.WPF.Views
                 _host.EditModeChanged += _ => _gazeFocus?.Reset();
 
                 _host.CursorCalibrationCompleted += OnCursorCalibrationCompleted;
+                // Left + right click together forget the red cross's accumulated offset from the pointer.
+                _host.CursorOffsetReset += () => Log("Pointer offset reset (left + right click).");
                 // Edit mode can also be toggled from the icon in VR — mirror it here.
                 _host.EditModeChanged += editing => EditButton.IsChecked = editing;
                 _host.EditFont = Services.RuntimeSpriteFont.Bake(_host.GraphicsDevice, "Segoe UI", 22f);
