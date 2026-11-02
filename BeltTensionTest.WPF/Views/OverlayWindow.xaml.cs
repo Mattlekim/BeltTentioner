@@ -1271,6 +1271,8 @@ namespace BeltTensionTest.WPF.Views
         // Consecutive ticks that failed to render. A single bad frame (a device hiccup, a panel that threw
         // while drawing) must not freeze the overlay - and the red edit cursor with it - until the app is
         // restarted, so the loop keeps going and only a long unbroken run of failures restarts the overlay.
+        private TimeSpan _lastCursorLog = TimeSpan.Zero;
+        private static readonly TimeSpan CursorLogEvery = TimeSpan.FromSeconds(20);
         private int _tickFailures;
         private const int RestartAfterFailures = 120; // ~2 s at 60 Hz
 
@@ -1314,6 +1316,15 @@ namespace BeltTensionTest.WPF.Views
                     Start();
                 }
                 return;
+            }
+
+            // The red cross has been seen to go missing for good on some PCs (a 4K display). Until that is
+            // understood, log where the pointer thinks it is now and then, so client.log shows the state
+            // the moment it happens (%TEMP%\MonoXR\client.log).
+            if (_clock.Elapsed - _lastCursorLog > CursorLogEvery)
+            {
+                _lastCursorLog = _clock.Elapsed;
+                try { Log("cursor: " + _host.CursorDebug); } catch { }
             }
 
             // Log the attach state once at startup and then only on changes.
